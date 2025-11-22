@@ -19,6 +19,7 @@ export function useIdleTimeout() {
   const [showWarning, setShowWarning] = useState(false)
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null)
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const lastActivityRef = useRef<number>(Date.now())
   const isActiveRef = useRef(true)
 
@@ -47,9 +48,15 @@ export function useIdleTimeout() {
     // Clear existing timers
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = null
     }
     if (warningTimerRef.current) {
       clearTimeout(warningTimerRef.current)
+      warningTimerRef.current = null
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current)
+      countdownIntervalRef.current = null
     }
 
     const idleTimeoutMs = settings.idleTimeoutMinutes * 60 * 1000
@@ -63,10 +70,24 @@ export function useIdleTimeout() {
         setTimeRemaining(remaining)
         
         // Update countdown
-        const countdownInterval = setInterval(() => {
+        countdownIntervalRef.current = setInterval(() => {
           setTimeRemaining((prev) => {
             if (prev === null || prev <= 1) {
-              clearInterval(countdownInterval)
+              // Time's up - logout immediately
+              if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current)
+                countdownIntervalRef.current = null
+              }
+              
+              // Log session logout
+              fetch("/api/session-logs", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+              }).catch((error) => {
+                console.error("Failed to log session logout:", error)
+              })
+              
+              signOut({ callbackUrl: "/login?reason=idle_timeout" })
               return 0
             }
             return prev - 1
@@ -124,8 +145,18 @@ export function useIdleTimeout() {
       if (document.hidden) {
         // Tab is hidden, pause timers
         isActiveRef.current = false
-        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-        if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+        if (idleTimerRef.current) {
+          clearTimeout(idleTimerRef.current)
+          idleTimerRef.current = null
+        }
+        if (warningTimerRef.current) {
+          clearTimeout(warningTimerRef.current)
+          warningTimerRef.current = null
+        }
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current)
+          countdownIntervalRef.current = null
+        }
       } else {
         // Tab is visible, resume timers
         isActiveRef.current = true
@@ -141,8 +172,18 @@ export function useIdleTimeout() {
         document.removeEventListener(event, handleActivity, true)
       })
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      if (warningTimerRef.current) clearTimeout(warningTimerRef.current)
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = null
+      }
+      if (warningTimerRef.current) {
+        clearTimeout(warningTimerRef.current)
+        warningTimerRef.current = null
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current)
+        countdownIntervalRef.current = null
+      }
     }
   }, [settings, resetTimer])
 
