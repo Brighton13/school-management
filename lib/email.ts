@@ -144,6 +144,78 @@ export async function sendPasswordResetEmail(
   return sendEmail(to, subject, html)
 }
 
+export async function sendStaffWelcomeEmail(
+  to: string,
+  resetLink: string,
+  userName: string,
+  employeeId: string,
+  designation: string,
+  temporaryPassword?: string
+) {
+  const subject = "Welcome to School Management System - Account Verification Required"
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .alert-box { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .info-box { background-color: #DBEAFE; border-left: 4px solid #3B82F6; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome to School Management System</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${userName},</p>
+          <p>Your staff account has been successfully created! We're excited to have you on board.</p>
+          
+          <div class="info-box">
+            <p><strong>Account Details:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li><strong>Employee ID:</strong> ${employeeId}</li>
+              <li><strong>Designation:</strong> ${designation}</li>
+              <li><strong>Email:</strong> ${to}</li>
+            </ul>
+          </div>
+
+          <div class="alert-box">
+            <p><strong>⚠️ Important: Change Your Password Immediately</strong></p>
+            <p>For security reasons, you must change your password immediately after your first login. Please click the button below to set a new password:</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" class="button">Change Password Now</a>
+          </div>
+
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #4F46E5; background-color: #f3f4f6; padding: 10px; border-radius: 4px;">${resetLink}</p>
+          
+          <p><strong>This link will expire in 24 hours.</strong></p>
+          
+          <p>After changing your password, you can log in to the system using your email and new password.</p>
+          
+          <p>If you have any questions or need assistance, please contact the system administrator.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message. Please do not reply to this email.</p>
+          <p>© School Management System</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  return sendEmail(to, subject, html)
+}
+
 export function isEmailConfigured(): boolean {
   return transporter !== null && emailConfig !== null
 }

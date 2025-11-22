@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
+import { sendStaffWelcomeEmail, loadEmailConfigFromDB } from "@/lib/email"
+import crypto from "crypto"
 
 export async function GET() {
   try {
@@ -84,6 +86,42 @@ export async function POST(request: NextRequest) {
         description: `Created staff member: ${name} (${employeeId}) - ${designation}`,
       }
     )
+
+    // Generate password reset token for new staff member
+    const resetToken = crypto.randomBytes(32).toString("hex")
+    const expiresAt = new Date()
+    expiresAt.setHours(expiresAt.getHours() + 24) // Token expires in 24 hours
+
+    // Create password reset token
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token: resetToken,
+        expiresAt,
+      },
+    })
+
+    // Generate reset link
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`
+
+    // Send welcome email with password reset link
+    try {
+      // Ensure email config is loaded
+      await loadEmailConfigFromDB()
+      
+      await sendStaffWelcomeEmail(
+        user.email,
+        resetLink,
+        user.name,
+        employeeId,
+        designation
+      )
+    } catch (emailError: any) {
+      // Log error but don't fail the staff creation
+      console.error("Failed to send welcome email to staff member:", emailError)
+      // Continue with the response even if email fails
+    }
 
     return NextResponse.json(user, { status: 201 })
   } catch (error: any) {
