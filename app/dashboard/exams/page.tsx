@@ -17,7 +17,9 @@ interface Exam {
   name: string
   description: string | null
   examType: string
+  academicTermId: string
   academicTerm: {
+    id: string
     name: string
     academicYear: string
   }
@@ -52,6 +54,7 @@ export default function ExamsPage() {
   const [formAcademicTermId, setFormAcademicTermId] = useState("")
   const [formStatus, setFormStatus] = useState("DRAFT")
   const [editFormExamType, setEditFormExamType] = useState("")
+  const [editFormAcademicTermId, setEditFormAcademicTermId] = useState("")
   const [editFormStatus, setEditFormStatus] = useState("DRAFT")
   
   const canApprove = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
@@ -81,7 +84,7 @@ export default function ExamsPage() {
     
     // Use state values for Select components
     const examType = editingExam ? editFormExamType : formExamType
-    const academicTermId = editingExam ? editingExam.academicTermId : formAcademicTermId
+    const academicTermId = editingExam ? editFormAcademicTermId : formAcademicTermId
     const status = editingExam ? editFormStatus : formStatus
     
     // Validation
@@ -141,6 +144,7 @@ export default function ExamsPage() {
   const handleEdit = async (exam: Exam) => {
     setEditingExam(exam)
     setEditFormExamType(exam.examType)
+    setEditFormAcademicTermId(exam.academicTermId)
     setEditFormStatus(exam.status)
     setIsEditDialogOpen(true)
   }
@@ -475,6 +479,7 @@ export default function ExamsPage() {
         if (!open) {
           setEditingExam(null)
           setEditFormExamType("")
+          setEditFormAcademicTermId("")
           setEditFormStatus("DRAFT")
         }
       }}>
@@ -513,18 +518,33 @@ export default function ExamsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-status">Status</Label>
-                    <Select value={editFormStatus} onValueChange={setEditFormStatus}>
+                    <Label htmlFor="edit-academicTermId">Academic Term</Label>
+                    <Select value={editFormAcademicTermId} onValueChange={setEditFormAcademicTermId} required>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Select term" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="COMPLETED">Completed</SelectItem>
+                        {terms.map((term) => (
+                          <SelectItem key={term.id} value={term.id}>
+                            {term.name} - {term.academicYear}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select value={editFormStatus} onValueChange={setEditFormStatus}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      <SelectItem value="COMPLETED">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
