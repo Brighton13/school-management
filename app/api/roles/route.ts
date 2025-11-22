@@ -13,29 +13,28 @@ export async function GET(request: NextRequest) {
     }
 
     // Check permission, but allow legacy ADMIN role as fallback for initial setup
-    const hasPermission = await requirePermission(request, Permissions.PERMISSIONS_READ)
+    const hasPermission = await requirePermission(request, Permissions.ROLES_READ)
     if (!hasPermission && session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const module = searchParams.get("module")
-
-    const whereClause: any = {}
-    if (module) {
-      whereClause.module = module
-    }
-
-    const permissions = await prisma.permission.findMany({
-      where: whereClause,
-      orderBy: [{ module: "asc" }, { name: "asc" }],
+    const roles = await prisma.role.findMany({
+      include: {
+        _count: {
+          select: {
+            users: true,
+            permissions: true,
+          },
+        },
+      },
+      orderBy: { name: "asc" },
     })
 
-    return NextResponse.json(permissions)
+    return NextResponse.json(roles)
   } catch (error) {
-    console.error("Error fetching permissions:", error)
+    console.error("Error fetching roles:", error)
     return NextResponse.json(
-      { error: "Failed to fetch permissions" },
+      { error: "Failed to fetch roles" },
       { status: 500 }
     )
   }
@@ -49,28 +48,42 @@ export async function POST(request: NextRequest) {
     }
 
     // Check permission, but allow legacy ADMIN role as fallback for initial setup
-    const hasPermission = await requirePermission(request, Permissions.PERMISSIONS_CREATE)
+    const hasPermission = await requirePermission(request, Permissions.ROLES_CREATE)
     if (!hasPermission && session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await request.json()
-    const { name, description, module, action } = body
+    const { name, description, permissionIds } = body
 
     // Validation
-    if (!name || !module || !action) {
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: "Missing required fields: name, module, action" },
+        { error: "Role name is required" },
         { status: 400 }
       )
     }
 
-    const permission = await prisma.permission.create({
+    // Create role with permissions
+    const role = await prisma.role.create({
       data: {
-        name,
+        name: name.trim(),
         description: description || null,
-        module,
-        action,
+        permissions: permissionIds
+          ? {
+              create: permissionIds.map((permissionId: string) => ({
+                permissionId,
+                granted: true,
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
       },
     })
 
@@ -78,25 +91,25 @@ export async function POST(request: NextRequest) {
     await logAuditTrail(
       session.user.id,
       "CREATE",
-      "Permission",
+      "Role",
       request,
       {
-        entityId: permission.id,
-        description: `Created permission: ${name} (${module}.${action})`,
+        entityId: role.id,
+        description: `Created role: ${name}`,
       }
     )
 
-    return NextResponse.json(permission, { status: 201 })
+    return NextResponse.json(role, { status: 201 })
   } catch (error: any) {
-    console.error("Error creating permission:", error)
+    console.error("Error creating role:", error)
     if (error.code === "P2002") {
       return NextResponse.json(
-        { error: "Permission with this name already exists" },
+        { error: "Role with this name already exists" },
         { status: 400 }
       )
     }
     return NextResponse.json(
-      { error: error.message || "Failed to create permission" },
+      { error: error.message || "Failed to create role" },
       { status: 500 }
     )
   }

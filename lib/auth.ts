@@ -20,7 +20,20 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
           include: {
             permissions: {
+              where: { granted: true },
               include: { permission: true }
+            },
+            roles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      where: { granted: true },
+                      include: { permission: true }
+                    }
+                  }
+                }
+              }
             }
           }
         })
@@ -37,22 +50,94 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Collect permissions: If user has roles, ONLY use role permissions
+        // If no roles, use direct permissions
+        const permissionSet = new Set<string>()
+        
+        const hasRoles = user.roles && user.roles.length > 0
+        
+        if (hasRoles) {
+          // User has roles - ONLY use permissions from roles (ignore direct permissions)
+          user.roles.forEach(userRole => {
+            userRole.role.permissions.forEach(rp => {
+              if (rp.granted) {
+                permissionSet.add(rp.permission.name)
+              }
+            })
+          })
+        } else {
+          // No roles assigned - use direct permissions
+          user.permissions.forEach(up => {
+            if (up.granted) {
+              permissionSet.add(up.permission.name)
+            }
+          })
+        }
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
-          permissions: user.permissions.map(up => up.permission.name)
+          permissions: Array.from(permissionSet)
         }
       }
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = user.role
         token.permissions = user.permissions
+        token.userId = user.id
       }
+      
+      // Refresh permissions on session update (e.g., when roles/permissions change)
+      if (trigger === "update" && token.userId) {
+        const user = await prisma.user.findUnique({
+          where: { id: token.userId as string },
+          include: {
+            permissions: {
+              where: { granted: true },
+              include: { permission: true }
+            },
+            roles: {
+              include: {
+                role: {
+                  include: {
+                    permissions: {
+                      where: { granted: true },
+                      include: { permission: true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        })
+
+        if (user) {
+          const permissionSet = new Set<string>()
+          const hasRoles = user.roles && user.roles.length > 0
+          
+          if (hasRoles) {
+            // User has roles - ONLY use permissions from roles (ignore direct permissions)
+            user.roles.forEach(userRole => {
+              userRole.role.permissions.forEach(rp => {
+                if (rp.granted) permissionSet.add(rp.permission.name)
+              })
+            })
+          } else {
+            // No roles assigned - use direct permissions
+            user.permissions.forEach(up => {
+              if (up.granted) permissionSet.add(up.permission.name)
+            })
+          }
+          
+          token.permissions = Array.from(permissionSet)
+        }
+      }
+      
       return token
     },
     async session({ session, token }) {

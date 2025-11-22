@@ -21,13 +21,14 @@ model User {
   name      String
   phone     String?
   image     String?
-  role      String   @default("STUDENT") // ADMIN, PRINCIPAL, TEACHER, ACCOUNTANT, LIBRARIAN, STUDENT, PARENT
+  role      String   @default("STUDENT") // Legacy field - kept for backward compatibility
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   permissions         UserPermission[]
+  roles               UserRole[]
   student             Student?
   staff               Staff?
   parent              Parent?
@@ -45,7 +46,20 @@ model User {
   notifications       Notification[]
 }
 
-// Role-based permissions
+// Dynamic Roles - Users can create custom roles
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false) // System roles cannot be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+// Permissions - Define what actions can be performed on modules
 model Permission {
   id          String   @id @default(cuid())
   name        String   @unique
@@ -55,8 +69,10 @@ model Permission {
   createdAt   DateTime @default(now())
 
   userPermissions UserPermission[]
+  rolePermissions RolePermission[]
 }
 
+// Assign permissions directly to users (for fine-grained control)
 model UserPermission {
   id           String   @id @default(cuid())
   userId       String
@@ -70,9 +86,32 @@ model UserPermission {
   @@unique([userId, permissionId])
 }
 
-// Role is a String field
-// Valid values: ADMIN, PRINCIPAL, TEACHER, ACCOUNTANT, LIBRARIAN, STUDENT, PARENT
-// Note: PostgreSQL supports enums, but we use String for flexibility
+// Assign permissions to roles
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  granted      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+// Assign roles to users
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
 
 // Student Management
 model Student {

@@ -28,6 +28,7 @@ import {
   ChevronRight,
   X,
   User,
+  Shield,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -78,6 +79,8 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     roles: ["ADMIN"],
     items: [
       { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN"] },
+      { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN"] },
+      { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN"] },
       { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN"] },
       { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN"] },
     ],

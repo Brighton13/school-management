@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
 import { sendStaffWelcomeEmail, loadEmailConfigFromDB } from "@/lib/email"
 import crypto from "crypto"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function GET() {
   try {
@@ -27,8 +28,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.STAFF_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

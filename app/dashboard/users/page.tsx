@@ -30,6 +30,24 @@ interface User {
     }
     granted: boolean
   }>
+  roles?: Array<{
+    id: string
+    role: {
+      id: string
+      name: string
+      description: string | null
+      permissions: Array<{
+        id: string
+        permission: {
+          id: string
+          name: string
+          module: string
+          action: string
+        }
+        granted: boolean
+      }>
+    }
+  }>
   student?: {
     admissionNumber: string
   }
@@ -47,15 +65,11 @@ interface Permission {
   action: string
 }
 
-const ROLES = [
-  "ADMIN",
-  "PRINCIPAL",
-  "TEACHER",
-  "ACCOUNTANT",
-  "LIBRARIAN",
-  "STUDENT",
-  "PARENT",
-]
+interface Role {
+  id: string
+  name: string
+  description: string | null
+}
 
 const MODULES = [
   "students",
@@ -74,6 +88,7 @@ const MODULES = [
 export default function UsersPage() {
   const { data: session } = useSession()
   const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -98,14 +113,42 @@ export default function UsersPage() {
 
   const fetchData = async () => {
     try {
-      const [usersRes, permissionsRes] = await Promise.all([
+      const [usersRes, rolesRes, permissionsRes] = await Promise.all([
         fetch("/api/users"),
+        fetch("/api/roles"),
         fetch("/api/permissions"),
       ])
-      setUsers(await usersRes.json())
-      setPermissions(await permissionsRes.json())
+      
+      const usersData = await usersRes.json()
+      const rolesData = await rolesRes.json()
+      const permissionsData = await permissionsRes.json()
+      
+      // Handle errors from API
+      if (usersRes.ok && Array.isArray(usersData)) {
+        setUsers(usersData)
+      } else {
+        console.error("Failed to fetch users:", usersData)
+        setUsers([])
+      }
+      
+      if (rolesRes.ok && Array.isArray(rolesData)) {
+        setRoles(rolesData)
+      } else {
+        console.error("Failed to fetch roles:", rolesData)
+        setRoles([])
+      }
+      
+      if (permissionsRes.ok && Array.isArray(permissionsData)) {
+        setPermissions(permissionsData)
+      } else {
+        console.error("Failed to fetch permissions:", permissionsData)
+        setPermissions([])
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error)
+      setUsers([])
+      setRoles([])
+      setPermissions([])
     } finally {
       setLoading(false)
     }
@@ -214,7 +257,7 @@ export default function UsersPage() {
   }
 
   // Group permissions by module
-  const groupedPermissions = permissions.reduce((acc, permission) => {
+  const groupedPermissions = (Array.isArray(permissions) ? permissions : []).reduce((acc, permission) => {
     if (!acc[permission.module]) {
       acc[permission.module] = []
     }
@@ -334,9 +377,9 @@ export default function UsersPage() {
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((role) => (
-                            <SelectItem key={role} value={role}>
-                              {role}
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.name}>
+                              {role.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -427,9 +470,9 @@ export default function UsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Roles</SelectItem>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.name}>
+                      {role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -511,9 +554,50 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border">
-                          {user.permissions.length} permission(s)
-                        </span>
+                        {(() => {
+                          // If user has roles, ONLY use permissions from roles (ignore direct permissions)
+                          // If user has no roles, use direct permissions
+                          const hasRoles = user.roles && user.roles.length > 0
+                          const rolePermissions = new Set<string>()
+                          
+                          if (hasRoles) {
+                            // Only count permissions from roles
+                            user.roles!.forEach((userRole) => {
+                              userRole.role.permissions.forEach((rp) => {
+                                if (rp.granted) {
+                                  rolePermissions.add(rp.permission.id)
+                                }
+                              })
+                            })
+                          } else {
+                            // No roles assigned, use direct permissions
+                            user.permissions.forEach((p) => {
+                              if (p.granted) {
+                                rolePermissions.add(p.permission.id)
+                              }
+                            })
+                          }
+                          
+                          const totalCount = rolePermissions.size
+                          
+                          return (
+                            <div className="flex flex-col gap-1">
+                              <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 border">
+                                {totalCount} permission{totalCount !== 1 ? "s" : ""}
+                              </span>
+                              {hasRoles && (
+                                <div className="text-xs text-muted-foreground">
+                                  from {user.roles!.length} role{user.roles!.length !== 1 ? "s" : ""}
+                                </div>
+                              )}
+                              {!hasRoles && user.permissions.length > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  direct assignment
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         {new Date(user.createdAt).toLocaleDateString()}
@@ -622,9 +706,9 @@ export default function UsersPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {ROLES.map((role) => (
-                            <SelectItem key={role} value={role}>
-                              {role}
+                          {roles.map((role) => (
+                            <SelectItem key={role.id} value={role.name}>
+                              {role.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

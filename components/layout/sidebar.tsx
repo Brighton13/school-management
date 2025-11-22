@@ -24,6 +24,7 @@ import {
   History,
   Activity,
   Mail,
+  Shield,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,8 @@ const menuItems = [
   { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
   { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
   { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN"] },
+  { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN"] },
+  { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN"] },
   { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN"] },
   { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN"] },
   { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN"] },

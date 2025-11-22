@@ -19,8 +19,23 @@ export async function GET(
       where: { id: params.id },
       include: {
         permissions: {
+          where: { granted: true },
           include: {
             permission: true,
+          },
+        },
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { granted: true },
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
         student: {
@@ -78,20 +93,14 @@ export async function PUT(
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // Validate role if provided
+    // Validate role exists in database if provided
     if (role) {
-      const validRoles = [
-        "ADMIN",
-        "PRINCIPAL",
-        "TEACHER",
-        "ACCOUNTANT",
-        "LIBRARIAN",
-        "STUDENT",
-        "PARENT",
-      ]
-      if (!validRoles.includes(role)) {
+      const roleExists = await prisma.role.findUnique({
+        where: { name: role },
+      })
+      if (!roleExists) {
         return NextResponse.json(
-          { error: `Invalid role. Must be one of: ${validRoles.join(", ")}` },
+          { error: `Invalid role. Role "${role}" does not exist in the system.` },
           { status: 400 }
         )
       }
@@ -168,13 +177,28 @@ export async function PUT(
       )
     }
 
-    // Fetch updated user with permissions
+    // Fetch updated user with permissions and roles
     const userWithPermissions = await prisma.user.findUnique({
       where: { id: params.id },
       include: {
         permissions: {
+          where: { granted: true },
           include: {
             permission: true,
+          },
+        },
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { granted: true },
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

@@ -25,7 +25,7 @@ export default async function DashboardLayout({
       </div>
       <main className="flex-1 overflow-y-auto min-w-0">
         <Header userName={session.user.name} userRole={session.user.role} />
-        <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
+        <div className="w-full p-3 sm:p-4 md:p-6">
           {children}
         </div>
         <IdleTimeoutProvider />

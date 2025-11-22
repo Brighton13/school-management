@@ -35,8 +35,23 @@ export async function GET(request: NextRequest) {
       where: whereClause,
       include: {
         permissions: {
+          where: { granted: true },
           include: {
             permission: true,
+          },
+        },
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { granted: true },
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
         student: {
@@ -90,19 +105,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate role
-    const validRoles = [
-      "ADMIN",
-      "PRINCIPAL",
-      "TEACHER",
-      "ACCOUNTANT",
-      "LIBRARIAN",
-      "STUDENT",
-      "PARENT",
-    ]
-    if (!validRoles.includes(role)) {
+    // Validate role exists in database
+    const roleExists = await prisma.role.findUnique({
+      where: { name: role },
+    })
+    if (!roleExists) {
       return NextResponse.json(
-        { error: `Invalid role. Must be one of: ${validRoles.join(", ")}` },
+        { error: `Invalid role. Role "${role}" does not exist in the system.` },
         { status: 400 }
       )
     }
@@ -155,13 +164,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch user with permissions
+    // Fetch user with permissions and roles
     const userWithPermissions = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
         permissions: {
+          where: { granted: true },
           include: {
             permission: true,
+          },
+        },
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { granted: true },
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

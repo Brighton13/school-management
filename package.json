@@ -14,7 +14,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts"
+    "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "db:seed:rbac": "ts-node --project tsconfig.seed.json prisma/seed-roles-permissions.ts",
+    "db:assign-roles": "ts-node --project tsconfig.seed.json prisma/assign-roles-to-users.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
