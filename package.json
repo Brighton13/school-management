@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
     "db:seed:rbac": "ts-node --project tsconfig.seed.json prisma/seed-roles-permissions.ts",
-    "db:assign-roles": "ts-node --project tsconfig.seed.json prisma/assign-roles-to-users.ts"
+    "db:assign-roles": "ts-node --project tsconfig.seed.json prisma/assign-roles-to-users.ts",
+    "db:check-admin": "ts-node --project tsconfig.seed.json prisma/check-admin-role.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -57,7 +57,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Academic Management",
-    roles: ["ADMIN"],
+    roles: ["ADMIN","PRINCIPAL"],
     items: [
       { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN"] },
       { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
@@ -68,7 +68,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Student Management",
-    roles: ["ADMIN"],
+    roles: ["ADMIN","PRINCIPAL"],
     items: [
       { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
       { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
@@ -76,13 +76,13 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Staff Management",
-    roles: ["ADMIN"],
+    roles: ["ADMIN","PRINCIPAL"],
     items: [
-      { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN"] },
-      { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN"] },
-      { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN"] },
-      { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN"] },
-      { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN"] },
+      { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN","PRINCIPAL"] },
     ],
   },
   {
@@ -113,9 +113,9 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Tools",
-    roles: ["ADMIN"],
+    roles: ["ADMIN","PRINCIPAL"],
     items: [
-      { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN"] },
+      { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN","PRINCIPAL"] },
       { name: "Signatures", href: "/dashboard/signatures", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
     ],
   },
