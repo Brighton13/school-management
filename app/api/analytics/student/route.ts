@@ -30,13 +30,9 @@ export async function GET(request: NextRequest) {
           take: 1,
         },
         results: {
-          include: {
-            classSubject: {
-              include: {
-                subject: true,
-              },
-            },
-            academicTerm: true,
+          select: {
+            marksObtained: true,
+            maxMarks: true,
           },
           where: {
             status: { in: ["APPROVED", "PUBLISHED"] },
@@ -66,6 +62,36 @@ export async function GET(request: NextRequest) {
       ? `${currentEnrollment.class.name} - ${currentEnrollment.section.name}`
       : "Not Enrolled"
 
+    // Get enrolled subjects count
+    const enrolledSubjects = await prisma.studentSubjectSelection.count({
+      where: {
+        studentId: student.id,
+        status: "ACTIVE",
+      },
+    })
+
+    // Get upcoming exams
+    const upcomingExams = await prisma.exam.findMany({
+      where: {
+        status: "ACTIVE",
+        startDate: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        academicTerm: true,
+      },
+      orderBy: {
+        startDate: "asc",
+      },
+      take: 5,
+    })
+
+    // Calculate overall average from results
+    const averageScore = student.results.length > 0
+      ? student.results.reduce((sum, r) => sum + (r.marksObtained / r.maxMarks * 100), 0) / student.results.length
+      : 0
+
     // Calculate attendance
     const attendance = {
       present: student.attendance.filter((a) => a.status === "PRESENT").length,
@@ -88,45 +114,22 @@ export async function GET(request: NextRequest) {
       overdue: student.fees.filter((f) => f.status === "OVERDUE").length,
     }
 
-    // Performance trend by term
-    const performanceByTerm = new Map<string, { total: number; count: number }>()
-    student.results.forEach((result) => {
-      const termName = result.academicTerm.name
-      const percentage = (result.marksObtained / result.maxMarks) * 100
-
-      if (!performanceByTerm.has(termName)) {
-        performanceByTerm.set(termName, { total: 0, count: 0 })
-      }
-
-      const stats = performanceByTerm.get(termName)!
-      stats.total += percentage
-      stats.count += 1
-    })
-
-    const performanceTrend = Array.from(performanceByTerm.entries())
-      .map(([term, stats]) => ({
-        term,
-        averageScore: stats.count > 0 ? stats.total / stats.count : 0,
-      }))
-      .sort((a, b) => a.term.localeCompare(b.term))
-
     return NextResponse.json({
       student: {
         name: student.user.name,
         admissionNumber: student.admissionNumber,
         className,
       },
-      results: student.results.map((r) => ({
-        subjectName: r.classSubject.subject.name,
-        marksObtained: r.marksObtained,
-        maxMarks: r.maxMarks,
-        percentage: (r.marksObtained / r.maxMarks) * 100,
-        grade: r.grade,
-        termName: r.academicTerm.name,
-      })),
+      totalSubjects: enrolledSubjects,
+      averageScore,
       attendance,
       fees,
-      performanceTrend,
+      upcomingExams: upcomingExams.map((exam) => ({
+        examName: exam.name,
+        subjectName: "Multiple Subjects", // Since exams can be for multiple subjects
+        date: exam.startDate?.toISOString() || "",
+        examType: exam.examType,
+      })),
     })
   } catch (error) {
     console.error("Student analytics error:", error)

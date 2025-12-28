@@ -13,6 +13,7 @@ import jsPDF from "jspdf"
 import { useSession } from "next-auth/react"
 import { BulkResultsUpload } from "@/components/bulk-results-upload"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { StudentResultsView } from "@/components/analytics/student-results-view"
 
 interface Result {
   id: string
@@ -73,6 +74,12 @@ interface Exam {
 
 export default function ResultsPage() {
   const { data: session } = useSession()
+  
+  // If user is a student, show the student-specific results view
+  if (session?.user.role === "STUDENT") {
+    return <StudentResultsView />
+  }
+
   const [results, setResults] = useState<Result[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [terms, setTerms] = useState<Term[]>([])

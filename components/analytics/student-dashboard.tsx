@@ -9,21 +9,8 @@ import {
   Calendar,
   Award,
   DollarSign,
-  TrendingUp,
   FileText,
 } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts"
 
 interface StudentDashboardData {
   student: {
@@ -31,14 +18,8 @@ interface StudentDashboardData {
     admissionNumber: string
     className: string
   }
-  results: Array<{
-    subjectName: string
-    marksObtained: number
-    maxMarks: number
-    percentage: number
-    grade: string | null
-    termName: string
-  }>
+  totalSubjects: number
+  averageScore: number
   attendance: {
     present: number
     absent: number
@@ -52,9 +33,11 @@ interface StudentDashboardData {
     pending: number
     overdue: number
   }
-  performanceTrend: Array<{
-    term: string
-    averageScore: number
+  upcomingExams: Array<{
+    examName: string
+    subjectName: string
+    date: string
+    examType: string
   }>
 }
 
@@ -109,9 +92,7 @@ export function StudentDashboard() {
     )
   }
 
-  const averageScore = data.results.length > 0
-    ? data.results.reduce((sum, r) => sum + r.percentage, 0) / data.results.length
-    : 0
+  const averageScore = data.averageScore
 
   return (
     <div className="space-y-8">
@@ -139,7 +120,7 @@ export function StudentDashboard() {
         />
         <StatCard
           title="Subjects"
-          value={data.results.length}
+          value={data.totalSubjects}
           description="Enrolled subjects"
           icon={BookOpen}
         />
@@ -151,93 +132,93 @@ export function StudentDashboard() {
         />
       </div>
 
-      {/* Performance Chart */}
-      {data.performanceTrend.length > 0 && (
-        <Card className="border-2 shadow-lg">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-bold">Performance Trend</CardTitle>
-            <CardDescription className="text-sm">Your academic performance over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data.performanceTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-                <XAxis dataKey="term" tick={{ fill: "#6b7280", fontSize: 12 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 12 }} />
-                <Tooltip
-                  formatter={(value: number) => `${value.toFixed(1)}%`}
-                  contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="averageScore"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  name="Average Score (%)"
-                  dot={{ fill: "#3b82f6", r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Results Table */}
+      {/* Upcoming Exams */}
       <Card className="border-2 shadow-lg">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-bold flex items-center gap-2">
             <FileText className="h-5 w-5 text-blue-600" />
-            My Results
+            Upcoming Exams
           </CardTitle>
-          <CardDescription className="text-sm">All subject results and grades</CardDescription>
+          <CardDescription className="text-sm">Your scheduled examinations</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold">Subject</TableHead>
-                  <TableHead className="font-bold">Marks</TableHead>
-                  <TableHead className="font-bold">Score</TableHead>
-                  <TableHead className="font-bold">Grade</TableHead>
-                  <TableHead className="font-bold">Term</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.results.map((result, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{result.subjectName}</TableCell>
-                    <TableCell>
-                      {result.marksObtained.toFixed(0)} / {result.maxMarks.toFixed(0)}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`font-bold ${
-                          result.percentage >= 80
-                            ? "text-green-600"
-                            : result.percentage >= 60
-                            ? "text-blue-600"
-                            : result.percentage >= 50
-                            ? "text-orange-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {result.percentage.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                    <TableCell>{result.grade || "N/A"}</TableCell>
-                    <TableCell>{result.termName}</TableCell>
+          {data.upcomingExams.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-bold">Exam</TableHead>
+                    <TableHead className="font-bold">Subject</TableHead>
+                    <TableHead className="font-bold">Date</TableHead>
+                    <TableHead className="font-bold">Type</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {data.upcomingExams.map((exam, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{exam.examName}</TableCell>
+                      <TableCell>{exam.subjectName}</TableCell>
+                      <TableCell>{new Date(exam.date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          exam.examType === 'CONTINUOUS_ASSESSMENT' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : exam.examType === 'FINAL'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {exam.examType === 'CONTINUOUS_ASSESSMENT' ? 'CA' : exam.examType}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No upcoming exams scheduled.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card className="border-2 shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
+          <CardDescription className="text-sm">Navigate to important sections</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <a
+              href="/dashboard/results"
+              className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
+            >
+              <Award className="h-6 w-6 text-blue-600" />
+              <div>
+                <h3 className="font-medium">View Results</h3>
+                <p className="text-sm text-muted-foreground">Check your academic performance</p>
+              </div>
+            </a>
+            <a
+              href="/dashboard/attendance"
+              className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
+            >
+              <Calendar className="h-6 w-6 text-green-600" />
+              <div>
+                <h3 className="font-medium">Attendance</h3>
+                <p className="text-sm text-muted-foreground">View attendance records</p>
+              </div>
+            </a>
+            <a
+              href="/dashboard/fees"
+              className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
+            >
+              <DollarSign className="h-6 w-6 text-orange-600" />
+              <div>
+                <h3 className="font-medium">Fees</h3>
+                <p className="text-sm text-muted-foreground">Check fee payments</p>
+              </div>
+            </a>
           </div>
         </CardContent>
       </Card>
