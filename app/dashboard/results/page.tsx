@@ -74,12 +74,6 @@ interface Exam {
 
 export default function ResultsPage() {
   const { data: session } = useSession()
-  
-  // If user is a student, show the student-specific results view
-  if (session?.user.role === "STUDENT") {
-    return <StudentResultsView />
-  }
-
   const [results, setResults] = useState<Result[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [terms, setTerms] = useState<Term[]>([])
@@ -89,10 +83,6 @@ export default function ResultsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>("")
   const [selectedExamId, setSelectedExamId] = useState<string>("")
-
-  useEffect(() => {
-    fetchData()
-  }, [])
 
   const fetchData = async () => {
     try {
@@ -123,6 +113,18 @@ export default function ResultsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  useEffect(() => {
+    // Only fetch data if not a student
+    if (session?.user.role !== "STUDENT") {
+      fetchData()
+    }
+  }, [session])
+  
+  // If user is a student, show the student-specific results view
+  if (session?.user.role === "STUDENT") {
+    return <StudentResultsView />
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

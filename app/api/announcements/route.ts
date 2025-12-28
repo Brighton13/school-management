@@ -47,6 +47,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Only allow ADMIN, PRINCIPAL, and TEACHER to create announcements
+    if (!["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
+      return NextResponse.json(
+        { error: "Forbidden - Students cannot create announcements" },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const {
       title,

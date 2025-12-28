@@ -131,6 +131,7 @@ export default function AnnouncementsPage() {
   }
 
   const canManage = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
+  const canCreate = ["ADMIN", "PRINCIPAL", "TEACHER"].includes(session?.user.role || "")
 
   return (
     <div className="space-y-6">
@@ -139,22 +140,23 @@ export default function AnnouncementsPage() {
           <h1 className="text-3xl font-bold">Announcements</h1>
           <p className="text-muted-foreground">Broadcast messages and announcements</p>
         </div>
-        <Dialog 
-          open={isDialogOpen} 
-          onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (!open) {
-              setFormType("")
-              setFormTargetAudience("")
-            }
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Announcement
-            </Button>
-          </DialogTrigger>
+        {canCreate && (
+          <Dialog 
+            open={isDialogOpen} 
+            onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) {
+                setFormType("")
+                setFormTargetAudience("")
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Announcement
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Announcement</DialogTitle>
@@ -235,6 +237,7 @@ export default function AnnouncementsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

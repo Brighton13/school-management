@@ -13,6 +13,7 @@ import {
   FileText,
   Clock,
   CheckCircle,
+  DollarSign,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@radix-ui/react-accordion"
@@ -57,6 +58,19 @@ interface StudentResultsData {
     admissionNumber: string
     className: string
   }
+  blocked?: boolean
+  reason?: string
+  message?: string
+  pendingFees?: Array<{
+    id: string
+    feeType: string
+    amount: number
+    paidAmount: number
+    remainingAmount: number
+    dueDate: string
+    status: string
+  }>
+  totalPendingAmount?: number
   overallAverage: number
   totalResults: number
   academicYears: AcademicYearData[]
@@ -120,6 +134,93 @@ export function StudentResultsView() {
           </CardDescription>
         </CardHeader>
       </Card>
+    )
+  }
+
+  // Handle fee block
+  if (data.blocked && data.reason === "PENDING_FEES") {
+    return (
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-lg p-6 text-white">
+          <h1 className="text-3xl font-bold mb-2">Results Access Blocked</h1>
+          <p className="text-red-100">
+            {data.student.name} • {data.student.admissionNumber} • {data.student.className}
+          </p>
+        </div>
+
+        {/* Fee Block Message */}
+        <Card className="border-red-500 bg-red-50 dark:bg-red-900/20">
+          <CardHeader>
+            <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
+              <DollarSign className="h-6 w-6" />
+              Payment Required
+            </CardTitle>
+            <CardDescription className="text-red-700 dark:text-red-300">
+              {data.message}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-red-900/40 p-4 rounded-lg border border-red-200 dark:border-red-700">
+                <h3 className="font-semibold text-red-800 dark:text-red-200 mb-3">Pending Fees</h3>
+                <div className="space-y-3">
+                  {data.pendingFees?.map((fee) => (
+                    <div key={fee.id} className="flex justify-between items-center p-3 bg-red-100 dark:bg-red-900/60 rounded-lg">
+                      <div>
+                        <p className="font-medium text-red-900 dark:text-red-100">{fee.feeType}</p>
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                          Due: {new Date(fee.dueDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-red-900 dark:text-red-100">
+                          ${fee.remainingAmount.toFixed(2)}
+                        </p>
+                        <p className="text-xs text-red-600 dark:text-red-400">
+                          ({fee.status})
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-red-200 dark:border-red-700 mt-4 pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-red-800 dark:text-red-200">Total Outstanding:</span>
+                    <span className="text-xl font-bold text-red-900 dark:text-red-100">
+                      ${data.totalPendingAmount?.toFixed(2) || '0.00'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Next Steps:</h4>
+                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <li>• Contact the school accounts office to make payment</li>
+                  <li>• Visit the fees section to view detailed payment information</li>
+                  <li>• Your results will be available immediately after payment confirmation</li>
+                </ul>
+              </div>
+
+              <div className="flex gap-3">
+                <a
+                  href="/dashboard/fees"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors"
+                >
+                  View Fee Details
+                </a>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                >
+                  Refresh Page
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 

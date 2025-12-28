@@ -10,6 +10,7 @@ import {
   Award,
   DollarSign,
   FileText,
+  Megaphone,
 } from "lucide-react"
 
 interface StudentDashboardData {
@@ -38,6 +39,17 @@ interface StudentDashboardData {
     subjectName: string
     date: string
     examType: string
+  }>
+  announcements: Array<{
+    id: string
+    title: string
+    content: string
+    type: string
+    targetAudience: string
+    createdBy: string
+    createdAt: string
+    publishedAt: string | null
+    expiresAt: string | null
   }>
 }
 
@@ -131,6 +143,60 @@ export function StudentDashboard() {
           icon={DollarSign}
         />
       </div>
+
+      {/* Announcements */}
+      <Card className="border-2 shadow-lg">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-green-600" />
+            Important Announcements
+          </CardTitle>
+          <CardDescription className="text-sm">Latest updates and notifications</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.announcements.length > 0 ? (
+            <div className="space-y-4">
+              {data.announcements.map((announcement) => (
+                <div key={announcement.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-lg">{announcement.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        announcement.type === 'URGENT' 
+                          ? 'bg-red-100 text-red-800' 
+                          : announcement.type === 'ACADEMIC'
+                          ? 'bg-blue-100 text-blue-800'
+                          : announcement.type === 'EVENT'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {announcement.type}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(announcement.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-sm mb-2">
+                    {announcement.content.length > 150 
+                      ? `${announcement.content.substring(0, 150)}...` 
+                      : announcement.content
+                    }
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>By: {announcement.createdBy}</span>
+                    {announcement.expiresAt && (
+                      <span>Expires: {new Date(announcement.expiresAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No announcements at this time.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Upcoming Exams */}
       <Card className="border-2 shadow-lg">

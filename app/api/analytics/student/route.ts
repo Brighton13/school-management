@@ -87,6 +87,42 @@ export async function GET(request: NextRequest) {
       take: 5,
     })
 
+    // Get student-relevant announcements
+    const announcements = await prisma.announcement.findMany({
+      where: {
+        published: true,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gte: new Date() } },
+        ],
+        AND: [
+          {
+            OR: [
+              { targetAudience: "ALL" },
+              { targetAudience: "STUDENTS" },
+              {
+                AND: [
+                  { targetAudience: "CLASS" },
+                  { targetClassId: currentEnrollment?.classId || "" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      include: {
+        creator: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 5,
+    })
+
     // Calculate overall average from results
     const averageScore = student.results.length > 0
       ? student.results.reduce((sum, r) => sum + (r.marksObtained / r.maxMarks * 100), 0) / student.results.length
@@ -129,6 +165,17 @@ export async function GET(request: NextRequest) {
         subjectName: "Multiple Subjects", // Since exams can be for multiple subjects
         date: exam.startDate?.toISOString() || "",
         examType: exam.examType,
+      })),
+      announcements: announcements.map((announcement) => ({
+        id: announcement.id,
+        title: announcement.title,
+        content: announcement.content,
+        type: announcement.type,
+        targetAudience: announcement.targetAudience,
+        createdBy: announcement.creator.name,
+        createdAt: announcement.createdAt.toISOString(),
+        publishedAt: announcement.publishedAt?.toISOString() || null,
+        expiresAt: announcement.expiresAt?.toISOString() || null,
       })),
     })
   } catch (error) {

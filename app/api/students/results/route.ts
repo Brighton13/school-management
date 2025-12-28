@@ -57,10 +57,78 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Student record not found" }, { status: 404 })
     }
 
+    // Check for pending fees that would block access to current term results
+    const currentTerm = await prisma.academicTerm.findFirst({
+      where: {
+        startDate: { lte: new Date() },
+        endDate: { gte: new Date() },
+      },
+      orderBy: { startDate: "desc" },
+    })
+
+    let hasPendingFees = false
+    let pendingFeesDetails: Array<{
+      id: string
+      feeType: string
+      amount: number
+      paidAmount: number
+      remainingAmount: number
+      dueDate: string
+      status: string
+    }> = []
+
+    if (currentTerm) {
+      const pendingFees = await prisma.fee.findMany({
+        where: {
+          studentId: student.id,
+          academicTermId: currentTerm.id,
+          status: { in: ["PENDING", "PARTIAL", "OVERDUE"] },
+        },
+        include: {
+          academicTerm: true,
+        },
+      })
+
+      if (pendingFees.length > 0) {
+        hasPendingFees = true
+        pendingFeesDetails = pendingFees.map(fee => ({
+          id: fee.id,
+          feeType: fee.feeType,
+          amount: fee.amount,
+          paidAmount: fee.paidAmount,
+          remainingAmount: fee.amount - fee.paidAmount,
+          dueDate: fee.dueDate.toISOString(),
+          status: fee.status,
+        }))
+      }
+    }
+
     const currentEnrollment = student.classEnrollment[0]
     const className = currentEnrollment
       ? `${currentEnrollment.class.name} - ${currentEnrollment.section.name}`
       : "Not Enrolled"
+
+    // If student has pending fees for current term, block access to current term results
+    if (hasPendingFees) {
+      return NextResponse.json({
+        student: {
+          name: student.user.name,
+          admissionNumber: student.admissionNumber,
+          className,
+        },
+        blocked: true,
+        reason: "PENDING_FEES",
+        message: "You have pending fees that must be paid before accessing current term results.",
+        pendingFees: pendingFeesDetails,
+        totalPendingAmount: pendingFeesDetails.reduce((sum, fee) => sum + fee.remainingAmount, 0),
+        academicYears: [], // Return empty results
+        summary: {
+          totalContinuousAssessments: 0,
+          totalEndOfTermExams: 0,
+          yearsWithResults: 0,
+        },
+      })
+    }
 
     // Group results by academic year and term
     const resultsByYear = new Map<string, Map<string, {
