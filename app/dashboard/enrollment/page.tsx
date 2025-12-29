@@ -262,7 +262,7 @@ export default function EnrollmentPage() {
                         <SelectValue placeholder="Select academic year" />
                       </SelectTrigger>
                       <SelectContent>
-                        {[...new Set(academicTerms.map(term => term.academicYear))].map((year) => (
+                        {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
                           <SelectItem key={year} value={year}>
                             {year}
                           </SelectItem>
@@ -371,7 +371,7 @@ export default function EnrollmentPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {[...new Set(academicTerms.map(term => term.academicYear))].map((year) => (
+                        {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
                           <SelectItem key={year} value={year}>
                             {year}
                           </SelectItem>
