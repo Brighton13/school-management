@@ -37,11 +37,19 @@ interface Class {
   sections: Array<{ id: string; name: string }>
 }
 
+interface AcademicTerm {
+  id: string
+  name: string
+  academicYear: string
+  isCurrent: boolean
+}
+
 export default function EnrollmentPage() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [sections, setSections] = useState<Array<{ id: string; name: string; classId: string }>>([])
+  const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -55,15 +63,18 @@ export default function EnrollmentPage() {
 
   const fetchData = async () => {
     try {
-      const [enrollmentsRes, studentsRes, classesRes] = await Promise.all([
+      const [enrollmentsRes, studentsRes, classesRes, termsRes] = await Promise.all([
         fetch("/api/enrollment"),
         fetch("/api/students"),
         fetch("/api/classes"),
+        fetch("/api/terms"),
       ])
       setEnrollments(await enrollmentsRes.json())
       setStudents(await studentsRes.json())
       const classesData = await classesRes.json()
       setClasses(classesData)
+      const termsData = await termsRes.json()
+      setAcademicTerms(termsData)
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -246,11 +257,33 @@ export default function EnrollmentPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="academicYear">Academic Year</Label>
-                    <Input id="academicYear" name="academicYear" required />
+                    <Select name="academicYear" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select academic year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...new Set(academicTerms.map(term => term.academicYear))].map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="term">Term</Label>
-                    <Input id="term" name="term" required />
+                    <Select name="term" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select term" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {academicTerms.map((term) => (
+                          <SelectItem key={term.id} value={term.name}>
+                            {term.name} {term.isCurrent && "(Current)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -333,11 +366,33 @@ export default function EnrollmentPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-academicYear">Academic Year</Label>
-                    <Input id="edit-academicYear" name="academicYear" defaultValue={editingEnrollment.academicYear} required />
+                    <Select name="academicYear" defaultValue={editingEnrollment.academicYear} required>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[...new Set(academicTerms.map(term => term.academicYear))].map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-term">Term</Label>
-                    <Input id="edit-term" name="term" defaultValue={editingEnrollment.term} required />
+                    <Select name="term" defaultValue={editingEnrollment.term} required>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {academicTerms.map((term) => (
+                          <SelectItem key={term.id} value={term.name}>
+                            {term.name} {term.isCurrent && "(Current)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
