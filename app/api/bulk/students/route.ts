@@ -41,18 +41,19 @@ export async function POST(request: NextRequest) {
           // password,
           name,
           phone,
-          admissionnumber,
+          //admissionnumber,
           dateofbirth,
           gender,
           address,
           emergencycontact,
         } = row
 
-        if (!email ||  !name || !admissionnumber) {
+        if (!email ||  !name || !gender ) {
           results.failed++
           results.errors.push(`Row ${i + 1}: Missing required fields`)
           continue
         }
+        const admissionnumber = await generateAdmissionNumber();
         const password = "Test1234"
         const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -118,4 +119,37 @@ student2@example.com,Jane Smith,1234567891,ADM002,2010-02-20,FEMALE,456 Oak Ave,
       { status: 500 }
     )
   }
+}
+
+
+export async function generateAdmissionNumber(): Promise<string> {
+  const now = new Date()
+
+  const year = now.getFullYear().toString().slice(-2) // YY
+  const month = (now.getMonth() + 1).toString().padStart(2, '0') // MM
+  const prefix = `${year}${month}` // YYMM
+
+  // Find the latest student for the current month
+  const lastStudent = await prisma.student.findFirst({
+    where: {
+      admissionNumber: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      admissionNumber: 'desc',
+    },
+  })
+
+  let sequence = 1
+
+  if (lastStudent?.admissionNumber) {
+    const lastSequence = parseInt(
+      lastStudent.admissionNumber.slice(4),
+      10
+    )
+    sequence = lastSequence + 1
+  }
+
+  return `${prefix}${sequence.toString().padStart(4, '0')}`
 }
