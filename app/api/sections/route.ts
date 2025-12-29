@@ -13,9 +13,29 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
+    const teacherId = searchParams.get("teacherId")
+
+    // If requesting teacher's sections, get the teacher's sections
+    let where: any = classId ? { classId } : undefined
+
+    if (teacherId === "true") {
+      // Get current user's staff record
+      const staff = await prisma.staff.findUnique({
+        where: { userId: session.user.id },
+      })
+
+      if (!staff) {
+        return NextResponse.json(
+          { error: "User is not a staff member" },
+          { status: 403 }
+        )
+      }
+
+      where = { classTeacherId: staff.id }
+    }
 
     const sections = await prisma.section.findMany({
-      where: classId ? { classId } : undefined,
+      where,
       include: {
         class: true,
         classTeacher: {

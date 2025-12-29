@@ -194,6 +194,7 @@ model Section {
   enrollments   ClassEnrollment[]
   timetable     Timetable[]
   classSubjects ClassSubject[]
+  attendance    Attendance[]
 }
 
 model ClassEnrollment {
@@ -369,6 +370,7 @@ model Attendance {
   id        String   @id @default(cuid())
   studentId String?
   staffId   String? // For staff attendance
+  sectionId String? // Class section for tracking which class
   date      DateTime
   status    String // PRESENT, ABSENT, LATE, EXCUSED
   remarks   String?
@@ -377,9 +379,11 @@ model Attendance {
 
   student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
   staff   Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
 
-  @@unique([studentId, date])
+  @@unique([studentId, sectionId, date])
   @@index([staffId, date])
+  @@index([sectionId, date])
 }
 
 // Fees Management

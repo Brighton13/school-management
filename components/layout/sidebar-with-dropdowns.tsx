@@ -75,6 +75,13 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
       { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
     ],
   },
+   {
+    title: "Academic Info",
+    roles: ["STUDENT"],
+    items: [
+      { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: [ "STUDENT"] },
+    ],
+  },
   {
     title: "Staff Management",
     roles: ["ADMIN","PRINCIPAL"],
@@ -98,7 +105,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Operations",
-    roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "LIBRARIAN"],
+    roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "LIBRARIAN", "TEACHER"],
     items: [
       { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardList, roles: ["ADMIN", "PRINCIPAL", "TEACHER", "STUDENT", "PARENT"] },
       { name: "Fees Management", href: "/dashboard/fees", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
