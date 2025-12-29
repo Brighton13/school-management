@@ -203,6 +203,15 @@ export default function RolesPage() {
     )
   }
 
+  const selectAllPermissions = () => {
+    const allPermissionIds = permissions.map(p => p.id)
+    setSelectedPermissions(allPermissionIds)
+  }
+
+  const deselectAllPermissions = () => {
+    setSelectedPermissions([])
+  }
+
   const groupedPermissions = (Array.isArray(permissions) ? permissions : []).reduce((acc, perm) => {
     if (!acc[perm.module]) {
       acc[perm.module] = []
@@ -271,7 +280,27 @@ export default function RolesPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Permissions</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Permissions</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={selectAllPermissions}
+                      >
+                        Select All
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={deselectAllPermissions}
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
                   <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-4">
                     {Object.entries(groupedPermissions).map(([module, perms]) => (
                       <div key={module}>
@@ -422,7 +451,27 @@ export default function RolesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Permissions</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Permissions</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={selectAllPermissions}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={deselectAllPermissions}
+                    >
+                      Deselect All
+                    </Button>
+                  </div>
+                </div>
                 <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-4">
                   {Object.entries(groupedPermissions).map(([module, perms]) => (
                     <div key={module}>

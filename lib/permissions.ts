@@ -161,6 +161,11 @@ export async function requirePermission(
     return null
   }
 
+  // Allow legacy ADMIN role as fallback for initial setup
+  if (session.user.role === "ADMIN") {
+    return session
+  }
+
   const hasAccess = await hasPermission(session.user.id, permissionName)
   if (!hasAccess) {
     return null
@@ -179,6 +184,11 @@ export async function requireAnyPermission(
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return null
+  }
+
+  // Allow legacy ADMIN role as fallback for initial setup
+  if (session.user.role === "ADMIN") {
+    return session
   }
 
   const hasAccess = await hasAnyPermission(session.user.id, permissionNames)

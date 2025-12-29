@@ -41,9 +41,17 @@ export default function AnnouncementsPage() {
     try {
       const res = await fetch("/api/announcements")
       const data = await res.json()
-      setAnnouncements(data)
+      
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setAnnouncements(data)
+      } else {
+        console.error("Invalid data format:", data)
+        setAnnouncements([])
+      }
     } catch (error) {
       console.error("Failed to fetch announcements:", error)
+      setAnnouncements([])
     } finally {
       setLoading(false)
     }

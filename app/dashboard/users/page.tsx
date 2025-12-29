@@ -256,6 +256,15 @@ export default function UsersPage() {
     )
   }
 
+  const selectAllPermissions = () => {
+    const allPermissionIds = permissions.map(p => p.id)
+    setSelectedPermissions(allPermissionIds)
+  }
+
+  const deselectAllPermissions = () => {
+    setSelectedPermissions([])
+  }
+
   // Group permissions by module
   const groupedPermissions = (Array.isArray(permissions) ? permissions : []).reduce((acc, permission) => {
     if (!acc[permission.module]) {

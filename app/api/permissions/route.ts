@@ -41,64 +41,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Check permission, but allow legacy ADMIN role as fallback for initial setup
-    const hasPermission = await requirePermission(request, Permissions.PERMISSIONS_CREATE)
-    if (!hasPermission && session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { name, description, module, action } = body
-
-    // Validation
-    if (!name || !module || !action) {
-      return NextResponse.json(
-        { error: "Missing required fields: name, module, action" },
-        { status: 400 }
-      )
-    }
-
-    const permission = await prisma.permission.create({
-      data: {
-        name,
-        description: description || null,
-        module,
-        action,
-      },
-    })
-
-    // Log audit trail
-    await logAuditTrail(
-      session.user.id,
-      "CREATE",
-      "Permission",
-      request,
-      {
-        entityId: permission.id,
-        description: `Created permission: ${name} (${module}.${action})`,
-      }
-    )
-
-    return NextResponse.json(permission, { status: 201 })
-  } catch (error: any) {
-    console.error("Error creating permission:", error)
-    if (error.code === "P2002") {
-      return NextResponse.json(
-        { error: "Permission with this name already exists" },
-        { status: 400 }
-      )
-    }
-    return NextResponse.json(
-      { error: error.message || "Failed to create permission" },
-      { status: 500 }
-    )
-  }
-}
+// Permission creation is disabled - permissions are system-managed and initialized during setup only.
+// Users can only read and assign existing permissions to roles.
+// Do not add POST endpoint here.
 

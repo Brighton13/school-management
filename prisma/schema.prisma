@@ -40,6 +40,9 @@ model User {
   submittedResults    Result[]               @relation("SubmittedResults")
   reviewedResults     Result[]               @relation("ReviewedResults")
   approvedResults     Result[]               @relation("ApprovedResults")
+  generatedReports    StudentReport[]        @relation("ReportGenerator")
+  submittedReports    StudentReport[]        @relation("ReportSubmitter")
+  approvedReports     StudentReport[]        @relation("ReportApprover")
   auditTrails         AuditTrail[]
   sessionLogs         SessionLog[]
   passwordResetTokens PasswordResetToken[]
@@ -136,6 +139,7 @@ model Student {
   fees               Fee[]
   studentAssignments StudentAssignment[]       @relation("StudentAssignments")
   subjectSelections  StudentSubjectSelection[]
+  reports            StudentReport[]
 }
 
 // Parent Management
@@ -189,12 +193,14 @@ model Section {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  class         Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classTeacher  Staff?            @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
-  enrollments   ClassEnrollment[]
-  timetable     Timetable[]
-  classSubjects ClassSubject[]
-  attendance    Attendance[]
+  class              Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classTeacher       Staff?            @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
+  enrollments        ClassEnrollment[]
+  timetable          Timetable[]
+  classSubjects      ClassSubject[]
+  attendance         Attendance[]
+  reports            StudentReport[]
+  commentConfigs     ReportCommentConfig[]
 }
 
 model ClassEnrollment {
@@ -230,6 +236,7 @@ model AcademicTerm {
   results Result[]
   fees    Fee[]
   exams   Exam[]
+  reports StudentReport[]
 }
 
 // Staff Management
@@ -247,11 +254,13 @@ model Staff {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classSubjects ClassSubject[]
-  sections      Section[]
-  assignments   Assignment[]
-  attendance    Attendance[]
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classSubjects      ClassSubject[]
+  sections           Section[]
+  assignments        Assignment[]
+  attendance         Attendance[]
+  reportComments     ReportComment[]
+  commentConfigs     ReportCommentConfig[]
 }
 
 // Subject Management
@@ -329,6 +338,7 @@ model Exam {
   academicTerm AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
   creator      User         @relation(fields: [createdBy], references: [id])
   results      Result[]
+  reports      StudentReport[]
 
   @@index([academicTermId])
 }
@@ -632,4 +642,100 @@ model SystemSettings {
   updatedAt         DateTime @updatedAt
 
   @@unique([id]) // Ensure only one config exists
+}
+
+// Student Reports - Generated reports for students
+model StudentReport {
+  id               String    @id @default(cuid())
+  studentId        String
+  sectionId        String
+  academicTermId   String
+  examId           String?
+  totalMarksObtained Float?  // Sum of all core subject marks
+  maxTotalMarks    Float?
+  positionInClass  Int?      // Student's rank/position
+  classSize        Int?      // Total students in class
+  progressRatio    Float?    // Compared to last term (percentage improvement/decline)
+  previousTermAverage Float? // Previous term's average marks
+  currentTermAverage Float?  // Current term's average marks
+  
+  // Approval workflow
+  status           String    @default("DRAFT") // DRAFT, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, REJECTED
+  submittedBy      String?   // Class teacher who submitted
+  submittedAt      DateTime?
+  approvedBy       String?   // Principal who approved
+  approvedAt       DateTime?
+  rejectionReason  String?
+  
+  // Generation tracking
+  generatedAt      DateTime  @default(now())
+  generatedBy      String    // Teacher/Admin who generated
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  student          Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section          Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  academicTerm     AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  exam             Exam?        @relation(fields: [examId], references: [id], onDelete: SetNull)
+  generator        User         @relation("ReportGenerator", fields: [generatedBy], references: [id])
+  submitter        User?        @relation("ReportSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
+  approver         User?        @relation("ReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  
+  comments         ReportComment[]
+  
+  @@unique([studentId, academicTermId, examId])
+  @@index([sectionId])
+  @@index([academicTermId])
+  @@index([status])
+}
+
+// Teacher Comments on Student Reports
+model ReportComment {
+  id               String    @id @default(cuid())
+  reportId         String
+  teacherId        String
+  
+  // Comment configuration based on marks
+  marksLowerBound  Float?    // Marks range this comment applies to (e.g., 0-40)
+  marksUpperBound  Float?    // Upper bound of marks range
+  
+  commentText      String    // The comment to display
+  performanceArea  String?   // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
+  
+  // Signature details
+  teacherSignature String?   // Base64 encoded signature image
+  signedAt         DateTime?
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  report           StudentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  teacher          Staff         @relation(fields: [teacherId], references: [id])
+  
+  @@index([reportId])
+  @@index([teacherId])
+}
+
+// Teacher Comment Configuration - Templates for comments based on performance
+model ReportCommentConfig {
+  id               String    @id @default(cuid())
+  teacherId        String
+  sectionId        String
+  
+  // Comment template configuration
+  marksLowerBound  Float     // e.g., 0
+  marksUpperBound  Float     // e.g., 40
+  commentTemplate  String    // Template text (can include {studentName}, {marks}, {average})
+  
+  performanceArea  String    // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
+  isActive         Boolean   @default(true)
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  teacher          Staff     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  section          Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  
+  @@unique([teacherId, sectionId, marksLowerBound, marksUpperBound, performanceArea])
+  @@index([sectionId])
 }
