@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
+import { generateAdmissionNumber } from "@/lib/admission_number_gen"
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,34 +123,4 @@ student2@example.com,Jane Smith,1234567891,ADM002,2010-02-20,FEMALE,456 Oak Ave,
 }
 
 
-export async function generateAdmissionNumber(): Promise<string> {
-  const now = new Date()
 
-  const year = now.getFullYear().toString().slice(-2) // YY
-  const month = (now.getMonth() + 1).toString().padStart(2, '0') // MM
-  const prefix = `${year}${month}` // YYMM
-
-  // Find the latest student for the current month
-  const lastStudent = await prisma.student.findFirst({
-    where: {
-      admissionNumber: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      admissionNumber: 'desc',
-    },
-  })
-
-  let sequence = 1
-
-  if (lastStudent?.admissionNumber) {
-    const lastSequence = parseInt(
-      lastStudent.admissionNumber.slice(4),
-      10
-    )
-    sequence = lastSequence + 1
-  }
-
-  return `${prefix}${sequence.toString().padStart(4, '0')}`
-}
