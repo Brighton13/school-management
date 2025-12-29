@@ -216,6 +216,113 @@ export default function FeesPage() {
     )
   }
 
+  const isStudentOrParent = ["STUDENT", "PARENT"].includes(session?.user.role || "")
+
+  // Calculate summary for student view
+  const totalFees = fees.reduce((sum, fee) => sum + fee.amount, 0)
+  const totalPaid = fees.reduce((sum, fee) => sum + fee.paidAmount, 0)
+  const totalPending = totalFees - totalPaid
+  const overdueCount = fees.filter(f => f.status === "OVERDUE").length
+
+  // Student/Parent view - simplified
+  if (isStudentOrParent) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">My Fees</h1>
+          <p className="text-muted-foreground">View your fee details and payment status</p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Fees</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalFees)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalPending)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{overdueCount}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Fees Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Fee History</CardTitle>
+            <CardDescription>Your fee records and payment status</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="text-center py-8">Loading fees...</div>
+            ) : fees.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No fees found</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {session?.user.role === "PARENT" && <TableHead>Student</TableHead>}
+                      <TableHead>Term</TableHead>
+                      <TableHead>Fee Type</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Paid</TableHead>
+                      <TableHead>Remaining</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fees.map((fee) => (
+                      <TableRow key={fee.id}>
+                        {session?.user.role === "PARENT" && (
+                          <TableCell>
+                            <div className="font-medium">{fee.student.user.name}</div>
+                          </TableCell>
+                        )}
+                        <TableCell>{fee.academicTerm.name} - {fee.academicTerm.academicYear}</TableCell>
+                        <TableCell>{fee.feeType}</TableCell>
+                        <TableCell className="font-medium">{formatCurrency(fee.amount)}</TableCell>
+                        <TableCell className="text-green-600">{formatCurrency(fee.paidAmount)}</TableCell>
+                        <TableCell className="text-orange-600">{formatCurrency(fee.amount - fee.paidAmount)}</TableCell>
+                        <TableCell>{formatDate(fee.dueDate)}</TableCell>
+                        <TableCell>{getStatusBadge(fee.status)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Admin/Accountant view - full management
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -465,7 +572,7 @@ export default function FeesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Fees</CardTitle>
+          <CardTitle>All Student Fees</CardTitle>
           <CardDescription>View and manage all student fees</CardDescription>
         </CardHeader>
         <CardContent>

@@ -14,20 +14,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const teacherId = searchParams.get("teacherId")
     const classId = searchParams.get("classId")
+    const sectionId = searchParams.get("sectionId")
 
     const assignments = await prisma.classSubject.findMany({
       where: {
         ...(teacherId ? { teacherId } : {}),
         ...(classId ? { classId } : {}),
+        ...(sectionId ? { sectionId } : {}),
       },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: {
           include: { user: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ class: { name: "asc" } }, { section: { name: "asc" } }, { createdAt: "desc" }],
     })
 
     return NextResponse.json(assignments)
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest) {
       data: { teacherId },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: {
           include: { user: true },
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         entityId: classSubjectId,
-        description: `Assigned teacher ${assignment.teacher?.user.name || "N/A"} to ${assignment.class.name} - ${assignment.subject.name}`,
+        description: `Assigned teacher ${assignment.teacher?.user.name || "N/A"} to ${assignment.class.name} ${assignment.section?.name || ""} - ${assignment.subject.name}`,
       }
     )
 
@@ -101,6 +105,7 @@ export async function DELETE(request: NextRequest) {
       where: { id: classSubjectId },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: { include: { user: true } },
       },
@@ -120,7 +125,7 @@ export async function DELETE(request: NextRequest) {
         request,
         {
           entityId: classSubjectId,
-          description: `Removed teacher assignment from ${classSubject.class.name} - ${classSubject.subject.name}`,
+          description: `Removed teacher assignment from ${classSubject.class.name} ${classSubject.section?.name || ""} - ${classSubject.subject.name}`,
         }
       )
     }

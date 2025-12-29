@@ -100,25 +100,25 @@ export function AccountantDashboard() {
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Fees"
-          value={`$${data.fees.totalAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.totalAmount.toFixed(2)}`}
           description="All fee records"
           icon={DollarSign}
         />
         <StatCard
           title="Paid Amount"
-          value={`$${data.fees.paidAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.paidAmount.toFixed(2)}`}
           description={`${data.fees.collectionRate.toFixed(1)}% collected`}
           icon={CheckCircle}
         />
         <StatCard
           title="Pending Amount"
-          value={`$${data.fees.pendingAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.pendingAmount.toFixed(2)}`}
           description="Awaiting payment"
           icon={AlertCircle}
         />
         <StatCard
           title="Overdue Amount"
-          value={`$${data.fees.overdueAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.overdueAmount.toFixed(2)}`}
           description="Requires attention"
           icon={TrendingUp}
         />
@@ -167,7 +167,7 @@ export function AccountantDashboard() {
                       <TableCell className="font-medium">{payment.studentName}</TableCell>
                       <TableCell>{payment.feeType}</TableCell>
                       <TableCell className="font-semibold text-green-600">
-                        ${payment.amount.toFixed(2)}
+                        ZMW {payment.amount.toFixed(2)}
                       </TableCell>
                       <TableCell>{new Date(payment.paidDate).toLocaleDateString()}</TableCell>
                     </TableRow>

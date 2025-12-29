@@ -189,10 +189,11 @@ model Section {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  class        Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classTeacher Staff?            @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
-  enrollments  ClassEnrollment[]
-  timetable    Timetable[]
+  class         Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classTeacher  Staff?            @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
+  enrollments   ClassEnrollment[]
+  timetable     Timetable[]
+  classSubjects ClassSubject[]
 }
 
 model ClassEnrollment {
@@ -268,6 +269,7 @@ model Subject {
 model ClassSubject {
   id        String   @id @default(cuid())
   classId   String
+  sectionId String?
   subjectId String
   teacherId String?
   maxMarks  Float?
@@ -276,6 +278,7 @@ model ClassSubject {
   updatedAt DateTime @updatedAt
 
   class                   Class                     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  section                 Section?                  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   subject                 Subject                   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   teacher                 Staff?                    @relation(fields: [teacherId], references: [id])
   results                 Result[]
@@ -283,7 +286,7 @@ model ClassSubject {
   assignments             Assignment[]              @relation("ClassSubjectAssignments")
   StudentSubjectSelection StudentSubjectSelection[]
 
-  @@unique([classId, subjectId])
+  @@unique([classId, sectionId, subjectId])
 }
 
 // Student Subject Selection (for Elective and Optional subjects)

@@ -175,7 +175,7 @@ export function StudentResultsView() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-red-900 dark:text-red-100">
-                          ${fee.remainingAmount.toFixed(2)}
+                          ZMW {fee.remainingAmount.toFixed(2)}
                         </p>
                         <p className="text-xs text-red-600 dark:text-red-400">
                           ({fee.status})
@@ -188,7 +188,7 @@ export function StudentResultsView() {
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-red-800 dark:text-red-200">Total Outstanding:</span>
                     <span className="text-xl font-bold text-red-900 dark:text-red-100">
-                      ${data.totalPendingAmount?.toFixed(2) || '0.00'}
+                      ZMW {data.totalPendingAmount?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                 </div>

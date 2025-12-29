@@ -12,6 +12,7 @@ import { Plus, UserCheck, X } from "lucide-react"
 interface TeacherAssignment {
   id: string
   class: { name: string }
+  section: { name: string } | null
   subject: { name: string; code: string }
   teacher: {
     user: { name: string }
@@ -22,6 +23,12 @@ interface TeacherAssignment {
 interface Class {
   id: string
   name: string
+}
+
+interface Section {
+  id: string
+  name: string
+  classId: string
 }
 
 interface Subject {
@@ -39,12 +46,16 @@ interface Staff {
 export default function TeacherAssignmentsPage() {
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([])
   const [classes, setClasses] = useState<Class[]>([])
+  const [sections, setSections] = useState<Section[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [teachers, setTeachers] = useState<Staff[]>([])
   const [classSubjects, setClassSubjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedClassId, setSelectedClassId] = useState<string>("")
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("")
+  const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>("")
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("")
 
   useEffect(() => {
     fetchData()
@@ -52,17 +63,20 @@ export default function TeacherAssignmentsPage() {
 
   const fetchData = async () => {
     try {
-      const [assignmentsRes, classesRes, subjectsRes, staffRes, classSubjectsRes] = await Promise.all([
+      const [assignmentsRes, classesRes, sectionsRes, subjectsRes, staffRes, classSubjectsRes] = await Promise.all([
         fetch("/api/teacher-assignments"),
         fetch("/api/classes"),
+        fetch("/api/sections"),
         fetch("/api/subjects"),
         fetch("/api/staff"),
         fetch("/api/class-subjects"),
       ])
       setAssignments(await assignmentsRes.json())
       setClasses(await classesRes.json())
+      setSections(await sectionsRes.json())
       setSubjects(await subjectsRes.json())
       const staff = await staffRes.json()
+      // Filter for staff with user info (teachers)
       setTeachers(staff.filter((s: Staff) => s.user && s.user.name))
       setClassSubjects(await classSubjectsRes.json())
     } catch (error) {
@@ -72,16 +86,42 @@ export default function TeacherAssignmentsPage() {
     }
   }
 
+  const getSectionsForClass = (classId: string) => {
+    return sections.filter(s => s.classId === classId)
+  }
+
   const handleClassChange = async (classId: string) => {
     setSelectedClassId(classId)
-    if (classId) {
+    setSelectedSectionId("") // Reset section when class changes
+    setSelectedClassSubjectId("") // Reset class subject when class changes
+    setClassSubjects([])
+  }
+
+  const handleSectionChange = async (sectionId: string) => {
+    setSelectedSectionId(sectionId)
+    setSelectedClassSubjectId("") // Reset class subject when section changes
+    if (selectedClassId && sectionId) {
       try {
-        const res = await fetch(`/api/class-subjects?classId=${classId}`)
+        const res = await fetch(`/api/class-subjects?classId=${selectedClassId}&sectionId=${sectionId}`)
         const data = await res.json()
         setClassSubjects(data)
       } catch (error) {
         console.error("Failed to fetch class subjects:", error)
       }
+    } else {
+      setClassSubjects([])
+    }
+  }
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsDialogOpen(open)
+    if (!open) {
+      // Reset form state when dialog closes
+      setSelectedClassId("")
+      setSelectedSectionId("")
+      setSelectedClassSubjectId("")
+      setSelectedTeacherId("")
+      setClassSubjects([])
     }
   }
 
@@ -95,10 +135,14 @@ export default function TeacherAssignmentsPage() {
 
       if (res.ok) {
         fetchData()
-        setIsDialogOpen(false)
+        handleDialogOpenChange(false)
+      } else {
+        const errorData = await res.json()
+        alert(errorData.error || "Failed to assign teacher")
       }
     } catch (error) {
       console.error("Failed to assign teacher:", error)
+      alert("Failed to assign teacher")
     }
   }
 
@@ -125,7 +169,7 @@ export default function TeacherAssignmentsPage() {
           <h1 className="text-3xl font-bold">Teacher Assignments</h1>
           <p className="text-muted-foreground">Assign teachers to classes and subjects</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -136,74 +180,119 @@ export default function TeacherAssignmentsPage() {
             <DialogHeader>
               <DialogTitle>Assign Teacher</DialogTitle>
               <DialogDescription>
-                Assign a teacher to a class and subject
+                Assign a teacher to a class section and subject
               </DialogDescription>
             </DialogHeader>
             <form
               onSubmit={async (e) => {
                 e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                const classSubjectId = formData.get("classSubjectId") as string
-                const teacherId = formData.get("teacherId") as string
-                if (classSubjectId && teacherId) {
-                  await handleAssign(classSubjectId, teacherId)
+                if (selectedClassSubjectId && selectedTeacherId) {
+                  await handleAssign(selectedClassSubjectId, selectedTeacherId)
+                } else {
+                  alert("Please select both a class subject and a teacher")
                 }
               }}
             >
               <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="classId">Class</Label>
-                  <Select
-                    name="classId"
-                    value={selectedClassId}
-                    onValueChange={handleClassChange}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes.map((cls) => (
-                        <SelectItem key={cls.id} value={cls.id}>
-                          {cls.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="classId">Class</Label>
+                    <Select
+                      value={selectedClassId}
+                      onValueChange={handleClassChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sectionId">Section</Label>
+                    <Select
+                      value={selectedSectionId}
+                      onValueChange={handleSectionChange}
+                      disabled={!selectedClassId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedClassId ? "Select section" : "Select class first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getSectionsForClass(selectedClassId).length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No sections for this class
+                          </SelectItem>
+                        ) : (
+                          getSectionsForClass(selectedClassId).map((section) => (
+                            <SelectItem key={section.id} value={section.id}>
+                              {section.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="classSubjectId">Class & Subject</Label>
-                  <Select name="classSubjectId" required disabled={!selectedClassId}>
+                  <Label htmlFor="classSubjectId">Subject</Label>
+                  <Select 
+                    value={selectedClassSubjectId} 
+                    onValueChange={setSelectedClassSubjectId}
+                    disabled={!selectedSectionId}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder={selectedClassId ? "Select class subject" : "Select class first"} />
+                      <SelectValue placeholder={selectedSectionId ? "Select subject" : "Select section first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {classSubjects.map((cs) => (
-                        <SelectItem key={cs.id} value={cs.id}>
-                          {cs.subject.name} ({cs.subject.code})
+                      {classSubjects.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No subjects assigned to this section
                         </SelectItem>
-                      ))}
+                      ) : (
+                        classSubjects.map((cs) => (
+                          <SelectItem key={cs.id} value={cs.id}>
+                            {cs.subject.name} ({cs.subject.code}) {cs.teacher ? `- ${cs.teacher.user.name}` : "- Not assigned"}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="teacherId">Teacher</Label>
-                  <Select name="teacherId" required>
+                  <Select 
+                    value={selectedTeacherId} 
+                    onValueChange={setSelectedTeacherId}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select teacher" />
                     </SelectTrigger>
                     <SelectContent>
-                      {teachers.map((teacher) => (
-                        <SelectItem key={teacher.id} value={teacher.id}>
-                          {teacher.user.name} ({teacher.employeeId})
+                      {teachers.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No teachers found
                         </SelectItem>
-                      ))}
+                      ) : (
+                        teachers.map((teacher) => (
+                          <SelectItem key={teacher.id} value={teacher.id}>
+                            {teacher.user.name} ({teacher.employeeId})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Assign Teacher</Button>
+                <Button type="submit" disabled={!selectedClassSubjectId || !selectedTeacherId}>
+                  Assign Teacher
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -225,6 +314,7 @@ export default function TeacherAssignmentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Class</TableHead>
+                  <TableHead>Section</TableHead>
                   <TableHead>Subject</TableHead>
                   <TableHead>Teacher</TableHead>
                   <TableHead>Employee ID</TableHead>
@@ -235,6 +325,7 @@ export default function TeacherAssignmentsPage() {
                 {assignments.map((assignment) => (
                   <TableRow key={assignment.id}>
                     <TableCell>{assignment.class.name}</TableCell>
+                    <TableCell>{assignment.section?.name || "-"}</TableCell>
                     <TableCell>
                       {assignment.subject.name} ({assignment.subject.code})
                     </TableCell>

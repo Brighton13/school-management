@@ -37,13 +37,14 @@ export async function POST(request: NextRequest) {
 
         const {
           classname,
+          sectionname,
           subjectcode,
           employeeid,
         } = row
 
-        if (!classname || !subjectcode || !employeeid) {
+        if (!classname || !sectionname || !subjectcode || !employeeid) {
           results.failed++
-          results.errors.push(`Row ${i + 1}: Missing required fields`)
+          results.errors.push(`Row ${i + 1}: Missing required fields (classname, sectionname, subjectcode, employeeid)`)
           continue
         }
 
@@ -55,6 +56,20 @@ export async function POST(request: NextRequest) {
         if (!classRecord) {
           results.failed++
           results.errors.push(`Row ${i + 1}: Class not found`)
+          continue
+        }
+
+        // Find section
+        const section = await prisma.section.findFirst({
+          where: { 
+            name: sectionname,
+            classId: classRecord.id,
+          },
+        })
+
+        if (!section) {
+          results.failed++
+          results.errors.push(`Row ${i + 1}: Section not found for class ${classname}`)
           continue
         }
 
@@ -83,8 +98,9 @@ export async function POST(request: NextRequest) {
         // Find or create class subject
         const classSubject = await prisma.classSubject.upsert({
           where: {
-            classId_subjectId: {
+            classId_sectionId_subjectId: {
               classId: classRecord.id,
+              sectionId: section.id,
               subjectId: subject.id,
             },
           },
@@ -93,6 +109,7 @@ export async function POST(request: NextRequest) {
           },
           create: {
             classId: classRecord.id,
+            sectionId: section.id,
             subjectId: subject.id,
             teacherId: teacher.id,
           },

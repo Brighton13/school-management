@@ -191,7 +191,7 @@ export function DashboardCharts() {
                   />
                   <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
                   <Tooltip 
-                    formatter={(value: number) => `$${value.toFixed(2)}`}
+                    formatter={(value: number) => `ZMW ${value.toFixed(2)}`}
                     contentStyle={{ 
                       backgroundColor: 'rgba(255, 255, 255, 0.95)', 
                       border: '1px solid #e5e7eb',

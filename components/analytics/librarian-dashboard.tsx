@@ -125,7 +125,7 @@ export function LibrarianDashboard() {
         />
         <StatCard
           title="Total Value"
-          value={`$${data.inventory.totalValue.toFixed(2)}`}
+          value={`ZMW ${data.inventory.totalValue.toFixed(2)}`}
           description="Inventory value"
           icon={CheckCircle}
         />

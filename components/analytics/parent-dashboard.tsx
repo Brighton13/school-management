@@ -130,8 +130,8 @@ export function ParentDashboard() {
         />
         <StatCard
           title="Total Fees"
-          value={`$${data.totalFees.paid.toFixed(2)}`}
-          description={`$${data.totalFees.pending.toFixed(2)} pending`}
+          value={`ZMW ${data.totalFees.paid.toFixed(2)}`}
+          description={`ZMW ${data.totalFees.pending.toFixed(2)} pending`}
           icon={DollarSign}
         />
       </div>
@@ -197,7 +197,7 @@ export function ParentDashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pending Fees</p>
-                <p className="text-xl font-semibold text-amber-600">${child.pendingFees.toFixed(2)}</p>
+                <p className="text-xl font-semibold text-amber-600">ZMW {child.pendingFees.toFixed(2)}</p>
               </div>
             </CardContent>
           </Card>

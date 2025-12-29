@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { StatCard } from "./stat-cards"
+import { StudentSubjectSelection } from "./student-subject-selection"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -139,7 +140,7 @@ export function StudentDashboard() {
         <StatCard
           title="Fees Status"
           value={data.fees.pending === 0 ? "Paid" : `${data.fees.pending} Pending`}
-          description={`$${data.fees.paid.toFixed(2)} / $${data.fees.total.toFixed(2)}`}
+          description={`ZMW ${data.fees.paid.toFixed(2)} / ZMW ${data.fees.total.toFixed(2)}`}
           icon={DollarSign}
         />
       </div>
@@ -197,6 +198,9 @@ export function StudentDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Subject Selection */}
+      <StudentSubjectSelection />
 
       {/* Upcoming Exams */}
       <Card className="border-2 shadow-lg">

@@ -26,6 +26,7 @@ export async function PUT(
       },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: {
           include: { user: true },
@@ -41,7 +42,7 @@ export async function PUT(
       request,
       {
         entityId: params.id,
-        description: `Updated class-subject: ${updated.class.name} - ${updated.subject.name}`,
+        description: `Updated class-subject: ${updated.class.name} ${updated.section?.name || ""} - ${updated.subject.name}`,
       }
     )
 
@@ -69,6 +70,7 @@ export async function DELETE(
       where: { id: params.id },
       include: {
         class: true,
+        section: true,
         subject: true,
       },
     })
@@ -82,7 +84,7 @@ export async function DELETE(
         request,
         {
           entityId: params.id,
-          description: `Deleted class-subject: ${classSubject.class.name} - ${classSubject.subject.name}`,
+          description: `Deleted class-subject: ${classSubject.class.name} ${classSubject.section?.name || ""} - ${classSubject.subject.name}`,
         }
       )
     }

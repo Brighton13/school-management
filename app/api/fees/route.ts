@@ -12,12 +12,43 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const studentId = searchParams.get("studentId")
+    let studentId = searchParams.get("studentId")
     const status = searchParams.get("status")
+
+    // Students can only see their own fees
+    if (session.user.role === "STUDENT") {
+      const student = await prisma.student.findUnique({
+        where: { userId: session.user.id },
+      })
+      if (!student) {
+        return NextResponse.json({ error: "Student not found" }, { status: 404 })
+      }
+      studentId = student.id
+    }
+
+    // Parents can see their children's fees
+    let parentStudentIds: string[] = []
+    if (session.user.role === "PARENT") {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          students: {
+            select: { id: true },
+          },
+        },
+      })
+      if (parent) {
+        parentStudentIds = parent.students.map(student => student.id)
+      }
+      if (parentStudentIds.length === 0) {
+        return NextResponse.json([])
+      }
+    }
 
     const fees = await prisma.fee.findMany({
       where: {
         ...(studentId ? { studentId } : {}),
+        ...(session.user.role === "PARENT" && !studentId ? { studentId: { in: parentStudentIds } } : {}),
         ...(status ? { status } : {}),
       },
       include: {
@@ -31,6 +62,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(fees)
   } catch (error) {
+    console.error("Error fetching fees:", error)
     return NextResponse.json(
       { error: "Failed to fetch fees" },
       { status: 500 }

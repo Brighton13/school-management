@@ -59,11 +59,12 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     title: "Academic Management",
     roles: ["ADMIN","PRINCIPAL"],
     items: [
-      { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN"] },
-      { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
-      { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN"] },
-      { name: "Subjects", href: "/dashboard/subjects", icon: FileText, roles: ["ADMIN"] },
-      { name: "Exams", href: "/dashboard/exams", icon: FileText, roles: ["ADMIN"] },
+      { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Subjects", href: "/dashboard/subjects", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Exams", href: "/dashboard/exams", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
+        { name: "Class Subjects", href: "/dashboard/class-subjects", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
     ],
   },
   {
@@ -100,7 +101,8 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "LIBRARIAN"],
     items: [
       { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardList, roles: ["ADMIN", "PRINCIPAL", "TEACHER", "STUDENT", "PARENT"] },
-      { name: "Fees", href: "/dashboard/fees", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "STUDENT", "PARENT"] },
+      { name: "Fees Management", href: "/dashboard/fees", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { name: "My Fees", href: "/dashboard/fees", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
       { name: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "PRINCIPAL", "LIBRARIAN"] },
     ],
   },

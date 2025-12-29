@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions)
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
+    const sectionId = searchParams.get("sectionId")
     const studentId = searchParams.get("studentId")
     const academicYear = searchParams.get("academicYear")
     const term = searchParams.get("term")
@@ -29,16 +30,18 @@ export async function GET(request: NextRequest) {
     let classSubjects = await prisma.classSubject.findMany({
       where: {
         ...(classId ? { classId } : {}),
+        ...(sectionId ? { sectionId } : {}),
         ...(teacherId ? { teacherId } : {}),
       },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: {
           include: { user: true },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ class: { name: "asc" } }, { section: { name: "asc" } }, { createdAt: "desc" }],
     })
 
     // If studentId is provided, filter by student subject selections
@@ -93,11 +96,31 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { classId, subjectId, teacherId, maxMarks, passMarks } = body
+    const { classId, sectionId, subjectId, teacherId, maxMarks, passMarks } = body
+
+    if (!classId || !sectionId || !subjectId) {
+      return NextResponse.json(
+        { error: "Class, Section, and Subject are required" },
+        { status: 400 }
+      )
+    }
+
+    // Check if this combination already exists
+    const existing = await prisma.classSubject.findFirst({
+      where: { classId, sectionId, subjectId },
+    })
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "This subject is already assigned to this class section" },
+        { status: 400 }
+      )
+    }
 
     const classSubject = await prisma.classSubject.create({
       data: {
         classId,
+        sectionId,
         subjectId,
         teacherId: teacherId || null,
         maxMarks: maxMarks ? parseFloat(maxMarks) : null,
@@ -105,6 +128,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         class: true,
+        section: true,
         subject: true,
         teacher: {
           include: { user: true },
@@ -120,12 +144,13 @@ export async function POST(request: NextRequest) {
       request,
       {
         entityId: classSubject.id,
-        description: `Created class-subject: ${classSubject.class.name} - ${classSubject.subject.name}`,
+        description: `Created class-subject: ${classSubject.class.name} ${classSubject.section?.name || ""} - ${classSubject.subject.name}`,
       }
     )
 
     return NextResponse.json(classSubject, { status: 201 })
   } catch (error) {
+    console.error("Error creating class subject:", error)
     return NextResponse.json(
       { error: "Failed to create class subject" },
       { status: 500 }

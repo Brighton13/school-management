@@ -176,7 +176,7 @@ export function AdminAnalytics() {
         <StatCard
           title="Fee Collection Rate"
           value={`${data.fees.collectionRate}%`}
-          description={`$${data.fees.paidAmount.toFixed(2)} / $${data.fees.totalAmount.toFixed(2)}`}
+          description={`ZMW ${data.fees.paidAmount.toFixed(2)} / ZMW ${data.fees.totalAmount.toFixed(2)}`}
           icon={DollarSign}
         />
       </div>
@@ -185,20 +185,20 @@ export function AdminAnalytics() {
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Fees"
-          value={`$${data.fees.totalAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.totalAmount.toFixed(2)}`}
           description="All fee records"
           icon={DollarSign}
         />
         <StatCard
           title="Paid Amount"
-          value={`$${data.fees.paidAmount.toFixed(2)}`}
+          value={`ZMW ${data.fees.paidAmount.toFixed(2)}`}
           description={`${data.fees.collectionRate}% collected`}
           icon={TrendingUp}
         />
         <StatCard
           title="Pending Fees"
           value={data.fees.pendingCount}
-          description={`$${data.fees.pendingAmount.toFixed(2)} pending`}
+          description={`ZMW ${data.fees.pendingAmount.toFixed(2)} pending`}
           icon={AlertCircle}
         />
         <StatCard
