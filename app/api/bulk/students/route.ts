@@ -104,9 +104,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const template = `Email,Name,Phone,AdmissionNumber,DateOfBirth,Gender,Address,EmergencyContact
-student1@example.com,John Doe,1234567890,ADM001,2010-01-15,MALE,123 Main St,9876543210
-student2@example.com,Jane Smith,1234567891,ADM002,2010-02-20,FEMALE,456 Oak Ave,9876543211`
+    const template = `Email,Name,Phone,DateOfBirth,Gender,Address,EmergencyContact
+student1@example.com,John Doe,1234567890,2010-01-15,MALE,123 Main St,9876543210
+student2@example.com,Jane Smith,1234567891,2010-02-20,FEMALE,456 Oak Ave,9876543211`
 
     return new Response(template, {
       headers: {
