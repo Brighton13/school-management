@@ -125,13 +125,12 @@ export async function POST(request: NextRequest) {
         studentId,
         classId: classSubject.classId,
         academicYear,
-        term,
         status: "ACTIVE",
       },
     })
     if (!enrollment) {
       return NextResponse.json(
-        { error: "Student is not enrolled in this class for the specified academic year and term" },
+        { error: "Student is not enrolled in this class for the specified academic year" },
         { status: 400 }
       )
     }
@@ -139,17 +138,16 @@ export async function POST(request: NextRequest) {
     // Check for duplicate selection
     const existingSelection = await prisma.studentSubjectSelection.findUnique({
       where: {
-        studentId_classSubjectId_academicYear_term: {
+        studentId_classSubjectId_academicYear: {
           studentId,
           classSubjectId,
           academicYear,
-          term,
         },
       },
     })
     if (existingSelection) {
       return NextResponse.json(
-        { error: "Student has already selected this subject for this academic year and term" },
+        { error: "Student has already selected this subject for this academic year" },
         { status: 400 }
       )
     }
@@ -159,7 +157,6 @@ export async function POST(request: NextRequest) {
         studentId,
         classSubjectId,
         academicYear,
-        term,
       },
       include: {
         student: {

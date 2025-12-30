@@ -16,15 +16,14 @@ export async function POST(request: NextRequest) {
     const classId = formData.get("classId") as string
     const sectionId = formData.get("sectionId") as string
     const academicYear = formData.get("academicYear") as string
-    const term = formData.get("term") as string
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    if (!classId || !sectionId || !academicYear || !term) {
+    if (!classId || !sectionId || !academicYear) {
       return NextResponse.json(
-        { error: "Class, Section, Academic Year, and Term are required" },
+        { error: "Class, Section, and Academic Year are required" },
         { status: 400 }
       )
     }
@@ -112,7 +111,6 @@ export async function POST(request: NextRequest) {
             classId: classId,
             sectionId: sectionId,
             academicYear: academicYear.trim(),
-            term: term.trim(),
           },
         })
 
@@ -135,7 +133,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         description: `Bulk enrolled ${results.success} students (${results.failed} failed)`,
-        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classId, sectionId, academicYear, term },
+        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classId, sectionId, academicYear },
       }
     )
 

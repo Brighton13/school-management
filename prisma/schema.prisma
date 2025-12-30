@@ -208,9 +208,8 @@ model ClassEnrollment {
   studentId    String
   classId      String
   sectionId    String
-  academicYear String
-  term         String
-  status       String   @default("ACTIVE") // ACTIVE, PROMOTED, REPEATED
+  academicYear String   // Enroll once per academic year, not per term
+  status       String   @default("ACTIVE") // ACTIVE, PROMOTED, REPEATED, WITHDRAWN
   enrolledAt   DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -219,7 +218,9 @@ model ClassEnrollment {
   class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
   section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, classId, sectionId, academicYear, term])
+  @@unique([studentId, classId, sectionId, academicYear])
+  @@index([studentId, academicYear])
+  @@index([classId, academicYear])
 }
 
 // Term Management
@@ -304,8 +305,7 @@ model StudentSubjectSelection {
   id             String   @id @default(cuid())
   studentId      String
   classSubjectId String
-  academicYear   String
-  term           String
+  academicYear   String   // Select subjects once per academic year
   status         String   @default("ACTIVE") // ACTIVE, DROPPED
   selectedAt     DateTime @default(now())
   createdAt      DateTime @default(now())
@@ -314,7 +314,7 @@ model StudentSubjectSelection {
   student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, classSubjectId, academicYear, term])
+  @@unique([studentId, classSubjectId, academicYear])
   @@index([studentId])
   @@index([classSubjectId])
 }

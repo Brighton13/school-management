@@ -98,7 +98,6 @@ export async function GET(request: NextRequest) {
               classEnrollment: {
                 where: {
                   academicYear: currentTerm.academicYear,
-                  term: currentTerm.name,
                 },
                 include: {
                   class: true,

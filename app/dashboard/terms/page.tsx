@@ -7,8 +7,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus } from "lucide-react"
+import { Plus, Pencil, Trash2 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+
 
 interface Term {
   id: string
@@ -23,6 +35,9 @@ export default function TermsPage() {
   const [terms, setTerms] = useState<Term[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingTerm, setEditingTerm] = useState<Term | null>(null)
+  const [deletingTerm, setDeletingTerm] = useState<Term | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchTerms()
@@ -45,8 +60,11 @@ export default function TermsPage() {
     const formData = new FormData(e.currentTarget)
     
     try {
-      const res = await fetch("/api/terms", {
-        method: "POST",
+      const url = editingTerm ? `/api/terms/${editingTerm.id}` : "/api/terms"
+      const method = editingTerm ? "PATCH" : "POST"
+      
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.get("name"),
@@ -59,11 +77,77 @@ export default function TermsPage() {
 
       if (res.ok) {
         setIsDialogOpen(false)
+        setEditingTerm(null)
         fetchTerms()
         e.currentTarget.reset()
+        toast({
+          title: editingTerm ? "Term updated" : "Term created",
+          description: editingTerm 
+            ? "Academic term has been updated successfully." 
+            : "Academic term has been created successfully.",
+        })
+      } else {
+        const error = await res.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to save term",
+          variant: "destructive",
+        })
       }
     } catch (error) {
-      console.error("Failed to create term:", error)
+      console.error("Failed to save term:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEdit = (term: Term) => {
+    setEditingTerm(term)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!deletingTerm) return
+
+    try {
+      const res = await fetch(`/api/terms/${deletingTerm.id}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        fetchTerms()
+        toast({
+          title: "Term deleted",
+          description: "Academic term has been deleted successfully.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete term",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to delete term:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingTerm(null)
+    }
+  }
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open)
+    if (!open) {
+      setEditingTerm(null)
     }
   }
 
@@ -74,7 +158,7 @@ export default function TermsPage() {
           <h1 className="text-3xl font-bold">Academic Terms</h1>
           <p className="text-muted-foreground">Manage academic terms and sessions</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -83,9 +167,13 @@ export default function TermsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Academic Term</DialogTitle>
+              <DialogTitle>
+                {editingTerm ? "Edit Academic Term" : "Add New Academic Term"}
+              </DialogTitle>
               <DialogDescription>
-                Create a new academic term
+                {editingTerm 
+                  ? "Update the academic term details" 
+                  : "Create a new academic term"}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
@@ -93,21 +181,45 @@ export default function TermsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Term Name</Label>
-                    <Input id="name" name="name" placeholder="e.g., First Term" required />
+                    <Input 
+                      id="name" 
+                      name="name" 
+                      placeholder="e.g., First Term" 
+                      defaultValue={editingTerm?.name}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="academicYear">Academic Year</Label>
-                    <Input id="academicYear" name="academicYear" placeholder="2024-2025" required />
+                    <Input 
+                      id="academicYear" 
+                      name="academicYear" 
+                      placeholder="2024-2025" 
+                      defaultValue={editingTerm?.academicYear}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="startDate">Start Date</Label>
-                    <Input id="startDate" name="startDate" type="date" required />
+                    <Input 
+                      id="startDate" 
+                      name="startDate" 
+                      type="date" 
+                      defaultValue={editingTerm ? new Date(editingTerm.startDate).toISOString().split('T')[0] : undefined}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="endDate">End Date</Label>
-                    <Input id="endDate" name="endDate" type="date" required />
+                    <Input 
+                      id="endDate" 
+                      name="endDate" 
+                      type="date" 
+                      defaultValue={editingTerm ? new Date(editingTerm.endDate).toISOString().split('T')[0] : undefined}
+                      required 
+                    />
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -115,13 +227,16 @@ export default function TermsPage() {
                     type="checkbox"
                     id="isCurrent"
                     name="isCurrent"
+                    defaultChecked={editingTerm?.isCurrent}
                     className="rounded border-gray-300"
                   />
                   <Label htmlFor="isCurrent">Set as current term</Label>
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Create Term</Button>
+                <Button type="submit">
+                  {editingTerm ? "Update Term" : "Create Term"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -147,6 +262,7 @@ export default function TermsPage() {
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -163,6 +279,24 @@ export default function TermsPage() {
                         </span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(term)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingTerm(term)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -170,6 +304,25 @@ export default function TermsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingTerm} onOpenChange={(open) => !open && setDeletingTerm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the academic term "{deletingTerm?.name}" ({deletingTerm?.academicYear}).
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

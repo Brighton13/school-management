@@ -46,13 +46,12 @@ export async function GET(request: NextRequest) {
 
     // If studentId is provided, filter by student subject selections
     // Show: Core subjects (always) + Elective/Optional subjects that student has selected
-    if (studentId && academicYear && term) {
+    if (studentId && academicYear) {
       // Get student's selected elective/optional subjects
       const studentSelections = await prisma.studentSubjectSelection.findMany({
         where: {
           studentId,
           academicYear,
-          term,
           status: "ACTIVE",
         },
         select: {

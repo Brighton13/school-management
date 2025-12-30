@@ -21,7 +21,6 @@ interface Enrollment {
   class: { id: string; name: string }
   section: { id: string; name: string }
   academicYear: string
-  term: string
   status: string
 }
 
@@ -117,7 +116,6 @@ export default function EnrollmentPage() {
           classId: formData.get("classId"),
           sectionId: formData.get("sectionId"),
           academicYear: formData.get("academicYear"),
-          term: formData.get("term"),
         }),
       })
 
@@ -254,37 +252,23 @@ export default function EnrollmentPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="academicYear">Academic Year</Label>
-                    <Select name="academicYear" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select academic year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
-                          <SelectItem key={year} value={year}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="term">Term</Label>
-                    <Select name="term" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select term" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {academicTerms.map((term) => (
-                          <SelectItem key={term.id} value={term.name}>
-                            {term.name} {term.isCurrent && "(Current)"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="academicYear">Academic Year</Label>
+                  <Select name="academicYear" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select academic year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Students enroll once per academic year. Terms are tracked automatically.
+                  </p>
                 </div>
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -363,37 +347,23 @@ export default function EnrollmentPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-academicYear">Academic Year</Label>
-                    <Select name="academicYear" defaultValue={editingEnrollment.academicYear} required>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
-                          <SelectItem key={year} value={year}>
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-term">Term</Label>
-                    <Select name="term" defaultValue={editingEnrollment.term} required>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {academicTerms.map((term) => (
-                          <SelectItem key={term.id} value={term.name}>
-                            {term.name} {term.isCurrent && "(Current)"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-academicYear">Academic Year</Label>
+                  <Select name="academicYear" defaultValue={editingEnrollment.academicYear} required>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
+                        <SelectItem key={year} value={year}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Students enroll once per academic year. Terms are tracked automatically.
+                  </p>
                 </div>
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -425,7 +395,6 @@ export default function EnrollmentPage() {
                       <TableHead className="text-xs sm:text-sm">Class</TableHead>
                       <TableHead className="text-xs sm:text-sm hidden md:table-cell">Section</TableHead>
                       <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Academic Year</TableHead>
-                      <TableHead className="text-xs sm:text-sm hidden lg:table-cell">Term</TableHead>
                       <TableHead className="text-xs sm:text-sm">Status</TableHead>
                       <TableHead className="text-xs sm:text-sm">Actions</TableHead>
                     </TableRow>
@@ -457,9 +426,6 @@ export default function EnrollmentPage() {
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
                           {enrollment.academicYear}
-                        </TableCell>
-                        <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                          {enrollment.term}
                         </TableCell>
                         <TableCell>
                           <span

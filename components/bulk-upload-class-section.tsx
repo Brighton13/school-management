@@ -28,7 +28,6 @@ export function BulkUploadClassSection() {
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [academicYear, setAcademicYear] = useState<string>("")
-  const [term, setTerm] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [results, setResults] = useState<{
     success: number
@@ -108,8 +107,8 @@ export function BulkUploadClassSection() {
       return
     }
 
-    if (!academicYear || !term) {
-      alert("Please enter academic year and term")
+    if (!academicYear) {
+      alert("Please enter academic year")
       return
     }
 
@@ -122,7 +121,6 @@ export function BulkUploadClassSection() {
       formData.append("classId", selectedClassId)
       formData.append("sectionId", selectedSectionId)
       formData.append("academicYear", academicYear)
-      formData.append("term", term)
 
       const response = await fetch("/api/bulk/enrollment-class-section", {
         method: "POST",
@@ -225,17 +223,9 @@ export function BulkUploadClassSection() {
               placeholder="e.g., 2024-2025"
               required
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="term">Term *</Label>
-            <Input
-              id="term"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="e.g., First Term"
-              required
-            />
+            <p className="text-xs text-muted-foreground">
+              Students will be enrolled for the entire academic year
+            </p>
           </div>
         </div>
 
@@ -258,7 +248,7 @@ export function BulkUploadClassSection() {
 
         <Button
           onClick={handleUpload}
-          disabled={!file || !selectedClassId || !selectedSectionId || !academicYear || !term || uploading}
+          disabled={!file || !selectedClassId || !selectedSectionId || !academicYear  || uploading}
           className="w-full"
         >
           {uploading ? "Uploading..." : "Upload & Enroll Students"}

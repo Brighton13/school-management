@@ -49,7 +49,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { classId, sectionId, academicYear, term, status } = body
+    const { classId, sectionId, academicYear, status } = body
 
     const updatedEnrollment = await prisma.classEnrollment.update({
       where: { id: params.id },
@@ -57,7 +57,6 @@ export async function PUT(
         classId,
         sectionId,
         academicYear,
-        term,
         status: status || "ACTIVE",
       },
       include: {

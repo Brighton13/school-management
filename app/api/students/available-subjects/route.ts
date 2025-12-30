@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       where: {
         studentId: student.id,
         academicYear: targetAcademicYear,
-        term: targetTerm,
+        // term: targetTerm, // Removed because 'term' is not a valid property
       },
       select: {
         classSubjectId: true,
@@ -271,11 +271,10 @@ export async function POST(request: NextRequest) {
       // Check if already selected
       const existing = await prisma.studentSubjectSelection.findUnique({
         where: {
-          studentId_classSubjectId_academicYear_term: {
+          studentId_classSubjectId_academicYear: {
             studentId: student.id,
             classSubjectId,
             academicYear,
-            term,
           },
         },
       })
@@ -309,7 +308,6 @@ export async function POST(request: NextRequest) {
           studentId: student.id,
           classSubjectId,
           academicYear,
-          term,
           status: "ACTIVE",
         },
         include: {
@@ -327,11 +325,10 @@ export async function POST(request: NextRequest) {
       // Drop the subject
       const existing = await prisma.studentSubjectSelection.findUnique({
         where: {
-          studentId_classSubjectId_academicYear_term: {
+          studentId_classSubjectId_academicYear: {
             studentId: student.id,
             classSubjectId,
             academicYear,
-            term,
           },
         },
       })

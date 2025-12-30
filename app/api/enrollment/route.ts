@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId, classId, sectionId, academicYear, term } = body
+    const { studentId, classId, sectionId, academicYear } = body
 
     const enrollment = await prisma.classEnrollment.create({
       data: {
@@ -109,7 +109,6 @@ export async function POST(request: NextRequest) {
         classId,
         sectionId,
         academicYear,
-        term,
       },
       include: {
         student: {
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         entityId: enrollment.id,
-        description: `Enrolled ${enrollment.student.user.name} in ${enrollment.class.name} - ${enrollment.section.name} (${academicYear}, ${term})`,
+        description: `Enrolled ${enrollment.student.user.name} in ${enrollment.class.name} - ${enrollment.section.name} (${academicYear})`,
       }
     )
 

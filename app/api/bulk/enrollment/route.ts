@@ -40,10 +40,9 @@ export async function POST(request: NextRequest) {
           classname,
           sectionname,
           academicyear,
-          term,
         } = row
 
-        if (!admissionnumber || !classname || !sectionname || !academicyear || !term) {
+        if (!admissionnumber || !classname || !sectionname || !academicyear) {
           results.failed++
           results.errors.push(`Row ${i + 1}: Missing required fields`)
           continue
@@ -91,7 +90,7 @@ export async function POST(request: NextRequest) {
             classId: classRecord.id,
             sectionId: section.id,
             academicYear: academicyear,
-            term,
+            // term field removed because it does not exist in the model
           },
         })
 
@@ -122,9 +121,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const template = `AdmissionNumber,ClassName,SectionName,AcademicYear,Term
-ADM001,Grade 1,A,2024-2025,First Term
-ADM002,Grade 1,B,2024-2025,First Term`
+    const template = `AdmissionNumber,ClassName,SectionName,AcademicYear
+ADM001,Grade 1,A,2024-2025
+ADM002,Grade 1,B,2024-2025`
 
     return new Response(template, {
       headers: {
