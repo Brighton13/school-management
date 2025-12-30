@@ -154,11 +154,11 @@ export async function DELETE(
     await logAuditTrail(
       session.user.id,
       "DELETE",
-      "AcademicTerm",
+      "Term",
       request,
       {
         entityId: params.id,
-        description: `Deleted academic term: ${existingTerm.name} (${existingTerm.academicYearId})`,
+        description: `Deleted term: ${existingTerm.name} (${existingTerm.academicYearId})`,
         metadata: { deletedData: existingTerm },
       }
     )

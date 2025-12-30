@@ -116,7 +116,7 @@ export default function ClassResultsPage() {
     try {
       const params = new URLSearchParams({
         sectionId: selectedSectionId,
-        ...(selectedTermId && selectedTermId !== "all" ? { academicTermId: selectedTermId } : {}),
+        ...(selectedTermId && selectedTermId !== "all" ? { termId: selectedTermId } : {}),
         ...(selectedExamId && selectedExamId !== "all" ? { examId: selectedExamId } : {}),
       })
 
@@ -151,7 +151,7 @@ export default function ClassResultsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sectionId: selectedSectionId,
-          academicTermId: selectedTermId !== "all" ? selectedTermId : undefined,
+          termId: selectedTermId !== "all" ? selectedTermId : undefined,
           examId: selectedExamId !== "all" ? selectedExamId : undefined,
         }),
       })
@@ -177,7 +177,7 @@ export default function ClassResultsPage() {
         body: JSON.stringify({
           studentId,
           sectionId: selectedSectionId,
-          academicTermId: selectedTermId !== "all" ? selectedTermId : undefined,
+          termId: selectedTermId !== "all" ? selectedTermId : undefined,
           examId: selectedExamId !== "all" ? selectedExamId : undefined,
           sendToStudent: false,
         }),
@@ -207,7 +207,7 @@ export default function ClassResultsPage() {
         body: JSON.stringify({
           studentId,
           sectionId: selectedSectionId,
-          academicTermId: selectedTermId !== "all" ? selectedTermId : undefined,
+          termId: selectedTermId !== "all" ? selectedTermId : undefined,
           examId: selectedExamId !== "all" ? selectedExamId : undefined,
           sendToStudent: true,
         }),
@@ -257,7 +257,7 @@ export default function ClassResultsPage() {
     yPos += 10
     doc.text(`Class: ${reportData.enrollment?.class?.name || "N/A"} - ${reportData.enrollment?.section?.name || "N/A"}`, 20, yPos)
     yPos += 10
-    doc.text(`Academic Term: ${reportData.results[0]?.academicTerm.name || "N/A"}`, 20, yPos)
+    doc.text(`Term: ${reportData.results[0]?.term.name || "N/A"}`, 20, yPos)
     yPos += 15
 
     // Results table

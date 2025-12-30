@@ -28,9 +28,11 @@ interface Result {
       employeeId: string
     } | null
   }
-  academicTerm: {
+  term: {
     name: string
-    academicYear: string
+    academicYear: {
+      year: string
+    }
   }
 }
 
@@ -227,9 +229,9 @@ export default function ApprovalsPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Academic Term</label>
+                  <label className="text-sm font-medium text-muted-foreground">Term</label>
                   <p className="text-sm">
-                    {selectedResult.academicTerm.name} - {selectedResult.academicTerm.academicYear}
+                    {selectedResult.term.name} - {selectedResult.term.academicYear.year}
                   </p>
                 </div>
                 <div>

@@ -26,9 +26,11 @@ interface Result {
       user: { name: string }
     } | null
   }
-  academicTerm: {
+  term: {
     name: string
-    academicYear: string
+    academicYear: {
+      year: string
+    }
   }
   exam: {
     name: string

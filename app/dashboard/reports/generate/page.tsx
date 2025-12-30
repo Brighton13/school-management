@@ -24,10 +24,12 @@ interface ClassEnrollment {
   }
 }
 
-interface AcademicTerm {
+interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    year: string
+  }
 }
 
 interface Exam {
@@ -41,7 +43,7 @@ export default function GenerateReportPage() {
   const router = useRouter()
 
   const [sections, setSections] = useState<any[]>([])
-  const [terms, setTerms] = useState<AcademicTerm[]>([])
+  const [terms, setTerms] = useState<Term[]>([])
   const [exams, setExams] = useState<Exam[]>([])
   const [enrollments, setEnrollments] = useState<ClassEnrollment[]>([])
 
@@ -271,7 +273,7 @@ export default function GenerateReportPage() {
               <option value="">-- Select Term --</option>
               {terms.map(term => (
                 <option key={term.id} value={term.id}>
-                  {term.name} ({term.academicYear})
+                  {term.name} ({term.academicYear.year})
                 </option>
               ))}
             </select>

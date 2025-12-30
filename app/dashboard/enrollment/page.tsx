@@ -36,10 +36,13 @@ interface Class {
   sections: Array<{ id: string; name: string }>
 }
 
-interface AcademicTerm {
+interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    id: string
+    year: string
+  }
   isCurrent: boolean
 }
 
@@ -48,7 +51,7 @@ export default function EnrollmentPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [sections, setSections] = useState<Array<{ id: string; name: string; classId: string }>>([])
-  const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>([])
+  const [terms, setTerms] = useState<Term[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -73,7 +76,7 @@ export default function EnrollmentPage() {
       const classesData = await classesRes.json()
       setClasses(classesData)
       const termsData = await termsRes.json()
-      setAcademicTerms(termsData)
+      setTerms(termsData)
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -259,7 +262,7 @@ export default function EnrollmentPage() {
                       <SelectValue placeholder="Select academic year" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
+                      {Array.from(new Set(terms.map(term => term.academicYear.year))).map((year) => (
                         <SelectItem key={year} value={year}>
                           {year}
                         </SelectItem>
@@ -354,7 +357,7 @@ export default function EnrollmentPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from(new Set(academicTerms.map(term => term.academicYear))).map((year) => (
+                      {Array.from(new Set(terms.map(term => term.academicYear.year))).map((year) => (
                         <SelectItem key={year} value={year}>
                           {year}
                         </SelectItem>

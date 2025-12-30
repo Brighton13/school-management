@@ -17,11 +17,16 @@ interface Exam {
   name: string
   description: string | null
   examType: string
-  academicTermId: string
-  academicTerm: {
+  termId: string
+  term: {
     id: string
     name: string
-    academicYear: string
+    academicYear: {
+      year: string
+    }
+  }
+  academicYear: {
+    year: string
   }
   startDate: string | null
   endDate: string | null
@@ -36,7 +41,9 @@ interface Exam {
 interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    year: string
+  }
 }
 
 export default function ExamsPage() {
@@ -51,10 +58,10 @@ export default function ExamsPage() {
   
   // Form state for Select components
   const [formExamType, setFormExamType] = useState("")
-  const [formAcademicTermId, setFormAcademicTermId] = useState("")
+  const [formTermId, setFormTermId] = useState("")
   const [formStatus, setFormStatus] = useState("DRAFT")
   const [editFormExamType, setEditFormExamType] = useState("")
-  const [editFormAcademicTermId, setEditFormAcademicTermId] = useState("")
+  const [editFormTermId, setEditFormTermId] = useState("")
   const [editFormStatus, setEditFormStatus] = useState("DRAFT")
   
   const canApprove = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
@@ -84,7 +91,7 @@ export default function ExamsPage() {
     
     // Use state values for Select components
     const examType = editingExam ? editFormExamType : formExamType
-    const academicTermId = editingExam ? editFormAcademicTermId : formAcademicTermId
+    const termId = editingExam ? editFormTermId : formTermId
     const status = editingExam ? editFormStatus : formStatus
     
     // Validation
@@ -93,8 +100,8 @@ export default function ExamsPage() {
       return
     }
     
-    if (!academicTermId) {
-      alert("Please select an academic term")
+    if (!termId) {
+      alert("Please select a term")
       return
     }
     
@@ -109,7 +116,7 @@ export default function ExamsPage() {
           name: formData.get("name"),
           description: formData.get("description"),
           examType,
-          academicTermId,
+          termId,
           startDate: formData.get("startDate") || null,
           endDate: formData.get("endDate") || null,
           isFinal: formData.get("isFinal") === "on",
@@ -123,7 +130,7 @@ export default function ExamsPage() {
         setIsEditDialogOpen(false)
         setEditingExam(null)
         setFormExamType("")
-        setFormAcademicTermId("")
+        setFormTermId("")
         setFormStatus("DRAFT")
         setEditFormExamType("")
         setEditFormStatus("DRAFT")
@@ -144,7 +151,7 @@ export default function ExamsPage() {
   const handleEdit = async (exam: Exam) => {
     setEditingExam(exam)
     setEditFormExamType(exam.examType)
-    setEditFormAcademicTermId(exam.academicTermId)
+    setEditFormTermId(exam.termId)
     setEditFormStatus(exam.status)
     setIsEditDialogOpen(true)
   }
@@ -221,7 +228,7 @@ export default function ExamsPage() {
           setIsDialogOpen(open)
           if (!open) {
             setFormExamType("")
-            setFormAcademicTermId("")
+            setFormTermId("")
             setFormStatus("DRAFT")
           }
         }}>
@@ -265,15 +272,15 @@ export default function ExamsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="academicTermId">Academic Term</Label>
-                    <Select value={formAcademicTermId} onValueChange={setFormAcademicTermId} required>
+                    <Label htmlFor="termId">Term</Label>
+                    <Select value={formTermId} onValueChange={setFormTermId} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select term" />
                       </SelectTrigger>
                       <SelectContent>
                         {terms.map((term) => (
                           <SelectItem key={term.id} value={term.id}>
-                            {term.name} - {term.academicYear}
+                            {term.name} - {term.academicYear.year}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -383,7 +390,7 @@ export default function ExamsPage() {
                         <TableCell className="font-medium">{exam.name}</TableCell>
                         <TableCell>{exam.examType}</TableCell>
                         <TableCell>
-                          {exam.academicTerm.name} - {exam.academicTerm.academicYear}
+                          {exam.term.name} - {exam.term.academicYear.year}
                         </TableCell>
                         <TableCell>
                           {exam.isFinal ? (
@@ -479,7 +486,7 @@ export default function ExamsPage() {
         if (!open) {
           setEditingExam(null)
           setEditFormExamType("")
-          setEditFormAcademicTermId("")
+          setEditFormTermId("")
           setEditFormStatus("DRAFT")
         }
       }}>
@@ -518,15 +525,15 @@ export default function ExamsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-academicTermId">Academic Term</Label>
-                    <Select value={editFormAcademicTermId} onValueChange={setEditFormAcademicTermId} required>
+                    <Label htmlFor="edit-termId">Term</Label>
+                    <Select value={editFormTermId} onValueChange={setEditFormTermId} required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select term" />
                       </SelectTrigger>
                       <SelectContent>
                         {terms.map((term) => (
                           <SelectItem key={term.id} value={term.id}>
-                            {term.name} - {term.academicYear}
+                            {term.name} - {term.academicYear.year}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -30,9 +30,14 @@ interface Fee {
     user: { name: string }
     admissionNumber: string
   }
-  academicTerm: {
+  term: {
     name: string
-    academicYear: string
+    academicYear: {
+      year: string
+    }
+  }
+  academicYear: {
+    year: string
   }
 }
 
@@ -45,7 +50,9 @@ interface Student {
 interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    year: string
+  }
 }
 
 interface Class {
@@ -102,7 +109,7 @@ export default function FeesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentId: formData.get("studentId"),
-          academicTermId: formData.get("academicTermId"),
+          termId: formData.get("termId"),
           feeType: formData.get("feeType"),
           amount: formData.get("amount"),
           dueDate: formData.get("dueDate"),
@@ -135,7 +142,7 @@ export default function FeesPage() {
       sectionId: formData.get("sectionId") as string,
       studentIds: bulkTarget === "INDIVIDUAL" ? 
         (formData.get("studentIds") as string).split(",").filter(Boolean) : [],
-      academicTermId: formData.get("academicTermId") as string,
+      termId: formData.get("termId") as string,
       feeType: formData.get("feeType") as string,
       amount: formData.get("amount") as string,
       dueDate: formData.get("dueDate") as string,
@@ -303,7 +310,7 @@ export default function FeesPage() {
                             <div className="font-medium">{fee.student.user.name}</div>
                           </TableCell>
                         )}
-                        <TableCell>{fee.academicTerm.name} - {fee.academicTerm.academicYear}</TableCell>
+                        <TableCell>{fee.term.name} - {fee.academicYear.year}</TableCell>
                         <TableCell>{fee.feeType}</TableCell>
                         <TableCell className="font-medium">{formatCurrency(fee.amount)}</TableCell>
                         <TableCell className="text-green-600">{formatCurrency(fee.paidAmount)}</TableCell>
@@ -424,15 +431,15 @@ export default function FeesPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Academic Term</Label>
-                          <Select name="academicTermId" required>
+                          <Label>Term</Label>
+                          <Select name="termId" required>
                             <SelectTrigger>
                               <SelectValue placeholder="Select term" />
                             </SelectTrigger>
                             <SelectContent>
                               {terms.map((term) => (
                                 <SelectItem key={term.id} value={term.id}>
-                                  {term.name} - {term.academicYear}
+                                  {term.name} - {term.academicYear.year}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -512,15 +519,15 @@ export default function FeesPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Academic Term</Label>
-                          <Select name="academicTermId" required>
+                          <Label>Term</Label>
+                          <Select name="termId" required>
                             <SelectTrigger>
                               <SelectValue placeholder="Select term" />
                             </SelectTrigger>
                             <SelectContent>
                               {terms.map((term) => (
                                 <SelectItem key={term.id} value={term.id}>
-                                  {term.name} - {term.academicYear}
+                                  {term.name} - {term.academicYear.year}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -606,7 +613,7 @@ export default function FeesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {fee.academicTerm.name} {fee.academicTerm.academicYear}
+                        {fee.term.name} {fee.academicYear.year}
                       </TableCell>
                       <TableCell>{fee.feeType}</TableCell>
                       <TableCell>{formatCurrency(fee.amount)}</TableCell>
