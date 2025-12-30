@@ -112,30 +112,58 @@ export async function POST(request: NextRequest) {
       gender,
       address,
       emergencyContact,
+      appliedClassId,
+      appliedSectionId,
+      academicYear,
+      applicationNotes,
     } = body
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        phone,
-        role: "STUDENT",
-        student: {
-          create: {
-            admissionNumber,
-            dateOfBirth: new Date(dateOfBirth),
-            gender,
-            address,
-            emergencyContact,
+    // Transaction: Create user, student, and application
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          phone,
+          role: "STUDENT",
+          student: {
+            create: {
+              admissionNumber,
+              dateOfBirth: new Date(dateOfBirth),
+              gender,
+              address,
+              emergencyContact,
+            },
           },
         },
-      },
-      include: {
-        student: true,
-      },
+        include: {
+          student: true,
+        },
+      })
+
+      // If appliedClassId is provided, create an application
+      let application = null
+      if (appliedClassId && academicYear) {
+        application = await tx.application.create({
+          data: {
+            studentId: user.student!.id,
+            appliedClassId,
+            appliedSectionId: appliedSectionId || null,
+            academicYear,
+            notes: applicationNotes || null,
+            createdBy: session.user.id,
+          },
+          include: {
+            appliedClass: true,
+            appliedSection: true,
+          },
+        })
+      }
+
+      return { user, application }
     })
 
     // Log audit trail
@@ -145,12 +173,14 @@ export async function POST(request: NextRequest) {
       "Student",
       request,
       {
-        entityId: user.student?.id,
-        description: `Created student: ${name} (${admissionNumber})`,
+        entityId: result.user.student?.id,
+        description: result.application 
+          ? `Created student: ${name} (${admissionNumber}) with application to ${result.application.appliedClass.name}`
+          : `Created student: ${name} (${admissionNumber})`,
       }
     )
 
-    return NextResponse.json(user, { status: 201 })
+    return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
     if (error.code === "P2002") {
       return NextResponse.json(
@@ -158,6 +188,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    console.error("Failed to create student:", error)
     return NextResponse.json(
       { error: "Failed to create student" },
       { status: 500 }

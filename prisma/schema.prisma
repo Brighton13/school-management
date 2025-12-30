@@ -47,6 +47,8 @@ model User {
   sessionLogs         SessionLog[]
   passwordResetTokens PasswordResetToken[]
   notifications       Notification[]
+  createdApplications Application[]          @relation("ApplicationCreator")
+  approvedApplications Application[]         @relation("ApplicationApprover")
 }
 
 // Dynamic Roles - Users can create custom roles
@@ -133,6 +135,7 @@ model Student {
 
   user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   classEnrollment    ClassEnrollment[]
+  applications       Application[]
   parents            StudentParent[]
   attendance         Attendance[]
   results            Result[]
@@ -140,6 +143,34 @@ model Student {
   studentAssignments StudentAssignment[]       @relation("StudentAssignments")
   subjectSelections  StudentSubjectSelection[]
   reports            StudentReport[]
+}
+
+// Application Management - Intent to Enroll
+model Application {
+  id                 String   @id @default(cuid())
+  studentId          String
+  appliedClassId     String
+  appliedSectionId   String?  // Optional, can be assigned during approval
+  academicYear       String
+  applicationStatus  String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  notes              String?  // Additional notes or requirements
+  rejectionReason    String?  // Reason if rejected
+  createdBy          String   // Teacher/Admin who created the application
+  approvedBy         String?  // Admin/Head who approved
+  approvedAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  student        Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  appliedClass   Class   @relation(fields: [appliedClassId], references: [id], onDelete: Cascade)
+  appliedSection Section? @relation(fields: [appliedSectionId], references: [id], onDelete: SetNull)
+  creator        User    @relation("ApplicationCreator", fields: [createdBy], references: [id])
+  approver       User?   @relation("ApplicationApprover", fields: [approvedBy], references: [id])
+
+  @@unique([studentId, appliedClassId, academicYear])
+  @@index([studentId])
+  @@index([applicationStatus])
+  @@index([academicYear])
 }
 
 // Parent Management
@@ -178,10 +209,11 @@ model Class {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sections    Section[]
-  enrollments ClassEnrollment[]
-  subjects    ClassSubject[]
-  timetable   Timetable[]
+  sections     Section[]
+  enrollments  ClassEnrollment[]
+  subjects     ClassSubject[]
+  timetable    Timetable[]
+  applications Application[]
 }
 
 model Section {
@@ -201,6 +233,7 @@ model Section {
   attendance         Attendance[]
   reports            StudentReport[]
   commentConfigs     ReportCommentConfig[]
+  applications       Application[]
 }
 
 model ClassEnrollment {
