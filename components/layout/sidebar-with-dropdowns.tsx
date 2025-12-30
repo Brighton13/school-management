@@ -29,6 +29,7 @@ import {
   X,
   User,
   Shield,
+  Clock,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -72,6 +73,8 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     roles: ["ADMIN","PRINCIPAL"],
     items: [
       { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
+      { name: "Students", href: "/dashboard/students", icon: GraduationCap, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Pending Applications", href: "/dashboard/pending-applications", icon: Clock, roles: ["ADMIN","PRINCIPAL"] },
       { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
     ],
   },

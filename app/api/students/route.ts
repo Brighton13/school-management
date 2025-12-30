@@ -81,6 +81,13 @@ export async function GET(request: NextRequest) {
           orderBy: { enrolledAt: "desc" },
           take: 1,
         },
+        applications: {
+          include: {
+            appliedClass: true,
+            appliedSection: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     })

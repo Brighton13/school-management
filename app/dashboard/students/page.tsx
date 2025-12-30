@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Search, Upload, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, Upload, Edit, Trash2, CheckCircle, Clock, XCircle } from "lucide-react"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
 interface Student {
   id: string
@@ -24,6 +25,18 @@ interface Student {
   classEnrollment: Array<{
     class: { name: string }
     section: { name: string }
+    academicYear: string
+  }>
+  applications: Array<{
+    id: string
+    applicationStatus: string
+    appliedClass: {
+      name: string
+    }
+    appliedSection: {
+      name: string
+    } | null
+    academicYear: string
   }>
 }
 
@@ -122,6 +135,40 @@ export default function StudentsPage() {
       student.admissionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.user.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const getEnrollmentStatus = (student: Student) => {
+    const hasEnrollment = student.classEnrollment && student.classEnrollment.length > 0
+    const pendingApplication = student.applications?.find(app => app.applicationStatus === "PENDING")
+    
+    if (hasEnrollment) {
+      return {
+        type: "enrolled",
+        label: "Enrolled",
+        color: "bg-green-100 text-green-800",
+        icon: CheckCircle,
+        details: `${student.classEnrollment[0].class.name} - ${student.classEnrollment[0].section.name}`,
+        academicYear: student.classEnrollment[0].academicYear
+      }
+    } else if (pendingApplication) {
+      return {
+        type: "pending",
+        label: "Pending Enrollment",
+        color: "bg-orange-100 text-orange-800",
+        icon: Clock,
+        details: `Applied: ${pendingApplication.appliedClass.name}${pendingApplication.appliedSection ? ` - ${pendingApplication.appliedSection.name}` : ""}`,
+        academicYear: pendingApplication.academicYear
+      }
+    } else {
+      return {
+        type: "none",
+        label: "No Enrollment",
+        color: "bg-gray-100 text-gray-800",
+        icon: XCircle,
+        details: "Not enrolled or applied",
+        academicYear: null
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -272,6 +319,65 @@ export default function StudentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{students.length}</div>
+            <p className="text-xs text-muted-foreground">All registered students</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Enrolled</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {students.filter(s => s.classEnrollment && s.classEnrollment.length > 0).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Currently enrolled in classes</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Enrollment</CardTitle>
+            <Clock className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {students.filter(s => 
+                (!s.classEnrollment || s.classEnrollment.length === 0) && 
+                s.applications?.some(app => app.applicationStatus === "PENDING")
+              ).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Awaiting enrollment approval</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">No Enrollment</CardTitle>
+            <XCircle className="h-4 w-4 text-gray-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {students.filter(s => 
+                (!s.classEnrollment || s.classEnrollment.length === 0) && 
+                (!s.applications || !s.applications.some(app => app.applicationStatus === "PENDING"))
+              ).length}
+            </div>
+            <p className="text-xs text-muted-foreground">No enrollment or application</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -303,13 +409,19 @@ export default function StudentsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>
-                  <TableHead>Class</TableHead>
+                  <TableHead>Enrollment Status</TableHead>
+                  <TableHead>Class/Application</TableHead>
+                  <TableHead>Academic Year</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => (
+                {filteredStudents.map((student) => {
+                  const enrollmentStatus = getEnrollmentStatus(student)
+                  const StatusIcon = enrollmentStatus.icon
+                  
+                  return (
                   <TableRow key={student.id}>
                     <TableCell className="font-medium">
                       {student.admissionNumber}
@@ -318,9 +430,20 @@ export default function StudentsPage() {
                     <TableCell>{student.user.email}</TableCell>
                     <TableCell>{student.user.phone || "-"}</TableCell>
                     <TableCell>
-                      {student.classEnrollment[0]
-                        ? `${student.classEnrollment[0].class.name} - ${student.classEnrollment[0].section.name}`
-                        : "Not Enrolled"}
+                      <div className="flex items-center gap-2">
+                        <StatusIcon className="h-4 w-4" />
+                        <Badge variant="outline" className={enrollmentStatus.color}>
+                          {enrollmentStatus.label}
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        <div className="font-medium">{enrollmentStatus.details}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {enrollmentStatus.academicYear || "-"}
                     </TableCell>
                     <TableCell>
                       <span
@@ -352,7 +475,8 @@ export default function StudentsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           )}
