@@ -55,7 +55,13 @@ export async function POST(request: NextRequest) {
           row.eachCell((cell, colNumber) => {
             const header = headers[colNumber - 1]
             if (header) {
-              rowData[header] = String(cell.value || "").trim()
+              // Handle hyperlink cells (Excel stores emails as hyperlinks)
+              let cellValue = cell.value
+              if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
+                // This is a hyperlink object, extract the text
+                cellValue = cellValue.text
+              }
+              rowData[header] = String(cellValue || "").trim()
             }
           })
 
