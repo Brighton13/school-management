@@ -11,7 +11,7 @@ export default function BulkUploadPage() {
       <div>
         <h1 className="text-3xl font-bold">Bulk Upload</h1>
         <p className="text-muted-foreground">
-          Upload multiple records at once using CSV files
+          Upload multiple records at once using Excel files with dropdown selections
         </p>
       </div>
 
@@ -28,10 +28,10 @@ export default function BulkUploadPage() {
         <TabsContent value="students">
           <BulkUpload
             title="Bulk Student Upload"
-            description="Upload multiple students at once. Download the template, fill it with student data, and upload the CSV file."
+            description="Upload multiple students at once. Download the Excel template with dropdown selections for classes, sections, and academic years, fill it with student data, and upload the file."
             uploadEndpoint="/api/bulk/students"
             templateEndpoint="/api/bulk/students"
-            templateFileName="students_template.csv"
+            templateFileName="students_template.xlsx"
           />
         </TabsContent>
 
@@ -58,10 +58,10 @@ export default function BulkUploadPage() {
         <TabsContent value="enrollment">
           <BulkUpload
             title="Bulk Enrollment Upload"
-            description="Enroll multiple students at once. Download the template, fill it with enrollment data, and upload the CSV file."
+            description="Enroll multiple students at once. Download the Excel template with dropdown selections for classes, sections, and academic years, then upload the file."
             uploadEndpoint="/api/bulk/enrollment"
             templateEndpoint="/api/bulk/enrollment"
-            templateFileName="enrollment_template.csv"
+            templateFileName="enrollment_template.xlsx"
           />
         </TabsContent>
 

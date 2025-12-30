@@ -112,13 +112,16 @@ export function BulkUpload({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Upload CSV File</label>
+          <label className="text-sm font-medium">Upload File</label>
           <input
             type="file"
-            accept=".csv"
+            accept=".csv,.xlsx,.xls"
             onChange={handleFileChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
           />
+          <p className="text-xs text-muted-foreground">
+            Accepts CSV and Excel files (.csv, .xlsx, .xls)
+          </p>
         </div>
 
         {file && (

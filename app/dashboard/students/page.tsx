@@ -7,6 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Upload, Edit, Trash2, CheckCircle, Clock, XCircle } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -47,9 +49,14 @@ export default function StudentsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
+  const [sections, setSections] = useState<Array<{ id: string; name: string; classId: string }>>([])
+  const [selectedClassId, setSelectedClassId] = useState<string>("")
+  const [selectedSectionId, setSelectedSectionId] = useState<string>("")
 
   useEffect(() => {
     fetchStudents()
+    fetchClasses()
   }, [])
 
   const fetchStudents = async () => {
@@ -64,6 +71,36 @@ export default function StudentsPage() {
     }
   }
 
+  const fetchClasses = async () => {
+    try {
+      const res = await fetch("/api/classes")
+      const data = await res.json()
+      setClasses(data)
+    } catch (error) {
+      console.error("Failed to fetch classes:", error)
+    }
+  }
+
+  const fetchSections = async (classId: string) => {
+    try {
+      const res = await fetch(`/api/sections?classId=${classId}`)
+      const data = await res.json()
+      setSections(data)
+    } catch (error) {
+      console.error("Failed to fetch sections:", error)
+      setSections([])
+    }
+  }
+
+  useEffect(() => {
+    if (selectedClassId) {
+      fetchSections(selectedClassId)
+    } else {
+      setSections([])
+      setSelectedSectionId("")
+    }
+  }, [selectedClassId])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -72,26 +109,41 @@ export default function StudentsPage() {
       const url = editingStudent ? `/api/students/${editingStudent.id}` : "/api/students"
       const method = editingStudent ? "PUT" : "POST"
       
+      const body: any = {
+        email: formData.get("email"),
+        name: formData.get("name"),
+        phone: formData.get("phone"),
+        admissionNumber: formData.get("admissionNumber"),
+        dateOfBirth: formData.get("dateOfBirth"),
+        gender: formData.get("gender"),
+        address: formData.get("address"),
+        emergencyContact: formData.get("emergencyContact"),
+      }
+
+      if (!editingStudent) {
+        body.password = formData.get("password")
+        
+        // Add application fields if class is selected
+        if (selectedClassId) {
+          body.appliedClassId = selectedClassId
+          body.appliedSectionId = selectedSectionId || null
+          body.academicYear = formData.get("academicYear")
+          body.applicationNotes = formData.get("applicationNotes")
+        }
+      }
+      
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.get("email"),
-          password: formData.get("password") || undefined,
-          name: formData.get("name"),
-          phone: formData.get("phone"),
-          admissionNumber: formData.get("admissionNumber"),
-          dateOfBirth: formData.get("dateOfBirth"),
-          gender: formData.get("gender"),
-          address: formData.get("address"),
-          emergencyContact: formData.get("emergencyContact"),
-        }),
+        body: JSON.stringify(body),
       })
 
       if (res.ok) {
         setIsDialogOpen(false)
         setIsEditDialogOpen(false)
         setEditingStudent(null)
+        setSelectedClassId("")
+        setSelectedSectionId("")
         fetchStudents()
         e.currentTarget.reset()
       }
@@ -233,7 +285,16 @@ export default function StudentsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender</Label>
-                    <Input id="gender" name="gender" required />
+                    <Select name="gender" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="emergencyContact">Emergency Contact</Label>
@@ -243,6 +304,71 @@ export default function StudentsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <Input id="address" name="address" />
+                </div>
+
+                {/* Application Intent Section */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="font-semibold mb-4">Intended Class (Optional)</h3>
+                  <div className="grid gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="appliedClass">Intended Class</Label>
+                        <Select 
+                          value={selectedClassId} 
+                          onValueChange={setSelectedClassId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {classes.map((cls) => (
+                              <SelectItem key={cls.id} value={cls.id}>
+                                {cls.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="appliedSection">Intended Section</Label>
+                        <Select 
+                          value={selectedSectionId} 
+                          onValueChange={setSelectedSectionId}
+                          disabled={!selectedClassId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select section" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sections.map((section) => (
+                              <SelectItem key={section.id} value={section.id}>
+                                {section.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="academicYear">Academic Year</Label>
+                      <Input 
+                        id="academicYear" 
+                        name="academicYear" 
+                        placeholder="e.g., 2024-2025" 
+                        disabled={!selectedClassId}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="applicationNotes">Teacher Remarks</Label>
+                      <Textarea 
+                        id="applicationNotes" 
+                        name="applicationNotes" 
+                        placeholder="Add any notes about this student (e.g., special needs, background info, etc.)"
+                        className="min-h-[80px]"
+                        disabled={!selectedClassId}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
