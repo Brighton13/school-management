@@ -1,0 +1,166 @@
+-- CreateTable
+CREATE TABLE "AcademicYear" (
+    "id" TEXT NOT NULL,
+    "year" TEXT NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "isCurrent" BOOLEAN NOT NULL DEFAULT false,
+    "isUpcoming" BOOLEAN NOT NULL DEFAULT false,
+    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AcademicYear_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Term" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "academicYearId" TEXT NOT NULL,
+    "termNumber" INTEGER NOT NULL,
+    "startDate" TIMESTAMP(3) NOT NULL,
+    "endDate" TIMESTAMP(3) NOT NULL,
+    "isCurrent" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Term_pkey" PRIMARY KEY ("id")
+);
+
+-- Migrate existing data from AcademicTerm to new structure
+-- Step 1: Create academic years from existing terms
+INSERT INTO "AcademicYear" (id, year, "startDate", "endDate", "isCurrent", status, "createdAt", "updatedAt")
+SELECT 
+    gen_random_uuid(),
+    "academicYear",
+    MIN("startDate"),
+    MAX("endDate"),
+    MAX(CASE WHEN "isCurrent" THEN true ELSE false END),
+    'ACTIVE',
+    MIN("createdAt"),
+    NOW()
+FROM "AcademicTerm"
+GROUP BY "academicYear";
+
+-- Step 2: Create terms linked to academic years
+INSERT INTO "Term" (id, name, "academicYearId", "termNumber", "startDate", "endDate", "isCurrent", "createdAt", "updatedAt")
+SELECT 
+    at.id,
+    at.name,
+    ay.id,
+    CASE 
+        WHEN at.name ILIKE '%first%' OR at.name ILIKE '%1%' THEN 1
+        WHEN at.name ILIKE '%second%' OR at.name ILIKE '%2%' THEN 2
+        WHEN at.name ILIKE '%third%' OR at.name ILIKE '%3%' THEN 3
+        ELSE ROW_NUMBER() OVER (PARTITION BY at."academicYear" ORDER BY at."startDate")
+    END,
+    at."startDate",
+    at."endDate",
+    at."isCurrent",
+    at."createdAt",
+    at."updatedAt"
+FROM "AcademicTerm" at
+JOIN "AcademicYear" ay ON ay.year = at."academicYear";
+
+-- Add new columns to existing tables
+ALTER TABLE "ClassEnrollment" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "Application" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "StudentSubjectSelection" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "Result" ADD COLUMN "termId" TEXT;
+ALTER TABLE "Result" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "Fee" ADD COLUMN "termId" TEXT;
+ALTER TABLE "Fee" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "Exam" ADD COLUMN "termId" TEXT;
+ALTER TABLE "Exam" ADD COLUMN "academicYearId" TEXT;
+ALTER TABLE "StudentReport" ADD COLUMN "termId" TEXT;
+ALTER TABLE "StudentReport" ADD COLUMN "academicYearId" TEXT;
+
+-- Migrate data to new columns
+UPDATE "ClassEnrollment" ce
+SET "academicYearId" = ay.id
+FROM "AcademicYear" ay
+WHERE ay.year = ce."academicYear";
+
+UPDATE "Application" a
+SET "academicYearId" = ay.id
+FROM "AcademicYear" ay
+WHERE ay.year = a."academicYear";
+
+UPDATE "StudentSubjectSelection" sss
+SET "academicYearId" = ay.id
+FROM "AcademicYear" ay
+WHERE ay.year = sss."academicYear";
+
+UPDATE "Result" r
+SET "termId" = t.id,
+    "academicYearId" = t."academicYearId"
+FROM "Term" t
+WHERE t.id = r."academicTermId";
+
+UPDATE "Fee" f
+SET "termId" = t.id,
+    "academicYearId" = t."academicYearId"
+FROM "Term" t
+WHERE t.id = f."academicTermId";
+
+UPDATE "Exam" e
+SET "termId" = t.id,
+    "academicYearId" = t."academicYearId"
+FROM "Term" t
+WHERE t.id = e."academicTermId";
+
+UPDATE "StudentReport" sr
+SET "termId" = t.id,
+    "academicYearId" = t."academicYearId"
+FROM "Term" t
+WHERE t.id = sr."academicTermId";
+
+-- Make new columns NOT NULL
+ALTER TABLE "ClassEnrollment" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "Application" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "StudentSubjectSelection" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "Result" ALTER COLUMN "termId" SET NOT NULL;
+ALTER TABLE "Result" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "Fee" ALTER COLUMN "termId" SET NOT NULL;
+ALTER TABLE "Fee" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "Exam" ALTER COLUMN "termId" SET NOT NULL;
+ALTER TABLE "Exam" ALTER COLUMN "academicYearId" SET NOT NULL;
+ALTER TABLE "StudentReport" ALTER COLUMN "termId" SET NOT NULL;
+ALTER TABLE "StudentReport" ALTER COLUMN "academicYearId" SET NOT NULL;
+
+-- Drop old columns
+ALTER TABLE "ClassEnrollment" DROP COLUMN "academicYear";
+ALTER TABLE "Application" DROP COLUMN "academicYear";
+ALTER TABLE "StudentSubjectSelection" DROP COLUMN "academicYear";
+ALTER TABLE "Result" DROP COLUMN "academicTermId";
+ALTER TABLE "Fee" DROP COLUMN "academicTermId";
+ALTER TABLE "Exam" DROP COLUMN "academicTermId";
+ALTER TABLE "StudentReport" DROP COLUMN "academicTermId";
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AcademicYear_year_key" ON "AcademicYear"("year");
+CREATE INDEX "AcademicYear_isCurrent_idx" ON "AcademicYear"("isCurrent");
+CREATE INDEX "AcademicYear_isUpcoming_idx" ON "AcademicYear"("isUpcoming");
+CREATE INDEX "AcademicYear_status_idx" ON "AcademicYear"("status");
+
+CREATE UNIQUE INDEX "Term_academicYearId_termNumber_key" ON "Term"("academicYearId", "termNumber");
+CREATE INDEX "Term_isCurrent_idx" ON "Term"("isCurrent");
+CREATE INDEX "Term_academicYearId_idx" ON "Term"("academicYearId");
+
+-- AddForeignKey
+ALTER TABLE "Term" ADD CONSTRAINT "Term_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ClassEnrollment" ADD CONSTRAINT "ClassEnrollment_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Application" ADD CONSTRAINT "Application_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "StudentSubjectSelection" ADD CONSTRAINT "StudentSubjectSelection_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Result" ADD CONSTRAINT "Result_termId_fkey" FOREIGN KEY ("termId") REFERENCES "Term"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Result" ADD CONSTRAINT "Result_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Fee" ADD CONSTRAINT "Fee_termId_fkey" FOREIGN KEY ("termId") REFERENCES "Term"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Fee" ADD CONSTRAINT "Fee_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Exam" ADD CONSTRAINT "Exam_termId_fkey" FOREIGN KEY ("termId") REFERENCES "Term"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Exam" ADD CONSTRAINT "Exam_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "StudentReport" ADD CONSTRAINT "StudentReport_termId_fkey" FOREIGN KEY ("termId") REFERENCES "Term"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "StudentReport" ADD CONSTRAINT "StudentReport_academicYearId_fkey" FOREIGN KEY ("academicYearId") REFERENCES "AcademicYear"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Drop old AcademicTerm table
+DROP TABLE "AcademicTerm";

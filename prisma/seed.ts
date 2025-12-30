@@ -206,15 +206,24 @@ async function main() {
   })
   console.log('✅ Created subjects')
 
+  // Create academic year first
+  const academicYear = await prisma.academicYear.create({
+    data: {
+      year: '2024-2025',
+      startDate: new Date('2024-09-01'),
+      endDate: new Date('2025-06-30'),
+      isCurrent: true,
+      status: 'ACTIVE',
+    },
+  })
+  console.log('✅ Created academic year')
+
   // Create academic term
   const term = await prisma.term.create({
     data: {
       name: 'First Term',
       termNumber: 1,
-      academicYear: {
-        // Replace 'id: someId' with the actual unique identifier for the academic year
-        connect: { id: '1' }, // or use another unique field if available
-      },
+      academicYearId: academicYear.id,
       startDate: new Date('2024-09-01'),
       endDate: new Date('2024-12-20'),
       isCurrent: true,

@@ -1,0 +1,45 @@
+-- CreateTable
+CREATE TABLE "Application" (
+    "id" TEXT NOT NULL,
+    "studentId" TEXT NOT NULL,
+    "appliedClassId" TEXT NOT NULL,
+    "appliedSectionId" TEXT,
+    "academicYear" TEXT NOT NULL,
+    "applicationStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "notes" TEXT,
+    "rejectionReason" TEXT,
+    "createdBy" TEXT NOT NULL,
+    "approvedBy" TEXT,
+    "approvedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Application_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE INDEX "Application_studentId_idx" ON "Application"("studentId");
+
+-- CreateIndex
+CREATE INDEX "Application_applicationStatus_idx" ON "Application"("applicationStatus");
+
+-- CreateIndex
+CREATE INDEX "Application_academicYear_idx" ON "Application"("academicYear");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Application_studentId_appliedClassId_academicYear_key" ON "Application"("studentId", "appliedClassId", "academicYear");
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_appliedClassId_fkey" FOREIGN KEY ("appliedClassId") REFERENCES "Class"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_appliedSectionId_fkey" FOREIGN KEY ("appliedSectionId") REFERENCES "Section"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_createdBy_fkey" FOREIGN KEY ("createdBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Application" ADD CONSTRAINT "Application_approvedBy_fkey" FOREIGN KEY ("approvedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
