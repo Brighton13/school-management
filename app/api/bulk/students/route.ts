@@ -43,166 +43,160 @@ export async function POST(request: NextRequest) {
       headers[colNumber - 1] = String(cell.value || "").trim().toLowerCase()
     })
 
-    // Process each data row (skip header row)
-    const promises: Promise<void>[] = []
-    
-    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-      if (rowNumber === 1) return // Skip header row
+    // Process each data row sequentially to avoid admission number race conditions
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber)
       
-      const processRow = async () => {
+      // Skip empty rows
+      if (!row.hasValues) continue
+      
+      try {
+        const rowData: Record<string, string> = {}
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber - 1]
+          if (header) {
+            // Handle hyperlink cells (Excel stores emails as hyperlinks)
+            let cellValue = cell.value
+            if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
+              // This is a hyperlink object, extract the text
+              cellValue = cellValue.text
+            }
+            rowData[header] = String(cellValue || "").trim()
+          }
+        })
+
+        const {
+          email,
+          name,
+          phone,
+          dateofbirth,
+          gender,
+          address,
+          emergencycontact,
+          intendedclass,
+          intendedsection,
+          academicyear,
+          remarks,
+        } = rowData
+
+        // Validate required fields
+        const missingFields = []
+        if (!email) missingFields.push("Email")
+        if (!name) missingFields.push("Name")
+        if (!dateofbirth) missingFields.push("DateOfBirth")
+        if (!gender) missingFields.push("Gender")
+
+        if (missingFields.length > 0) {
+          results.failed++
+          results.errors.push(`Row ${rowNumber}: Missing required fields: ${missingFields.join(", ")}`)
+          continue
+        }
+
+        // Parse date - support multiple formats
+        let parsedDate: Date
         try {
-          const rowData: Record<string, string> = {}
-          row.eachCell((cell, colNumber) => {
-            const header = headers[colNumber - 1]
-            if (header) {
-              // Handle hyperlink cells (Excel stores emails as hyperlinks)
-              let cellValue = cell.value
-              if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
-                // This is a hyperlink object, extract the text
-                cellValue = cellValue.text
-              }
-              rowData[header] = String(cellValue || "").trim()
-            }
-          })
-
-          const {
-            email,
-            name,
-            phone,
-            dateofbirth,
-            gender,
-            address,
-            emergencycontact,
-            intendedclass,
-            intendedsection,
-            academicyear,
-            remarks,
-          } = rowData
-
-          // Validate required fields
-          const missingFields = []
-          if (!email) missingFields.push("Email")
-          if (!name) missingFields.push("Name")
-          if (!dateofbirth) missingFields.push("DateOfBirth")
-          if (!gender) missingFields.push("Gender")
-
-          if (missingFields.length > 0) {
-            results.failed++
-            results.errors.push(`Row ${rowNumber}: Missing required fields: ${missingFields.join(", ")}`)
-            return
+          // Try parsing M/D/YYYY format first (e.g., 2/21/2010)
+          if (dateofbirth.includes("/")) {
+            const [month, day, year] = dateofbirth.split("/")
+            parsedDate = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`)
+          } else {
+            // ISO format (2010-02-21)
+            parsedDate = new Date(dateofbirth)
           }
-
-          // Parse date - support multiple formats
-          let parsedDate: Date
-          try {
-            // Try parsing M/D/YYYY format first (e.g., 2/21/2010)
-            if (dateofbirth.includes("/")) {
-              const [month, day, year] = dateofbirth.split("/")
-              parsedDate = new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`)
-            } else {
-              // ISO format (2010-02-21)
-              parsedDate = new Date(dateofbirth)
-            }
-            
-            if (isNaN(parsedDate.getTime())) {
-              throw new Error("Invalid date")
-            }
-          } catch (dateError) {
-            results.failed++
-            results.errors.push(`Row ${rowNumber}: Invalid date format. Use MM/DD/YYYY or YYYY-MM-DD`)
-            return
-          }
-
-          // Resolve class and section names to IDs if provided
-          let appliedClassId = null
-          let appliedSectionId = null
           
-          if (intendedclass) {
-            const foundClass = await prisma.class.findFirst({
-              where: { name: intendedclass }
+          if (isNaN(parsedDate.getTime())) {
+            throw new Error("Invalid date")
+          }
+        } catch (dateError) {
+          results.failed++
+          results.errors.push(`Row ${rowNumber}: Invalid date format. Use MM/DD/YYYY or YYYY-MM-DD`)
+          continue
+        }
+
+        // Resolve class and section names to IDs if provided
+        let appliedClassId = null
+        let appliedSectionId = null
+        
+        if (intendedclass) {
+          const foundClass = await prisma.class.findFirst({
+            where: { name: intendedclass }
+          })
+          
+          if (!foundClass) {
+            results.failed++
+            results.errors.push(`Row ${rowNumber}: Class "${intendedclass}" not found`)
+            continue
+          }
+          
+          appliedClassId = foundClass.id
+          
+          // If section is provided, resolve it
+          if (intendedsection) {
+            const foundSection = await prisma.section.findFirst({
+              where: { 
+                name: intendedsection,
+                classId: appliedClassId 
+              }
             })
             
-            if (!foundClass) {
+            if (!foundSection) {
               results.failed++
-              results.errors.push(`Row ${rowNumber}: Class "${intendedclass}" not found`)
-              return
+              results.errors.push(`Row ${rowNumber}: Section "${intendedsection}" not found in class "${intendedclass}"`)
+              continue
             }
             
-            appliedClassId = foundClass.id
-            
-            // If section is provided, resolve it
-            if (intendedsection) {
-              const foundSection = await prisma.section.findFirst({
-                where: { 
-                  name: intendedsection,
-                  classId: appliedClassId 
-                }
-              })
-              
-              if (!foundSection) {
-                results.failed++
-                results.errors.push(`Row ${rowNumber}: Section "${intendedsection}" not found in class "${intendedclass}"`)
-                return
-              }
-              
-              appliedSectionId = foundSection.id
-            }
-          }
-
-          const admissionnumber = await generateAdmissionNumber();
-          const password = "Test1234"
-          const hashedPassword = await bcrypt.hash(password, 10)
-
-          // Create user with student, and optionally create application
-          const userData: any = {
-            email,
-            password: hashedPassword,
-            name,
-            phone: phone || null,
-            role: "STUDENT",
-            student: {
-              create: {
-                admissionNumber: admissionnumber,
-                dateOfBirth: parsedDate,
-                gender: gender.toUpperCase() || "OTHER",
-                address: address || null,
-                emergencyContact: emergencycontact || null,
-              },
-            },
-          }
-
-          // If class is provided, create application
-          if (appliedClassId) {
-            userData.student.create.applications = {
-              create: {
-                appliedClassId,
-                appliedSectionId,
-                academicYear: academicyear || new Date().getFullYear().toString(),
-                applicationStatus: "PENDING",
-                notes: remarks || null,
-                createdBy: session.user.id,
-              }
-            }
-          }
-
-          await prisma.user.create({ data: userData })
-
-          results.success++
-        } catch (error: any) {
-          results.failed++
-          if (error.code === "P2002") {
-            results.errors.push(`Row ${rowNumber}: Email or admission number already exists`)
-          } else {
-            results.errors.push(`Row ${rowNumber}: ${error.message}`)
+            appliedSectionId = foundSection.id
           }
         }
-      }
-      
-      promises.push(processRow())
-    })
 
-    // Wait for all rows to be processed
-    await Promise.all(promises)
+        const admissionnumber = await generateAdmissionNumber();
+        const password = "Test1234"
+        const hashedPassword = await bcrypt.hash(password, 10)
+
+        // Create user with student, and optionally create application
+        const userData: any = {
+          email,
+          password: hashedPassword,
+          name,
+          phone: phone || null,
+          role: "STUDENT",
+          student: {
+            create: {
+              admissionNumber: admissionnumber,
+              dateOfBirth: parsedDate,
+              gender: gender.toUpperCase() || "OTHER",
+              address: address || null,
+              emergencyContact: emergencycontact || null,
+            },
+          },
+        }
+
+        // If class is provided, create application
+        if (appliedClassId) {
+          userData.student.create.applications = {
+            create: {
+              appliedClassId,
+              appliedSectionId,
+              academicYear: academicyear || new Date().getFullYear().toString(),
+              applicationStatus: "PENDING",
+              notes: remarks || null,
+              createdBy: session.user.id,
+            }
+          }
+        }
+
+        await prisma.user.create({ data: userData })
+
+        results.success++
+      } catch (error: any) {
+        results.failed++
+        if (error.code === "P2002") {
+          results.errors.push(`Row ${rowNumber}: Email or admission number already exists`)
+        } else {
+          results.errors.push(`Row ${rowNumber}: ${error.message}`)
+        }
+      }
+    }
 
     return NextResponse.json(results)
   } catch (error: any) {
