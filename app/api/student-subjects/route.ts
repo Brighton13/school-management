@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get("studentId")
     const classId = searchParams.get("classId")
-    const academicYear = searchParams.get("academicYear")
+    const academicYearId = searchParams.get("academicYear")
     const term = searchParams.get("term")
 
     // For students, only show their own selections
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const selections = await prisma.studentSubjectSelection.findMany({
       where: {
         ...(queryStudentId ? { studentId: queryStudentId } : {}),
-        ...(academicYear ? { academicYear } : {}),
+        ...(academicYearId ? { academicYearId } : {}),
         ...(term ? { term } : {}),
       },
       include: {
@@ -138,10 +138,10 @@ export async function POST(request: NextRequest) {
     // Check for duplicate selection
     const existingSelection = await prisma.studentSubjectSelection.findUnique({
       where: {
-        studentId_classSubjectId_academicYear: {
+        studentId_classSubjectId_academicYearId: {
           studentId,
           classSubjectId,
-          academicYear,
+          academicYearId: academicYear,
         },
       },
     })
@@ -156,7 +156,8 @@ export async function POST(request: NextRequest) {
       data: {
         studentId,
         classSubjectId,
-        academicYear,
+        academicYearId: academicYear,
+        // term removed because it does not exist in the Prisma model
       },
       include: {
         student: {

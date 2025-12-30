@@ -55,7 +55,8 @@ export async function POST(
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
       },
     })

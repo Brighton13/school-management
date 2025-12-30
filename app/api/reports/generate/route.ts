@@ -21,11 +21,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId, sectionId, academicTermId, examId } = body
+    const { studentId, sectionId, termId,  academicYearId, examId } = body
 
-    if (!studentId || !sectionId || !academicTermId) {
+    if (!studentId || !sectionId || !termId|| !academicYearId) {
       return NextResponse.json(
-        { error: "Missing required fields: studentId, sectionId, academicTermId" },
+        { error: "Missing required fields: studentId, sectionId, termId, academicYearId" },
         { status: 400 }
       )
     }
@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
     // Check if report already exists
     const existingReport = await prisma.studentReport.findUnique({
       where: {
-        studentId_academicTermId_examId: {
+        studentId_termId_examId: {
           studentId,
-          academicTermId,
+          termId: termId,
           examId: examId || null,
         }
       }
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const results = await prisma.result.findMany({
       where: {
         studentId,
-        academicTermId,
+        termId,
         classSubjectId: {
           in: coreSubjects.map(cs => cs.id)
         },
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
           sectionId,
           subject: { type: "CORE" }
         },
-        academicTermId,
+        termId,
         status: "APPROVED",
         ...(examId ? { examId } : {})
       },
@@ -191,10 +191,10 @@ export async function POST(request: NextRequest) {
     let previousTermAverage = 0
     let progressRatio = 0
 
-    const previousTerm = await prisma.academicTerm.findFirst({
+    const previousTerm = await prisma.term.findFirst({
       where: {
-        endDate: { lt: await prisma.academicTerm.findUnique({
-          where: { id: academicTermId },
+        endDate: { lt: await prisma.term.findUnique({
+          where: { id: termId },
           select: { startDate: true }
         }).then(t => t?.startDate || new Date()) }
       },
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       const previousResults = await prisma.result.findMany({
         where: {
           studentId,
-          academicTermId: previousTerm.id,
+          termId: previousTerm.id,
           classSubject: {
             subject: { type: "CORE" }
           },
@@ -231,7 +231,8 @@ export async function POST(request: NextRequest) {
       data: {
         studentId,
         sectionId,
-        academicTermId,
+        termId,
+        academicYearId, // <-- Add this line
         examId: examId || null,
         totalMarksObtained,
         maxTotalMarks,
@@ -258,7 +259,7 @@ export async function POST(request: NextRequest) {
             }
           }
         },
-        academicTerm: true,
+        term: true,
         exam: true,
       }
     })
@@ -318,7 +319,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get("studentId")
     const sectionId = searchParams.get("sectionId")
-    const academicTermId = searchParams.get("academicTermId")
+    const termId = searchParams.get("termId")
     const status = searchParams.get("status")
 
     let whereClause: any = {}
@@ -352,7 +353,7 @@ export async function GET(request: NextRequest) {
     // Apply filters
     if (studentId) whereClause.studentId = studentId
     if (sectionId) whereClause.sectionId = sectionId
-    if (academicTermId) whereClause.academicTermId = academicTermId
+    if (termId) whereClause.termId = termId
     if (status) whereClause.status = status
 
     const reports = await prisma.studentReport.findMany({
@@ -360,7 +361,7 @@ export async function GET(request: NextRequest) {
       include: {
         student: { include: { user: true } },
         section: { include: { class: true, classTeacher: { include: { user: true } } } },
-        academicTerm: true,
+        term: true,
         exam: true,
         comments: {
           include: { teacher: { include: { user: true } } }

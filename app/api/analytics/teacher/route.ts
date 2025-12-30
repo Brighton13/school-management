@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
                     user: true,
                   },
                 },
-                academicTerm: true,
+                academicYear: true,
+                term: true,
               },
             },
           },
@@ -62,12 +63,14 @@ export async function GET(request: NextRequest) {
     // Get current term if not specified
     let currentTerm = null
     if (termId) {
-      currentTerm = await prisma.academicTerm.findUnique({
+      currentTerm = await prisma.term.findUnique({
         where: { id: termId },
+        include: { academicYear: true },
       })
     } else {
-      currentTerm = await prisma.academicTerm.findFirst({
+      currentTerm = await prisma.term.findFirst({
         where: { isCurrent: true },
+        include: { academicYear: true },
       })
     }
 
@@ -94,7 +97,7 @@ export async function GET(request: NextRequest) {
       const allResults = await prisma.result.findMany({
         where: {
           classSubjectId: { in: assignedSubjects.map((s) => s.id) },
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
         },
       })
 
@@ -114,7 +117,7 @@ export async function GET(request: NextRequest) {
         const results = await prisma.result.findMany({
           where: {
             classSubjectId: classSubject.id,
-            academicTermId: currentTerm.id,
+            termId: currentTerm.id,
             status: { in: ["APPROVED", "PUBLISHED"] },
           },
         })
@@ -149,7 +152,7 @@ export async function GET(request: NextRequest) {
       const allResults = await prisma.result.findMany({
         where: {
           classSubjectId: { in: assignedSubjects.map((s) => s.id) },
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
           status: { in: ["APPROVED", "PUBLISHED"] },
         },
         include: {
@@ -307,7 +310,7 @@ export async function GET(request: NextRequest) {
         const sectionResults = await prisma.result.findMany({
           where: {
             classSubjectId: { in: assignedSubjects.map((s) => s.id) },
-            academicTermId: currentTerm.id,
+            termId: currentTerm.id,
             studentId: { in: section.enrollments.map((e) => e.studentId) },
             status: { in: ["APPROVED", "PUBLISHED"] },
           },

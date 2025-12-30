@@ -8,7 +8,8 @@ import Link from "next/link"
 interface GroupedReports {
   key: string
   sectionId: string
-  academicTermId: string
+  termId: string
+  academicYearId: string
   section: {
     id: string
     name: string
@@ -17,9 +18,13 @@ interface GroupedReports {
       name: string
     }
   }
-  academicTerm: {
+  term: {
     id: string
     name: string
+  }
+  academicYear: {
+    id: string
+    year: string
   }
   count: number
   reports: any[]
@@ -86,7 +91,7 @@ export default function BulkApprovePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sectionId: group.sectionId,
-          academicTermId: group.academicTermId,
+          termId: group.termId,
           reportIds
         })
       })
@@ -117,7 +122,7 @@ export default function BulkApprovePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sectionId: group.sectionId,
-            academicTermId: group.academicTermId,
+            termId: group.termId,
             reportIds: group.reports.map(r => r.id)
           })
         })
@@ -206,7 +211,7 @@ export default function BulkApprovePage() {
                       {group.section.class.name} - Section {group.section.name}
                     </h3>
                     <p className="text-gray-600 text-sm">
-                      {group.academicTerm.name}
+                      {group.term.name}
                     </p>
                   </div>
                   <div className="text-right">

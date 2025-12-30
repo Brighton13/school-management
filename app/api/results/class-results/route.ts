@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
     const sectionId = searchParams.get("sectionId")
-    const academicTermId = searchParams.get("academicTermId")
+    const termId = searchParams.get("termId")
+    const academicYearId = searchParams.get("academicYearId")
     const examId = searchParams.get("examId")
 
     // Get staff member
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     const enrollments = await prisma.classEnrollment.findMany({
       where: {
         sectionId: { in: sectionIds },
-        ...(academicTermId && academicTermId !== "all" ? { academicYear: { contains: academicTermId } } : {}),
+        ...(academicYearId && academicYearId !== "all" ? { academicYearId } : {}),
       },
       include: {
         student: {
@@ -89,7 +90,8 @@ export async function GET(request: NextRequest) {
     const results = await prisma.result.findMany({
       where: {
         studentId: { in: studentIds },
-        ...(academicTermId && academicTermId !== "all" ? { academicTermId } : {}),
+        ...(termId && termId !== "all" ? { termId } : {}),
+        ...(academicYearId && academicYearId !== "all" ? { academicYearId } : {}),
         ...(examId && examId !== "all" ? { examId } : {}),
         status: { not: "DRAFT" }, // Only show submitted results
       },
@@ -106,7 +108,8 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
       },
       orderBy: [

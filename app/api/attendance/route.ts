@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { getAcademicContext } from "@/lib/academic-year"
 
-// Get attendance records for a section/date
+// Get attendance records for a section/date (current term only by default)
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const sectionId = searchParams.get("sectionId")
     const date = searchParams.get("date")
+    const includeArchived = searchParams.get("includeArchived") === "true"
 
     if (!sectionId || !date) {
       return NextResponse.json(
@@ -23,6 +25,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Get current academic context
+    const context = await getAcademicContext()
 
     // Get user's staff record
     const staff = await prisma.staff.findUnique({
@@ -42,6 +47,11 @@ export async function GET(request: NextRequest) {
       include: {
         class: true,
         enrollments: {
+          // Filter enrollments by current academic year
+          where: {
+            academicYearId: context.academicYearId,
+            status: "ACTIVE",
+          },
           include: { student: { include: { user: true } } },
         },
       },
@@ -59,7 +69,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get attendance records for this date
+    // Get attendance records for this date (filtered by current term and archive status)
     const startOfDay = new Date(date)
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date(date)
@@ -68,6 +78,9 @@ export async function GET(request: NextRequest) {
     const attendanceRecords = await prisma.attendance.findMany({
       where: {
         sectionId: sectionId,
+        academicYearId: context.academicYearId,
+        termId: context.termId,
+        isArchived: includeArchived ? undefined : false,
         date: {
           gte: startOfDay,
           lte: endOfDay,
@@ -93,6 +106,8 @@ export async function GET(request: NextRequest) {
       sectionName: section.name,
       className: section.class.name,
       date,
+      academicYear: context.academicYear,
+      term: context.termName,
       students: studentAttendance,
     })
   } catch (error: any) {
@@ -121,6 +136,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Get current academic context
+    const context = await getAcademicContext()
 
     // Get user's staff record
     const staff = await prisma.staff.findUnique({
@@ -154,7 +172,7 @@ export async function POST(request: NextRequest) {
     const attendanceDate = new Date(date)
     attendanceDate.setHours(0, 0, 0, 0)
 
-    // Update or create attendance records
+    // Update or create attendance records (always linked to current academic context)
     const results = await Promise.all(
       attendance.map(async (record: any) => {
         const { studentId, status, remarks } = record
@@ -163,7 +181,7 @@ export async function POST(request: NextRequest) {
           return { success: false, error: "studentId and status are required" }
         }
 
-        // Upsert attendance
+        // Upsert attendance with academic context
         const result = await prisma.attendance.upsert({
           where: {
             studentId_sectionId_date: {
@@ -175,6 +193,7 @@ export async function POST(request: NextRequest) {
           update: {
             status,
             remarks: remarks || null,
+            // Archive status is preserved on updates
           },
           create: {
             studentId,
@@ -182,6 +201,9 @@ export async function POST(request: NextRequest) {
             date: attendanceDate,
             status,
             remarks: remarks || null,
+            academicYearId: context.academicYearId,
+            termId: context.termId,
+            isArchived: false,
           },
         })
 
@@ -193,7 +215,7 @@ export async function POST(request: NextRequest) {
           request,
           {
             entityId: result.id,
-            description: `Marked attendance: ${status}`,
+            description: `Marked attendance: ${status} for ${context.academicYear} - ${context.termName}`,
           }
         )
 

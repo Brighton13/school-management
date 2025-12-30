@@ -151,7 +151,7 @@ model Application {
   studentId          String
   appliedClassId     String
   appliedSectionId   String?  // Optional, can be assigned during approval
-  academicYear       String
+  academicYearId     String
   applicationStatus  String   @default("PENDING") // PENDING, APPROVED, REJECTED
   notes              String?  // Additional notes or requirements
   rejectionReason    String?  // Reason if rejected
@@ -161,16 +161,17 @@ model Application {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  student        Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  appliedClass   Class   @relation(fields: [appliedClassId], references: [id], onDelete: Cascade)
-  appliedSection Section? @relation(fields: [appliedSectionId], references: [id], onDelete: SetNull)
-  creator        User    @relation("ApplicationCreator", fields: [createdBy], references: [id])
-  approver       User?   @relation("ApplicationApprover", fields: [approvedBy], references: [id])
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  appliedClass   Class        @relation(fields: [appliedClassId], references: [id], onDelete: Cascade)
+  appliedSection Section?     @relation(fields: [appliedSectionId], references: [id], onDelete: SetNull)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  creator        User         @relation("ApplicationCreator", fields: [createdBy], references: [id])
+  approver       User?        @relation("ApplicationApprover", fields: [approvedBy], references: [id])
 
-  @@unique([studentId, appliedClassId, academicYear])
+  @@unique([studentId, appliedClassId, academicYearId])
   @@index([studentId])
   @@index([applicationStatus])
-  @@index([academicYear])
+  @@index([academicYearId])
 }
 
 // Parent Management
@@ -237,40 +238,76 @@ model Section {
 }
 
 model ClassEnrollment {
-  id           String   @id @default(cuid())
-  studentId    String
-  classId      String
-  sectionId    String
-  academicYear String   // Enroll once per academic year, not per term
-  status       String   @default("ACTIVE") // ACTIVE, PROMOTED, REPEATED, WITHDRAWN
-  enrolledAt   DateTime @default(now())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  studentId      String
+  classId        String
+  sectionId      String
+  academicYearId String
+  status         String   @default("ACTIVE") // ACTIVE, PROMOTED, REPEATED, WITHDRAWN
+  enrolledAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
-  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  section      Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, classId, sectionId, academicYear])
-  @@index([studentId, academicYear])
-  @@index([classId, academicYear])
+  @@unique([studentId, classId, sectionId, academicYearId])
+  @@index([studentId, academicYearId])
+  @@index([classId, academicYearId])
+  @@index([academicYearId])
+}
+
+// Academic Year Management
+model AcademicYear {
+  id          String   @id @default(cuid())
+  year        String   @unique // e.g., "2024-2025"
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+  isUpcoming  Boolean  @default(false) // For next academic year
+  status      String   @default("ACTIVE") // ACTIVE, COMPLETED, ARCHIVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  terms             Term[]
+  enrollments       ClassEnrollment[]
+  applications      Application[]
+  subjectSelections StudentSubjectSelection[]
+  results           Result[]
+  fees              Fee[]
+  exams             Exam[]
+  reports           StudentReport[]
+  attendance        Attendance[]
+
+  @@index([isCurrent])
+  @@index([isUpcoming])
+  @@index([status])
 }
 
 // Term Management
-model AcademicTerm {
-  id           String   @id @default(cuid())
-  name         String // e.g., "First Term", "Second Term"
-  academicYear String
-  startDate    DateTime
-  endDate      DateTime
-  isCurrent    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model Term {
+  id             String   @id @default(cuid())
+  name           String   // e.g., "First Term", "Second Term", "Third Term"
+  academicYearId String
+  termNumber     Int      // 1, 2, 3
+  startDate      DateTime
+  endDate        DateTime
+  isCurrent      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  results Result[]
-  fees    Fee[]
-  exams   Exam[]
-  reports StudentReport[]
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  results      Result[]
+  fees         Fee[]
+  exams        Exam[]
+  reports      StudentReport[]
+  attendance   Attendance[]
+
+  @@unique([academicYearId, termNumber])
+  @@index([isCurrent])
+  @@index([academicYearId])
 }
 
 // Staff Management
@@ -338,7 +375,7 @@ model StudentSubjectSelection {
   id             String   @id @default(cuid())
   studentId      String
   classSubjectId String
-  academicYear   String   // Select subjects once per academic year
+  academicYearId String
   status         String   @default("ACTIVE") // ACTIVE, DROPPED
   selectedAt     DateTime @default(now())
   createdAt      DateTime @default(now())
@@ -346,10 +383,12 @@ model StudentSubjectSelection {
 
   student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, classSubjectId, academicYear])
+  @@unique([studentId, classSubjectId, academicYearId])
   @@index([studentId])
   @@index([classSubjectId])
+  @@index([academicYearId])
 }
 
 // Exam Management
@@ -358,7 +397,8 @@ model Exam {
   name             String
   description      String?
   examType         String // MID_TERM, FINAL, QUIZ, ASSIGNMENT, CONTINUOUS_ASSESSMENT
-  academicTermId   String
+  termId           String
+  academicYearId   String
   startDate        DateTime?
   endDate          DateTime?
   isFinal          Boolean   @default(false)
@@ -368,12 +408,14 @@ model Exam {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  academicTerm AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   creator      User         @relation(fields: [createdBy], references: [id])
   results      Result[]
   reports      StudentReport[]
 
-  @@index([academicTermId])
+  @@index([termId])
+  @@index([academicYearId])
 }
 
 // Results Management
@@ -381,7 +423,8 @@ model Result {
   id             String    @id @default(cuid())
   studentId      String
   classSubjectId String
-  academicTermId String
+  termId         String
+  academicYearId String
   examId         String? // Link to exam
   marksObtained  Float
   maxMarks       Float
@@ -401,39 +444,56 @@ model Result {
 
   student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
-  academicTerm AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   exam         Exam?        @relation(fields: [examId], references: [id], onDelete: SetNull)
   submitter    User?        @relation("SubmittedResults", fields: [submittedBy], references: [id], onDelete: SetNull)
   reviewer     User?        @relation("ReviewedResults", fields: [reviewedBy], references: [id], onDelete: SetNull)
   approver     User?        @relation("ApprovedResults", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([classSubjectId])
+  @@index([termId])
+  @@index([academicYearId])
+  @@index([examId])
+  @@index([status])
 }
 
 // Attendance Management
 model Attendance {
-  id        String   @id @default(cuid())
-  studentId String?
-  staffId   String? // For staff attendance
-  sectionId String? // Class section for tracking which class
-  date      DateTime
-  status    String // PRESENT, ABSENT, LATE, EXCUSED
-  remarks   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  studentId      String?
+  staffId        String?  // For staff attendance
+  sectionId      String?  // Class section for tracking which class
+  academicYearId String
+  termId         String
+  date           DateTime
+  status         String   // PRESENT, ABSENT, LATE, EXCUSED
+  remarks        String?
+  isArchived     Boolean  @default(false) // Auto-archived when term ends
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  staff   Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  section Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  student      Student?     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staff        Staff?       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  section      Section?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
 
-  @@unique([studentId, sectionId, date])
+  @@unique([studentId, sectionId, date], name: "studentId_sectionId_date")
   @@index([staffId, date])
   @@index([sectionId, date])
+  @@index([academicYearId, termId])
+  @@index([isArchived])
+  @@index([termId])
 }
 
 // Fees Management
 model Fee {
   id             String    @id @default(cuid())
   studentId      String
-  academicTermId String
+  termId         String
+  academicYearId String
   feeType        String // TUITION, LIBRARY, LAB, SPORTS, TRANSPORT
   amount         Float
   dueDate        DateTime
@@ -448,8 +508,14 @@ model Fee {
   updatedAt      DateTime  @updatedAt
 
   student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  academicTerm AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [createdBy], references: [id])
+
+  @@index([studentId])
+  @@index([termId])
+  @@index([academicYearId])
+  @@index([status])
 }
 
 // Inventory Management
@@ -682,7 +748,8 @@ model StudentReport {
   id               String    @id @default(cuid())
   studentId        String
   sectionId        String
-  academicTermId   String
+  termId           String
+  academicYearId   String
   examId           String?
   totalMarksObtained Float?  // Sum of all core subject marks
   maxTotalMarks    Float?
@@ -708,7 +775,8 @@ model StudentReport {
   
   student          Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   section          Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  academicTerm     AcademicTerm @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  term             Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   exam             Exam?        @relation(fields: [examId], references: [id], onDelete: SetNull)
   generator        User         @relation("ReportGenerator", fields: [generatedBy], references: [id])
   submitter        User?        @relation("ReportSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
@@ -716,9 +784,10 @@ model StudentReport {
   
   comments         ReportComment[]
   
-  @@unique([studentId, academicTermId, examId])
+  @@unique([studentId, termId, examId])
   @@index([sectionId])
-  @@index([academicTermId])
+  @@index([termId])
+  @@index([academicYearId])
   @@index([status])
 }
 

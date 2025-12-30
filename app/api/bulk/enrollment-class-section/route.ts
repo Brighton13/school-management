@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
             studentId: student.id,
             classId: classId,
             sectionId: sectionId,
-            academicYear: academicYear.trim(),
+            academicYearId: academicYear.trim(),
           },
         })
 

@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     // Get current academic term if not provided
     let currentTerm = null
     if (!academicYear || !term) {
-      currentTerm = await prisma.academicTerm.findFirst({
+      currentTerm = await prisma.term.findFirst({
         where: {
           startDate: { lte: new Date() },
           endDate: { gte: new Date() },
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const targetAcademicYear = academicYear || currentTerm?.academicYear || new Date().getFullYear().toString()
+    const targetAcademicYear = academicYear || currentTerm?.academicYearId || new Date().getFullYear().toString()
     const targetTerm = term || currentTerm?.name || "Term 1"
 
     // Get all class subjects for the student's class
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     const currentSelections = await prisma.studentSubjectSelection.findMany({
       where: {
         studentId: student.id,
-        academicYear: targetAcademicYear,
+        academicYearId: targetAcademicYear,
         // term: targetTerm, // Removed because 'term' is not a valid property
       },
       select: {
@@ -271,10 +271,10 @@ export async function POST(request: NextRequest) {
       // Check if already selected
       const existing = await prisma.studentSubjectSelection.findUnique({
         where: {
-          studentId_classSubjectId_academicYear: {
+          studentId_classSubjectId_academicYearId: {
             studentId: student.id,
             classSubjectId,
-            academicYear,
+            academicYearId: academicYear,
           },
         },
       })
@@ -307,7 +307,7 @@ export async function POST(request: NextRequest) {
         data: {
           studentId: student.id,
           classSubjectId,
-          academicYear,
+          academicYearId: academicYear,
           status: "ACTIVE",
         },
         include: {
@@ -325,10 +325,10 @@ export async function POST(request: NextRequest) {
       // Drop the subject
       const existing = await prisma.studentSubjectSelection.findUnique({
         where: {
-          studentId_classSubjectId_academicYear: {
+          studentId_classSubjectId_academicYearId: {
             studentId: student.id,
             classSubjectId,
-            academicYear,
+            academicYearId: academicYear,
           },
         },
       })

@@ -223,10 +223,10 @@ export async function GET() {
       orderBy: { name: "asc" },
       select: { name: true },
     })
-     const academicYears = await prisma.academicTerm.findMany({
-      orderBy: { academicYear: "asc" },
+     const academicYears = await prisma.academicYear.findMany({
+      orderBy: { year: "asc" },
       where:{isCurrent:true},
-      select: { academicYear: true },
+      select: { year: true },
     })
 
     // Create workbook

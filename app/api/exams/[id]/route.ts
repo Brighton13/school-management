@@ -17,7 +17,8 @@ export async function GET(
     const exam = await prisma.exam.findUnique({
       where: { id: params.id },
       include: {
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         creator: true,
         _count: {
           select: { results: true },
@@ -73,7 +74,8 @@ export async function PUT(
         status,
       },
       include: {
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         creator: true,
       },
     })
@@ -133,7 +135,8 @@ export async function PATCH(
         status: action === "approve" ? "ACTIVE" : "DRAFT",
       },
       include: {
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         creator: true,
         _count: {
           select: { results: true },

@@ -105,7 +105,7 @@ export default function GenerateReportPage() {
     try {
       setLoading(true)
       const response = await fetch(
-        `/api/class-enrollments?sectionId=${sectionId}&academicTermId=${termId}`
+        `/api/class-enrollments?sectionId=${sectionId}&termId=${termId}`
       )
       if (!response.ok) throw new Error("Failed to fetch enrollments")
       const data = await response.json()
@@ -168,7 +168,7 @@ export default function GenerateReportPage() {
           body: JSON.stringify({
             studentId,
             sectionId: selectedSection,
-            academicTermId: selectedTerm,
+            termId: selectedTerm,
             examId: selectedExam || null
           })
         }).then(async res => {

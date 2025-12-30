@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
         },
         fees: {
           include: {
-            academicTerm: true,
+            academicYear: true,
+            term: true,
           },
         },
       },
@@ -79,7 +80,8 @@ export async function GET(request: NextRequest) {
         },
       },
       include: {
-        academicTerm: true,
+        academicYear: true,
+        term: true,
       },
       orderBy: {
         startDate: "asc",

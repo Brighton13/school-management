@@ -37,15 +37,15 @@ export async function GET(request: NextRequest) {
                 class: true,
               },
             },
-            academicTerm: true,
-            exam: true,
+            term: true,
+            academicYear: true, exam: true,
           },
           where: {
             status: { in: ["APPROVED", "PUBLISHED"] },
           },
           orderBy: [
-            { academicTerm: { academicYear: "desc" } },
-            { academicTerm: { name: "asc" } },
+            { academicYear: { year: "desc" } },
+            { term: { name: "asc" } },
             { exam: { examType: "asc" } },
             { classSubject: { subject: { name: "asc" } } },
           ],
@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Check for pending fees that would block access to current term results
-    const currentTerm = await prisma.academicTerm.findFirst({
+    const currentTerm = await prisma.term.findFirst({
       where: {
+        isCurrent: true,
         startDate: { lte: new Date() },
         endDate: { gte: new Date() },
       },
@@ -81,11 +82,12 @@ export async function GET(request: NextRequest) {
       const pendingFees = await prisma.fee.findMany({
         where: {
           studentId: student.id,
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
           status: { in: ["PENDING", "PARTIAL", "OVERDUE"] },
         },
         include: {
-          academicTerm: true,
+          term: true,
+          academicYear: true,
         },
       })
 
@@ -168,21 +170,21 @@ export async function GET(request: NextRequest) {
     }>>()
 
     student.results.forEach((result) => {
-      const year = result.academicTerm.academicYear
-      const termName = result.academicTerm.name
+      const year = result.academicYear.year
+      const termName = result.term.name
       const percentage = (result.marksObtained / result.maxMarks) * 100
-      
+
       if (!resultsByYear.has(year)) {
         resultsByYear.set(year, new Map())
       }
-      
+
       const yearMap = resultsByYear.get(year)!
       if (!yearMap.has(termName)) {
         yearMap.set(termName, {
           termInfo: {
-            id: result.academicTerm.id,
-            name: result.academicTerm.name,
-            academicYear: result.academicTerm.academicYear,
+            id: result.term.id,
+            name: result.term.name,
+            academicYear: result.academicYear.year,
           },
           continuousAssessments: [],
           endOfTermResults: [],
@@ -190,7 +192,7 @@ export async function GET(request: NextRequest) {
           termGrade: null,
         })
       }
-      
+
       const termData = yearMap.get(termName)!
       const resultData = {
         id: result.id,
@@ -207,13 +209,13 @@ export async function GET(request: NextRequest) {
       }
 
       // Categorize by exam type
-      if (result.exam?.examType === "CONTINUOUS_ASSESSMENT" || 
-          result.exam?.examType === "QUIZ" || 
-          result.exam?.examType === "ASSIGNMENT") {
+      if (result.exam?.examType === "CONTINUOUS_ASSESSMENT" ||
+        result.exam?.examType === "QUIZ" ||
+        result.exam?.examType === "ASSIGNMENT") {
         termData.continuousAssessments.push(resultData)
-      } else if (result.exam?.examType === "FINAL" || 
-                 result.exam?.examType === "MID_TERM" ||
-                 result.exam?.isFinal) {
+      } else if (result.exam?.examType === "FINAL" ||
+        result.exam?.examType === "MID_TERM" ||
+        result.exam?.isFinal) {
         termData.endOfTermResults.push(resultData)
       } else {
         // Default to continuous assessments for unknown types
@@ -227,7 +229,7 @@ export async function GET(request: NextRequest) {
         const allResults = [...termData.continuousAssessments, ...termData.endOfTermResults]
         if (allResults.length > 0) {
           termData.termAverage = allResults.reduce((sum, r) => sum + r.percentage, 0) / allResults.length
-          
+
           // Calculate grade based on average
           if (termData.termAverage >= 80) termData.termGrade = "A"
           else if (termData.termAverage >= 70) termData.termGrade = "B"
@@ -255,8 +257,8 @@ export async function GET(request: NextRequest) {
 
     // Calculate overall statistics
     const allResults = student.results.map(r => (r.marksObtained / r.maxMarks) * 100)
-    const overallAverage = allResults.length > 0 
-      ? allResults.reduce((sum, percentage) => sum + percentage, 0) / allResults.length 
+    const overallAverage = allResults.length > 0
+      ? allResults.reduce((sum, percentage) => sum + percentage, 0) / allResults.length
       : 0
 
     return NextResponse.json({
@@ -269,14 +271,14 @@ export async function GET(request: NextRequest) {
       totalResults: student.results.length,
       academicYears: resultsData,
       summary: {
-        totalContinuousAssessments: student.results.filter(r => 
-          r.exam?.examType === "CONTINUOUS_ASSESSMENT" || 
-          r.exam?.examType === "QUIZ" || 
+        totalContinuousAssessments: student.results.filter(r =>
+          r.exam?.examType === "CONTINUOUS_ASSESSMENT" ||
+          r.exam?.examType === "QUIZ" ||
           r.exam?.examType === "ASSIGNMENT"
         ).length,
-        totalEndOfTermExams: student.results.filter(r => 
-          r.exam?.examType === "FINAL" || 
-          r.exam?.examType === "MID_TERM" || 
+        totalEndOfTermExams: student.results.filter(r =>
+          r.exam?.examType === "FINAL" ||
+          r.exam?.examType === "MID_TERM" ||
           r.exam?.isFinal
         ).length,
         yearsWithResults: resultsByYear.size,

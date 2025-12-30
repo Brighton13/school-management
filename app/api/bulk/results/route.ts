@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get("file") as File
     const classSubjectId = formData.get("classSubjectId") as string
-    const academicTermId = formData.get("academicTermId") as string
+    const termId = formData.get("termId") as string
     const examIdRaw = formData.get("examId") as string | null
     const examId = examIdRaw && examIdRaw.trim() !== "" ? examIdRaw : null
     const maxMarks = formData.get("maxMarks") as string
@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    if (!classSubjectId || !academicTermId || !maxMarks) {
+    if (!classSubjectId || !termId || !maxMarks) {
       return NextResponse.json(
-        { error: "Class-Subject, Academic Term, and Max Marks are required" },
+        { error: "Class-Subject, Term, and Max Marks are required" },
         { status: 400 }
       )
     }
@@ -73,13 +73,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify academic term
-    const academicTerm = await prisma.academicTerm.findUnique({
-      where: { id: academicTermId },
+    // Verify term
+    const term = await prisma.term.findUnique({
+      where: { id: termId },
+      include: { academicYear: true },
     })
 
-    if (!academicTerm) {
-      return NextResponse.json({ error: "Academic term not found" }, { status: 400 })
+    if (!term) {
+      return NextResponse.json({ error: "Term not found" }, { status: 400 })
     }
 
     const parsedMaxMarks = parseFloat(maxMarks)
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
           where: {
             studentId: student.id,
             classSubjectId: classSubjectId,
-            academicTermId: academicTermId,
+            termId: termId,
             ...(examId ? { examId } : { examId: null }),
           },
         })
@@ -213,7 +214,8 @@ export async function POST(request: NextRequest) {
           data: {
             studentId: student.id,
             classSubjectId: classSubjectId,
-            academicTermId: academicTermId,
+            termId: termId,
+            academicYearId: term.academicYearId,
             examId: examId || null,
             marksObtained: parsedMarks,
             maxMarks: parsedMaxMarks,
@@ -246,7 +248,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         description: `Bulk created ${results.success} results (${results.failed} failed)`,
-        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classSubjectId, examId, academicTermId },
+        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classSubjectId, examId, termId },
       }
     )
 

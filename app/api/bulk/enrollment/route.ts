@@ -23,11 +23,11 @@ export async function POST(request: NextRequest) {
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(buffer)
     const worksheet = workbook.worksheets[0]
-    
+
     if (!worksheet) {
       return NextResponse.json({ error: "No worksheet found in file" }, { status: 400 })
     }
-    
+
     const results = {
       success: 0,
       failed: 0,
@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
 
     // Process each data row (skip header row)
     const promises: Promise<void>[] = []
-    
+
     worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
       if (rowNumber === 1) return // Skip header row
-      
+
       const processRow = async () => {
         try {
           const rowData: Record<string, string> = {}
@@ -106,12 +106,22 @@ export async function POST(request: NextRequest) {
             return
           }
 
+          const academicYearRecord = await prisma.academicYear.findUnique({
+            where: { year: academicyear },
+          })
+
+          if (!academicYearRecord) {
+            results.failed++
+            results.errors.push(`Row ${rowNumber}: Academic year not found`)
+            return
+          }
+
           await prisma.classEnrollment.create({
             data: {
               studentId: student.id,
               classId: classRecord.id,
               sectionId: section.id,
-              academicYear: academicyear,
+              academicYearId: academicYearRecord.id,
             },
           })
 
@@ -125,7 +135,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      
+
       promises.push(processRow())
     })
 
@@ -185,6 +195,22 @@ export async function GET() {
       select: { name: true },
     })
 
+    const academicYears = await prisma.academicYear.findMany({
+      where: {
+        OR: [
+          { isCurrent: true },
+          { isUpcoming: true }
+        ]
+      },
+      orderBy: { year: "asc" },
+      select: {
+        id: true,
+        year: true,
+        isCurrent: true,
+        isUpcoming: true
+      }
+    })
+
     // Create workbook
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet("Enrollment")
@@ -210,10 +236,10 @@ export async function GET() {
     students.forEach(student => {
       const latestEnrollment = student.classEnrollment[0]
       const pendingApplication = student.applications[0]
-      
+
       const currentClass = latestEnrollment?.class.name || (pendingApplication?.appliedClass.name || "")
       const currentSection = latestEnrollment?.section.name || (pendingApplication?.appliedSection?.name || "")
-      const academicYear = latestEnrollment?.academicYear || pendingApplication?.academicYear || ""
+      const academicYear = latestEnrollment?.academicYearId || pendingApplication?.academicYearId || ""
 
       worksheet.addRow({
         admissionNumber: student.admissionNumber,
@@ -249,20 +275,20 @@ export async function GET() {
     }
 
     // Add data validation for AcademicYear
-    const currentYear = new Date().getFullYear() as any
-    (worksheet as any).dataValidations.add(`E2:E${students.length + 1}`, {
-      type: "list",
-      allowBlank: false,
-      formulae: [`"${[
-        `${currentYear - 1}-${currentYear}`,
-        `${currentYear}-${currentYear + 1}`,
-        `${currentYear + 1}-${currentYear + 2}`,
-        `${currentYear + 2}-${currentYear + 3}`,
-      ].join(",")}"`],
-      showErrorMessage: true,
-      errorTitle: "Invalid Academic Year",
-      error: "Please select from the dropdown list",
-    })
+    // const currentYear = new Date().getFullYear() as any
+    // (worksheet as any).dataValidations.add(`E2:E${students.length + 1}`, {
+    //   type: "list",
+    //   allowBlank: false,
+    //   formulae: [`"${[
+    //     `${currentYear - 1}-${currentYear}`,
+    //     `${currentYear}-${currentYear + 1}`,
+    //     `${currentYear + 1}-${currentYear + 2}`,
+    //     `${currentYear + 2}-${currentYear + 3}`,
+    //   ].join(",")}"`],
+    //   showErrorMessage: true,
+    //   errorTitle: "Invalid Academic Year",
+    //   error: "Please select from the dropdown list",
+    // })
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer()

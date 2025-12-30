@@ -18,11 +18,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { sectionId, academicTermId, reportIds, approvalNote } = body
+    const { sectionId, termId, academicYearId, reportIds, approvalNote } = body
 
-    if (!sectionId || !academicTermId) {
+    if (!sectionId || !termId) {
       return NextResponse.json(
-        { error: "Missing required fields: sectionId, academicTermId" },
+        { error: "Missing required fields: sectionId, termId" },
         { status: 400 }
       )
     }
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Get reports to approve
     const whereClause: any = {
       sectionId,
-      academicTermId,
+      termId,
       status: { in: ["PENDING_CLASS_TEACHER", "PENDING_PRINCIPAL"] }
     }
 
@@ -147,14 +147,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const sectionId = searchParams.get("sectionId")
-    const academicTermId = searchParams.get("academicTermId")
+    const termId = searchParams.get("termId")
+    const academicYearId = searchParams.get("academicYearId")
 
     const whereClause: any = {
       status: { in: ["PENDING_CLASS_TEACHER", "PENDING_PRINCIPAL"] }
     }
 
     if (sectionId) whereClause.sectionId = sectionId
-    if (academicTermId) whereClause.academicTermId = academicTermId
+    if (termId) whereClause.termId = termId
+    if (academicYearId) whereClause.academicYearId = academicYearId
 
     const pendingReports = await prisma.studentReport.findMany({
       where: whereClause,
@@ -166,7 +168,8 @@ export async function GET(request: NextRequest) {
             classTeacher: { include: { user: true } }
           } 
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
         comments: {
           include: { teacher: { include: { user: true } } }
@@ -178,7 +181,7 @@ export async function GET(request: NextRequest) {
     // Group by section for easier display
     const groupedReports = new Map()
     pendingReports.forEach(report => {
-      const key = `${report.sectionId}-${report.academicTermId}`
+      const key = `${report.sectionId}-${report.termId}`
       if (!groupedReports.has(key)) {
         groupedReports.set(key, [])
       }
@@ -188,9 +191,11 @@ export async function GET(request: NextRequest) {
     const grouped = Array.from(groupedReports.entries()).map(([key, reports]) => ({
       key,
       sectionId: reports[0].sectionId,
-      academicTermId: reports[0].academicTermId,
+      termId: reports[0].termId,
+      academicYearId: reports[0].academicYearId,
       section: reports[0].section,
-      academicTerm: reports[0].academicTerm,
+      term: reports[0].term,
+      academicYear: reports[0].academicYear,
       count: reports.length,
       reports
     }))

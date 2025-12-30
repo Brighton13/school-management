@@ -73,7 +73,6 @@ export default function PendingApplicationsPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [rejectionReason, setRejectionReason] = useState<string>("")
   const [processing, setProcessing] = useState(false)
-  const [bulkAcademicYear, setBulkAcademicYear] = useState<string>("")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -141,7 +140,6 @@ export default function PendingApplicationsPage() {
     if (applications.length === 0) return
     setActionType("bulkApprove")
     setSelectedSectionId("")
-    setBulkAcademicYear(new Date().getFullYear().toString())
   }
 
   const handleBulkReject = () => {
@@ -250,16 +248,16 @@ export default function PendingApplicationsPage() {
   }
 
   const handleSubmitBulkApproval = async () => {
-    if (!selectedSectionId || !bulkAcademicYear) {
+    if (!selectedSectionId) {
       toast({
         title: "Error",
-        description: "Please select section and academic year",
+        description: "Please select a section",
         variant: "destructive",
       })
       return
     }
 
-    if (!confirm(`Are you sure you want to approve all ${applications.length} pending applications?`)) {
+    if (!confirm(`Are you sure you want to approve all ${applications.length} pending applications and enroll them in the current academic year?`)) {
       return
     }
 
@@ -270,7 +268,6 @@ export default function PendingApplicationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sectionId: selectedSectionId,
-          academicYear: bulkAcademicYear,
         }),
       })
 
@@ -365,7 +362,6 @@ export default function PendingApplicationsPage() {
     setActionType(null)
     setSelectedSectionId("")
     setRejectionReason("")
-    setBulkAcademicYear("")
   }
 
   return (
@@ -629,7 +625,7 @@ export default function PendingApplicationsPage() {
           <DialogHeader>
             <DialogTitle>Bulk Approve Applications</DialogTitle>
             <DialogDescription>
-              Approve all {applications.length} pending applications
+              Approve all {applications.length} pending applications and enroll them in the current academic year
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -638,7 +634,7 @@ export default function PendingApplicationsPage() {
                 <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-orange-800">
                   <p className="font-medium">Important</p>
-                  <p>All students will be enrolled in the same section</p>
+                  <p>All students will be enrolled in the same section for the current academic year</p>
                 </div>
               </div>
             </div>
@@ -657,21 +653,6 @@ export default function PendingApplicationsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-year">Academic Year *</Label>
-              <Select value={bulkAcademicYear} onValueChange={setBulkAcademicYear}>
-                <SelectTrigger id="bulk-year">
-                  <SelectValue placeholder="Select academic year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from(new Set(applications.map(app => app.academicYear))).map(year => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseDialog} disabled={processing}>
@@ -679,7 +660,7 @@ export default function PendingApplicationsPage() {
             </Button>
             <Button 
               onClick={handleSubmitBulkApproval}
-              disabled={!selectedSectionId || !bulkAcademicYear || processing}
+              disabled={!selectedSectionId || processing}
               className="bg-green-600 hover:bg-green-700"
             >
               {processing ? "Processing..." : `Approve All ${applications.length}`}

@@ -17,16 +17,16 @@ export async function POST(request: NextRequest) {
       classId,
       sectionId,
       studentIds = [],
-      academicTermId,
+      termId,
       feeType,
       amount,
       dueDate,
       remarks,
     } = body
 
-    if (!academicTermId || !feeType || !amount || !dueDate) {
+    if (!termId || !feeType || !amount || !dueDate) {
       return NextResponse.json(
-        { error: "Academic term, fee type, amount, and due date are required" },
+        { error: "Term, fee type, amount, and due date are required" },
         { status: 400 }
       )
     }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         const existingFee = await prisma.fee.findFirst({
           where: {
             studentId: student.id,
-            academicTermId,
+            termId: termId,
             feeType,
           },
         })
@@ -90,15 +90,26 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Fetch the term to get its academicYearId
+        const term = await prisma.term.findUnique({
+          where: { id: termId },
+          select: { academicYearId: true },
+        })
+
+        if (!term) {
+          return NextResponse.json({ error: "Invalid termId" }, { status: 400 })
+        }
+
         await prisma.fee.create({
           data: {
             studentId: student.id,
-            academicTermId,
+            termId: termId,
             feeType,
             amount: parseFloat(amount),
             dueDate: new Date(dueDate),
             remarks,
             createdBy: session.user.id,
+            academicYearId: term.academicYearId,
           },
         })
 

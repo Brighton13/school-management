@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { studentId, sectionId, academicTermId, examId, sendToStudent } = body
+    const { studentId, sectionId, termId, academicYearId, examId, sendToStudent } = body
 
     // Verify teacher is class teacher
     const staff = await prisma.staff.findUnique({
@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
     const results = await prisma.result.findMany({
       where: {
         studentId,
-        ...(academicTermId ? { academicTermId } : {}),
+        ...(termId ? { termId } : {}),
+        ...(academicYearId ? { academicYearId } : {}),
         ...(examId ? { examId } : {}),
         status: { in: ["APPROVED", "PUBLISHED"] },
       },
@@ -66,7 +67,8 @@ export async function POST(request: NextRequest) {
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
       },
     })

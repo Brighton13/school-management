@@ -35,9 +35,14 @@ interface Result {
       user: { name: string }
     } | null
   }
-  academicTerm: {
+  term: {
     name: string
-    academicYear: string
+    academicYear: {
+      year: string
+    }
+  }
+  academicYear: {
+    year: string
   }
   exam: {
     name: string
@@ -54,7 +59,9 @@ interface Student {
 interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    year: string
+  }
 }
 
 interface ClassSubject {
@@ -138,7 +145,8 @@ export default function ResultsPage() {
         body: JSON.stringify({
           studentId: formData.get("studentId"),
           classSubjectId: formData.get("classSubjectId"),
-          academicTermId: formData.get("academicTermId"),
+          termId: formData.get("termId"),
+          academicYearId: formData.get("academicYearId"),
           examId: formData.get("examId") || null,
           marksObtained: formData.get("marksObtained"),
           maxMarks: formData.get("maxMarks"),
@@ -213,7 +221,7 @@ export default function ResultsPage() {
     doc.text(`Class: ${result.classSubject.class.name}`, 20, 60)
     doc.text(`Subject: ${result.classSubject.subject.name}`, 20, 70)
     doc.text(`Exam: ${result.exam?.name || "N/A"} (${result.exam?.examType || "N/A"})`, 20, 80)
-    doc.text(`Term: ${result.academicTerm.name} ${result.academicTerm.academicYear}`, 20, 90)
+    doc.text(`Term: ${result.term.name} ${result.academicYear.year}`, 20, 90)
     doc.text(`Marks: ${result.marksObtained}/${result.maxMarks}`, 20, 100)
     if (result.grade) {
       doc.text(`Grade: ${result.grade}`, 20, 110)
@@ -324,15 +332,15 @@ export default function ResultsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="academicTermId">Academic Term</Label>
-                    <Select name="academicTermId" required>
+                    <Label htmlFor="termId">Term</Label>
+                    <Select name="termId" required>
                       <SelectTrigger>
                         <SelectValue placeholder="Select term" />
                       </SelectTrigger>
                       <SelectContent>
                         {terms.map((term) => (
                           <SelectItem key={term.id} value={term.id}>
-                            {term.name} - {term.academicYear}
+                            {term.name} - {term.academicYear.year}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -458,7 +466,7 @@ export default function ResultsPage() {
                     <TableCell>
                       {result.classSubject.teacher?.user.name || "Not assigned"}
                     </TableCell>
-                    <TableCell>{result.academicTerm.name}</TableCell>
+                    <TableCell>{result.term.name}</TableCell>
                     <TableCell>
                       {result.exam?.name || "N/A"} ({result.exam?.examType || "N/A"})
                     </TableCell>

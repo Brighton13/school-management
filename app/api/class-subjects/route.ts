@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       const studentSelections = await prisma.studentSubjectSelection.findMany({
         where: {
           studentId,
-          academicYear,
+          academicYearId: academicYear,
           status: "ACTIVE",
         },
         select: {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAcademicContext } from "@/lib/academic-year"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,14 +12,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { sectionId, academicYear } = body
+    const { sectionId } = body
 
-    if (!sectionId || !academicYear) {
+    if (!sectionId) {
       return NextResponse.json(
-        { error: "Section ID and Academic Year are required" },
+        { error: "Section ID is required" },
         { status: 400 }
       )
     }
+
+    // Get current academic context - this is the single source of truth
+    const context = await getAcademicContext()
 
     // Fetch all pending applications
     const pendingApplications = await prisma.application.findMany({
@@ -55,25 +59,25 @@ export async function POST(request: NextRequest) {
         const existingEnrollment = await prisma.classEnrollment.findFirst({
           where: {
             studentId: application.studentId,
-            academicYear: academicYear,
+            academicYearId: context.academicYearId,
           },
         })
 
         if (existingEnrollment) {
           results.failed++
           results.errors.push(
-            `${application.student.user.name}: Already enrolled for ${academicYear}`
+            `${application.student.user.name}: Already enrolled for ${context.academicYear}`
           )
           continue
         }
 
-        // Enroll the student
+        // Enroll the student in current academic year
         await prisma.classEnrollment.create({
           data: {
             studentId: application.studentId,
             classId: application.appliedClassId,
             sectionId: sectionId,
-            academicYear: academicYear,
+            academicYearId: context.academicYearId,
           },
         })
 

@@ -22,7 +22,7 @@ interface Report {
       name: string
     }
   }
-  academicTerm: {
+  term: {
     id: string
     name: string
   }
@@ -196,7 +196,7 @@ export default function ReportsPage() {
                     {report.section.class.name} - {report.section.name}
                   </td>
                   <td className="border border-gray-300 px-4 py-2">
-                    {report.academicTerm.name}
+                    {report.term.name}
                   </td>
                   <td className="border border-gray-300 px-4 py-2 text-right">
                     {report.totalMarksObtained}/{report.maxTotalMarks}

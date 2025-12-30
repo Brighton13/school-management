@@ -24,7 +24,7 @@ async function main() {
   await prisma.section.deleteMany()
   await prisma.class.deleteMany()
   await prisma.subject.deleteMany()
-  await prisma.academicTerm.deleteMany()
+  await prisma.term.deleteMany()
   await prisma.staff.deleteMany()
   await prisma.student.deleteMany()
   await prisma.parent.deleteMany()
@@ -207,10 +207,14 @@ async function main() {
   console.log('✅ Created subjects')
 
   // Create academic term
-  const term = await prisma.academicTerm.create({
+  const term = await prisma.term.create({
     data: {
       name: 'First Term',
-      academicYear: '2024-2025',
+      termNumber: 1,
+      academicYear: {
+        // Replace 'id: someId' with the actual unique identifier for the academic year
+        connect: { id: '1' }, // or use another unique field if available
+      },
       startDate: new Date('2024-09-01'),
       endDate: new Date('2024-12-20'),
       isCurrent: true,
@@ -265,7 +269,8 @@ async function main() {
       name: 'Mid Term Examination',
       description: 'First term mid-term examination',
       examType: 'MID_TERM',
-      academicTermId: term.id,
+      academicYearId: term.academicYearId, // Use the correct property and value
+      termId: term.id,
       startDate: new Date('2024-10-15'),
       endDate: new Date('2024-10-25'),
       isFinal: false,

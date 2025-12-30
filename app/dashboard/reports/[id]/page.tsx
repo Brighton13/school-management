@@ -30,7 +30,7 @@ interface ReportDetail {
         }
       }
     }
-    academicTerm: {
+    term: {
       id: string
       name: string
     }
@@ -212,7 +212,7 @@ export default function ReportDetailPage() {
             <h3 className="font-semibold text-gray-700">Academic Information</h3>
             <p><strong>Class:</strong> {report.report.section.class.name}</p>
             <p><strong>Section:</strong> {report.report.section.name}</p>
-            <p><strong>Term:</strong> {report.report.academicTerm.name}</p>
+            <p><strong>Term:</strong> {report.report.term.name}</p>
           </div>
         </div>
 

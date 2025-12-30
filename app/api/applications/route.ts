@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...(studentId ? { studentId } : {}),
         ...(status ? { applicationStatus: status } : {}),
-        ...(academicYear ? { academicYear } : {}),
+        ...(academicYear ? { academicYear: { id: academicYear } } : {}),
       },
       include: {
         student: {
@@ -98,10 +98,10 @@ export async function POST(request: NextRequest) {
     // Check if application already exists
     const existingApplication = await prisma.application.findUnique({
       where: {
-        studentId_appliedClassId_academicYear: {
+        studentId_appliedClassId_academicYearId: {
           studentId,
           appliedClassId,
-          academicYear,
+          academicYearId: academicYear,
         },
       },
     })
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         studentId,
         appliedClassId,
         appliedSectionId: appliedSectionId || null,
-        academicYear,
+        academicYearId: academicYear,
         notes: notes || null,
         createdBy: session.user.id,
       },

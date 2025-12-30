@@ -44,7 +44,8 @@ export async function GET(
             }
           }
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
         comments: {
           include: {
@@ -86,7 +87,8 @@ export async function GET(
     const results = await prisma.result.findMany({
       where: {
         studentId: report.studentId,
-        academicTermId: report.academicTermId,
+        termId: report.termId,
+        academicYearId: report.academicYearId,
         status: "APPROVED",
         ...(report.examId ? { examId: report.examId } : {})
       },
@@ -129,7 +131,8 @@ export async function GET(
           sectionId: report.sectionId,
           subject: { type: "CORE" }
         },
-        academicTermId: report.academicTermId,
+        termId: report.termId,
+        academicYearId: report.academicYearId,
         status: "APPROVED",
         ...(report.examId ? { examId: report.examId } : {})
       },

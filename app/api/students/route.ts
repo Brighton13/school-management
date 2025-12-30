@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
             studentId: user.student!.id,
             appliedClassId,
             appliedSectionId: appliedSectionId || null,
-            academicYear,
+            academicYearId: academicYear,
             notes: applicationNotes || null,
             createdBy: session.user.id,
           },

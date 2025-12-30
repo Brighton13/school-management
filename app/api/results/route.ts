@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get("studentId")
-    const academicTermId = searchParams.get("academicTermId")
+    const termId = searchParams.get("termId")
+    const academicYearId = searchParams.get("academicYearId")
     const status = searchParams.get("status")
 
     // For teachers, only show results for their assigned subjects
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
     // Submitted results should only appear on "Class Results" page
     const whereClause: any = {
       ...(studentId ? { studentId } : {}),
-      ...(academicTermId ? { academicTermId } : {}),
+      ...(termId ? { termId } : {}),
+      ...(academicYearId ? { academicYearId } : {}),
       ...(status ? { status } : {}),
       ...(teacherClassSubjectIds ? { classSubjectId: { in: teacherClassSubjectIds } } : {}),
     }
@@ -65,7 +67,8 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
       },
       orderBy: { createdAt: "desc" },
     })
@@ -90,7 +93,8 @@ export async function POST(request: NextRequest) {
     const {
       studentId,
       classSubjectId,
-      academicTermId,
+      termId,
+      academicYearId,
       examId,
       marksObtained,
       maxMarks,
@@ -140,15 +144,16 @@ export async function POST(request: NextRequest) {
       where: {
         studentId,
         classSubjectId,
-        academicTermId,
+        termId: termId,
+        academicYearId,
         examId: examId || null,
       },
     })
 
     if (existingResult) {
       return NextResponse.json(
-        { 
-          error: "A result already exists for this student, subject, term, and exam combination. Please update the existing result instead." 
+        {
+          error: "A result already exists for this student, subject, term, and exam combination. Please update the existing result instead."
         },
         { status: 400 }
       )
@@ -188,7 +193,8 @@ export async function POST(request: NextRequest) {
       data: {
         studentId,
         classSubjectId,
-        academicTermId,
+        termId,
+        academicYearId,
         examId: examId || null,
         marksObtained: parseFloat(marksObtained),
         maxMarks: parseFloat(maxMarks),
@@ -213,8 +219,8 @@ export async function POST(request: NextRequest) {
             },
           },
         },
-        academicTerm: true,
-        exam: true,
+        term: true,
+        academicYear: true,
       },
     })
 

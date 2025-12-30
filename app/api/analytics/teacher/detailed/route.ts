@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAcademicContext } from "@/lib/academic-year"
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +36,8 @@ export async function GET(request: NextRequest) {
                     },
                   },
                 },
-                academicTerm: true,
+                academicYear: true,
+                term: true,
               },
             },
           },
@@ -68,9 +70,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Staff record not found" }, { status: 404 })
     }
 
-    // Get current term
-    const currentTerm = await prisma.academicTerm.findFirst({
-      where: { isCurrent: true },
+    // Get current academic context
+    const context = await getAcademicContext()
+    const currentTerm = await prisma.term.findUnique({
+      where: { id: context.termId },
+      include: { academicYear: true },
     })
 
     // Get all students in teacher's classes
@@ -94,7 +98,8 @@ export async function GET(request: NextRequest) {
         const results = await prisma.result.findMany({
           where: {
             classSubjectId: classSubject.id,
-            academicTermId: currentTerm.id,
+            termId: currentTerm.id,
+            academicYearId: currentTerm.academicYear.id,
             status: { in: ["APPROVED", "PUBLISHED"] },
           },
           include: {
@@ -140,7 +145,8 @@ export async function GET(request: NextRequest) {
       const allResults = await prisma.result.findMany({
         where: {
           classSubjectId: { in: staff.classSubjects.map((s) => s.id) },
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
+          academicYearId: currentTerm.academicYear.id,
           status: { in: ["APPROVED", "PUBLISHED"] },
         },
         include: {

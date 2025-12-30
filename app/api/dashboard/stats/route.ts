@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Results Status Distribution
-    const currentTerm = await prisma.academicTerm.findFirst({
+    const currentTerm = await prisma.term.findFirst({
       where: { isCurrent: true },
     })
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       const results = await prisma.result.groupBy({
         by: ["status"],
         where: {
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
         },
         _count: { status: true },
       })

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { validateEnrollmentAcademicYear } from "@/lib/academic-year"
 
 export async function POST(
   request: NextRequest,
@@ -15,7 +16,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { sectionId, academicYear } = body
+    const { sectionId, academicYearId } = body
 
     // Get the application
     const application = await prisma.application.findUnique({
@@ -25,6 +26,7 @@ export async function POST(
           include: { user: true },
         },
         appliedClass: true,
+        academicYear: true,
       },
     })
 
@@ -49,21 +51,30 @@ export async function POST(
       )
     }
 
-    // Use provided academicYear or the one from application
-    const finalAcademicYear = academicYear || application.academicYear
+    // Use provided academicYearId or the one from application
+    const finalAcademicYearId = academicYearId || application.academicYearId
+
+    // Validate academic year
+    const validation = await validateEnrollmentAcademicYear(finalAcademicYearId)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.message },
+        { status: 400 }
+      )
+    }
 
     // Check if student is already enrolled in this class for the academic year
     const existingEnrollment = await prisma.classEnrollment.findFirst({
       where: {
         studentId: application.studentId,
         classId: application.appliedClassId,
-        academicYear: finalAcademicYear,
+        academicYearId: finalAcademicYearId,
       },
     })
 
     if (existingEnrollment) {
       return NextResponse.json(
-        { error: "Student is already enrolled in this class for this academic year" },
+        { error: `Student is already enrolled in this class for ${validation.academicYear?.year}` },
         { status: 400 }
       )
     }
@@ -87,7 +98,7 @@ export async function POST(
           studentId: application.studentId,
           classId: application.appliedClassId,
           sectionId: sectionId,
-          academicYear: finalAcademicYear,
+          academicYearId: finalAcademicYearId,
         },
       })
 

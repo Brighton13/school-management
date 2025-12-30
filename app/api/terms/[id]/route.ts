@@ -9,8 +9,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const term = await prisma.academicTerm.findUnique({
+    const term = await prisma.term.findUnique({
       where: { id: params.id },
+      include: {
+        academicYear: true,
+      },
     })
 
     if (!term) {
@@ -37,10 +40,10 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, academicYear, startDate, endDate, isCurrent } = body
+    const { name, academicYearId, startDate, endDate, isCurrent, termNumber } = body
 
     // Check if term exists
-    const existingTerm = await prisma.academicTerm.findUnique({
+    const existingTerm = await prisma.term.findUnique({
       where: { id: params.id },
     })
 
@@ -50,7 +53,7 @@ export async function PATCH(
 
     // If setting as current, unset all other current terms
     if (isCurrent === true) {
-      await prisma.academicTerm.updateMany({
+      await prisma.term.updateMany({
         where: { 
           isCurrent: true,
           id: { not: params.id }
@@ -59,14 +62,18 @@ export async function PATCH(
       })
     }
 
-    const updatedTerm = await prisma.academicTerm.update({
+    const updatedTerm = await prisma.term.update({
       where: { id: params.id },
       data: {
         ...(name && { name }),
-        ...(academicYear && { academicYear }),
+        ...(academicYearId && { academicYearId }),
         ...(startDate && { startDate: new Date(startDate) }),
         ...(endDate && { endDate: new Date(endDate) }),
         ...(typeof isCurrent === 'boolean' && { isCurrent }),
+        ...(termNumber && { termNumber }),
+      },
+      include: {
+        academicYear: true,
       },
     })
 
@@ -74,11 +81,11 @@ export async function PATCH(
     await logAuditTrail(
       session.user.id,
       "UPDATE",
-      "AcademicTerm",
+      "Term",
       request,
       {
         entityId: updatedTerm.id,
-        description: `Updated academic term: ${updatedTerm.name} (${updatedTerm.academicYear})`,
+        description: `Updated term: ${updatedTerm.name} (${updatedTerm.academicYear.year})`,
         metadata: {
           changes: {
             before: existingTerm,
@@ -108,7 +115,7 @@ export async function DELETE(
     }
 
     // Check if term exists
-    const existingTerm = await prisma.academicTerm.findUnique({
+    const existingTerm = await prisma.term.findUnique({
       where: { id: params.id },
       include: {
         results: true,
@@ -139,7 +146,7 @@ export async function DELETE(
       )
     }
 
-    await prisma.academicTerm.delete({
+    await prisma.term.delete({
       where: { id: params.id },
     })
 
@@ -151,7 +158,7 @@ export async function DELETE(
       request,
       {
         entityId: params.id,
-        description: `Deleted academic term: ${existingTerm.name} (${existingTerm.academicYear})`,
+        description: `Deleted academic term: ${existingTerm.name} (${existingTerm.academicYearId})`,
         metadata: { deletedData: existingTerm },
       }
     )

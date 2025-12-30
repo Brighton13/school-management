@@ -71,7 +71,8 @@ export async function PUT(
         student: {
           include: { user: true },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
       },
     })
 

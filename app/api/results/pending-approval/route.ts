@@ -27,7 +27,8 @@ export async function GET() {
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
       },
       orderBy: { submittedAt: "desc" },
     })

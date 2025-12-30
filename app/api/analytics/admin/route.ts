@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAcademicContext } from "@/lib/academic-year"
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,15 +20,20 @@ export async function GET(request: NextRequest) {
     const academicYear = searchParams.get("academicYear")
     const termId = searchParams.get("termId")
 
-    // Get current term if not specified
+    // Get current academic context
+    const context = await getAcademicContext()
+    
+    // Use specified term or default to current
     let currentTerm = null
     if (termId) {
-      currentTerm = await prisma.academicTerm.findUnique({
+      currentTerm = await prisma.term.findUnique({
         where: { id: termId },
+        include: { academicYear: true },
       })
     } else {
-      currentTerm = await prisma.academicTerm.findFirst({
-        where: { isCurrent: true },
+      currentTerm = await prisma.term.findUnique({
+        where: { id: context.termId },
+        include: { academicYear: true },
       })
     }
 
@@ -89,7 +95,8 @@ export async function GET(request: NextRequest) {
     if (currentTerm) {
       const results = await prisma.result.findMany({
         where: {
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
+          academicYearId: currentTerm.academicYear.id,
           status: { in: ["APPROVED", "PUBLISHED"] },
         },
         include: {
@@ -97,7 +104,7 @@ export async function GET(request: NextRequest) {
             include: {
               classEnrollment: {
                 where: {
-                  academicYear: currentTerm.academicYear,
+                  academicYearId: currentTerm.academicYear.id,
                 },
                 include: {
                   class: true,
@@ -284,7 +291,8 @@ export async function GET(request: NextRequest) {
     if (currentTerm) {
       const subjectResults = await prisma.result.findMany({
         where: {
-          academicTermId: currentTerm.id,
+          termId: currentTerm.id,
+          academicYearId: currentTerm.academicYear.id,
           status: { in: ["APPROVED", "PUBLISHED"] },
         },
         include: {

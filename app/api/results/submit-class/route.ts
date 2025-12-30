@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { sectionId, academicTermId, examId } = body
+    const { sectionId, termId, academicYearId, examId } = body
 
     // Get staff member
     const staff = await prisma.staff.findUnique({
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const enrollments = await prisma.classEnrollment.findMany({
       where: {
         sectionId,
-        ...(academicTermId ? { academicYear: { contains: academicTermId } } : {}),
+        ...(academicYearId ? { academicYearId } : {}),
       },
       include: {
         student: true,
@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
     const results = await prisma.result.findMany({
       where: {
         studentId: { in: studentIds },
-        ...(academicTermId ? { academicTermId } : {}),
+        ...(termId ? { termId } : {}),
+        ...(academicYearId ? { academicYearId } : {}),
         ...(examId ? { examId } : {}),
         status: "PENDING_CLASS_TEACHER",
       },
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         description: `Class teacher submitted ${updatedResults.count} results for approval (Section ID: ${sectionId})`,
-        metadata: { count: updatedResults.count, sectionId, academicTermId, examId },
+        metadata: { count: updatedResults.count, sectionId, termId, academicYearId, examId },
       }
     )
 

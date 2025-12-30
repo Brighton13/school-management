@@ -29,7 +29,8 @@ export async function GET(
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
       },
     })
@@ -142,7 +143,8 @@ export async function PUT(
             },
           },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
         exam: true,
       },
     })

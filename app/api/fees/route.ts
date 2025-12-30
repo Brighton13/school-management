@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
         student: {
           include: { user: true },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
       },
       orderBy: { dueDate: "desc" },
     })
@@ -80,7 +81,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       studentId,
-      academicTermId,
+      termId,
+      academicYearId,
       feeType,
       amount,
       dueDate,
@@ -90,7 +92,8 @@ export async function POST(request: NextRequest) {
     const fee = await prisma.fee.create({
       data: {
         studentId,
-        academicTermId,
+        termId,
+        academicYearId,
         feeType,
         amount: parseFloat(amount),
         dueDate: new Date(dueDate),
@@ -101,7 +104,8 @@ export async function POST(request: NextRequest) {
         student: {
           include: { user: true },
         },
-        academicTerm: true,
+        term: true,
+        academicYear: true,
       },
     })
 

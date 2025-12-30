@@ -12,16 +12,21 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
-    const academicTermId = searchParams.get("academicTermId")
+    const termId = searchParams.get("termId")
+    const academicYearId = searchParams.get("academicYearId")
     const status = searchParams.get("status")
 
     const exams = await prisma.exam.findMany({
       where: {
-        ...(academicTermId ? { academicTermId } : {}),
+        ...(termId ? { termId } : {}),
+        ...(academicYearId ? { academicYearId } : {}),
         ...(status ? { status } : {}),
       },
       include: {
-        academicTerm: true,
+        term: {
+          include: { academicYear: true },
+        },
+        academicYear: true,
         creator: true,
         _count: {
           select: { results: true },
@@ -52,7 +57,8 @@ export async function POST(request: NextRequest) {
       name,
       description,
       examType,
-      academicTermId,
+      termId,
+      academicYearId,
       startDate,
       endDate,
       isFinal,
@@ -60,12 +66,31 @@ export async function POST(request: NextRequest) {
       status,
     } = body
 
+    // If termId provided but not academicYearId, fetch it from the term
+    let resolvedAcademicYearId = academicYearId
+    if (termId && !academicYearId) {
+      const term = await prisma.term.findUnique({
+        where: { id: termId },
+        select: { academicYearId: true },
+      })
+
+      if (!term) {
+        return NextResponse.json({ error: "Invalid termId" }, { status: 400 })
+      }
+      resolvedAcademicYearId = term.academicYearId
+    }
+
+    if (!resolvedAcademicYearId) {
+      return NextResponse.json({ error: "academicYearId is required" }, { status: 400 })
+    }
+
     const exam = await prisma.exam.create({
       data: {
         name,
         description: description || null,
         examType,
-        academicTermId,
+        termId,
+        academicYearId: resolvedAcademicYearId,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isFinal: isFinal || false,
@@ -74,7 +99,10 @@ export async function POST(request: NextRequest) {
         createdBy: session.user.id,
       },
       include: {
-        academicTerm: true,
+        term: {
+          include: { academicYear: true },
+        },
+        academicYear: true,
         creator: true,
       },
     })

@@ -6,7 +6,10 @@ import { logAuditTrail } from "@/lib/audit"
 
 export async function GET() {
   try {
-    const terms = await prisma.academicTerm.findMany({
+    const terms = await prisma.term.findMany({
+      include: {
+        academicYear: true,
+      },
       orderBy: { startDate: "desc" },
     })
 
@@ -27,23 +30,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, academicYear, startDate, endDate, isCurrent } = body
+    const { name, academicYearId, startDate, endDate, isCurrent, termNumber } = body
+
+    if (!academicYearId) {
+      return NextResponse.json({ error: "Academic year is required" }, { status: 400 })
+    }
+
+    // Verify academic year exists
+    const academicYear = await prisma.academicYear.findUnique({
+      where: { id: academicYearId },
+    })
+
+    if (!academicYear) {
+      return NextResponse.json({ error: "Academic year not found" }, { status: 404 })
+    }
 
     // If setting as current, unset all other current terms
     if (isCurrent) {
-      await prisma.academicTerm.updateMany({
+      await prisma.term.updateMany({
         where: { isCurrent: true },
         data: { isCurrent: false },
       })
     }
 
-    const term = await prisma.academicTerm.create({
+    const term = await prisma.term.create({
       data: {
         name,
-        academicYear,
+        academicYearId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isCurrent: isCurrent || false,
+        termNumber: termNumber || 1,
+      },
+      include: {
+        academicYear: true,
       },
     })
 
@@ -51,11 +71,11 @@ export async function POST(request: NextRequest) {
     await logAuditTrail(
       session.user.id,
       "CREATE",
-      "AcademicTerm",
+      "Term",
       request,
       {
         entityId: term.id,
-        description: `Created academic term: ${name} (${academicYear})`,
+        description: `Created term: ${name} (${academicYear.year})`,
       }
     )
 
