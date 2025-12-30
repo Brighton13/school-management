@@ -223,6 +223,11 @@ export async function GET() {
       orderBy: { name: "asc" },
       select: { name: true },
     })
+     const academicYears = await prisma.academicTerm.findMany({
+      orderBy: { academicYear: "asc" },
+      where:{isCurrent:true},
+      select: { academicYear: true },
+    })
 
     // Create workbook
     const workbook = new ExcelJS.Workbook()
@@ -319,13 +324,13 @@ export async function GET() {
     }
 
     // Add data validation for AcademicYear
-    const currentYear = new Date().getFullYear()
-    const academicYears = [
-      `${currentYear - 1}-${currentYear}`,
-      `${currentYear}-${currentYear + 1}`,
-      `${currentYear + 1}-${currentYear + 2}`,
-      `${currentYear + 2}-${currentYear + 3}`,
-    ].join(",") as any
+   // const currentYear = new Date().getFullYear()
+    // const academicYears = [
+    //   `${currentYear - 1}-${currentYear}`,
+    //   `${currentYear}-${currentYear + 1}`,
+    //   `${currentYear + 1}-${currentYear + 2}`,
+    //   `${currentYear + 2}-${currentYear + 3}`,
+    // ].join(",") as any
     (worksheet as any).dataValidations.add("J2:J1000", {
       type: "list",
       allowBlank: true,

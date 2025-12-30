@@ -68,12 +68,11 @@ export default function PendingApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
-  const [actionType, setActionType] = useState<"approve" | "reject" | "bulkApprove" | "bulkReject" | null>(null)
+  const [actionType, setActionType] = useState<"approve" | "reject" | null>(null)
   const [sections, setSections] = useState<Section[]>([])
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [rejectionReason, setRejectionReason] = useState<string>("")
   const [processing, setProcessing] = useState(false)
-  const [bulkAcademicYear, setBulkAcademicYear] = useState<string>("")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -87,15 +86,7 @@ export default function PendingApplicationsPage() {
         setSelectedSectionId(selectedApplication.appliedSectionId)
       }
     }
-    if (actionType === "bulkApprove" && applications.length > 0) {
-      const classIds = Array.from(new Set(applications.map(app => app.appliedClassId)))
-      Promise.all(classIds.map(classId => 
-        fetch(`/api/sections?classId=${classId}`).then(res => res.json())
-      )).then(results => {
-        setSections(results.flat())
-      })
-    }
-  }, [selectedApplication, actionType, applications])
+  }, [selectedApplication, actionType])
 
   const fetchPendingApplications = async () => {
     try {
@@ -134,19 +125,6 @@ export default function PendingApplicationsPage() {
   const handleReject = (application: Application) => {
     setSelectedApplication(application)
     setActionType("reject")
-    setRejectionReason("")
-  }
-
-  const handleBulkApprove = () => {
-    if (applications.length === 0) return
-    setActionType("bulkApprove")
-    setSelectedSectionId("")
-    setBulkAcademicYear(new Date().getFullYear().toString())
-  }
-
-  const handleBulkReject = () => {
-    if (applications.length === 0) return
-    setActionType("bulkReject")
     setRejectionReason("")
   }
 
@@ -249,123 +227,11 @@ export default function PendingApplicationsPage() {
     }
   }
 
-  const handleSubmitBulkApproval = async () => {
-    if (!selectedSectionId || !bulkAcademicYear) {
-      toast({
-        title: "Error",
-        description: "Please select section and academic year",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!confirm(`Are you sure you want to approve all ${applications.length} pending applications?`)) {
-      return
-    }
-
-    setProcessing(true)
-    try {
-      const res = await fetch("/api/applications/bulk-approve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sectionId: selectedSectionId,
-          academicYear: bulkAcademicYear,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        toast({
-          title: "Bulk Approval Complete",
-          description: `Successfully approved ${data.success} application(s). Failed: ${data.failed}`,
-        })
-        if (data.errors.length > 0) {
-          console.error("Bulk approval errors:", data.errors)
-        }
-        setActionType(null)
-        fetchPendingApplications()
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to bulk approve applications",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Failed to bulk approve:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessing(false)
-    }
-  }
-
-  const handleSubmitBulkRejection = async () => {
-    if (!rejectionReason.trim()) {
-      toast({
-        title: "Error",
-        description: "Please provide a rejection reason",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!confirm(`Are you sure you want to reject all ${applications.length} pending applications?`)) {
-      return
-    }
-
-    setProcessing(true)
-    try {
-      const res = await fetch("/api/applications/bulk-reject", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rejectionReason: rejectionReason.trim(),
-        }),
-      })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        toast({
-          title: "Bulk Rejection Complete",
-          description: `Successfully rejected ${data.success} application(s). Failed: ${data.failed}`,
-        })
-        if (data.errors.length > 0) {
-          console.error("Bulk rejection errors:", data.errors)
-        }
-        setActionType(null)
-        fetchPendingApplications()
-      } else {
-        toast({
-          title: "Error",
-          description: data.error || "Failed to bulk reject applications",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Failed to bulk reject:", error)
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setProcessing(false)
-    }
-  }
-
   const handleCloseDialog = () => {
     setSelectedApplication(null)
     setActionType(null)
     setSelectedSectionId("")
     setRejectionReason("")
-    setBulkAcademicYear("")
   }
 
   return (
@@ -377,31 +243,9 @@ export default function PendingApplicationsPage() {
             Review and approve student enrollment applications
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-500" />
-            <span className="text-lg font-semibold">{applications.length} Pending</span>
-          </div>
-          {applications.length > 0 && (
-            <>
-              <Button
-                onClick={handleBulkApprove}
-                disabled={processing}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve All
-              </Button>
-              <Button
-                onClick={handleBulkReject}
-                disabled={processing}
-                variant="destructive"
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject All
-              </Button>
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-orange-500" />
+          <span className="text-lg font-semibold">{applications.length} Pending</span>
         </div>
       </div>
 
@@ -618,116 +462,6 @@ export default function PendingApplicationsPage() {
               disabled={!rejectionReason.trim() || processing}
             >
               {processing ? "Processing..." : "Reject Application"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Approval Dialog */}
-      <Dialog open={actionType === "bulkApprove"} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Bulk Approve Applications</DialogTitle>
-            <DialogDescription>
-              Approve all {applications.length} pending applications
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded">
-              <div className="flex gap-2">
-                <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-orange-800">
-                  <p className="font-medium">Important</p>
-                  <p>All students will be enrolled in the same section</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-section">Section *</Label>
-              <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
-                <SelectTrigger id="bulk-section">
-                  <SelectValue placeholder="Select section" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-year">Academic Year *</Label>
-              <Select value={bulkAcademicYear} onValueChange={setBulkAcademicYear}>
-                <SelectTrigger id="bulk-year">
-                  <SelectValue placeholder="Select academic year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from(new Set(applications.map(app => app.academicYear))).map(year => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog} disabled={processing}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSubmitBulkApproval}
-              disabled={!selectedSectionId || !bulkAcademicYear || processing}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {processing ? "Processing..." : `Approve All ${applications.length}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Rejection Dialog */}
-      <Dialog open={actionType === "bulkReject"} onOpenChange={handleCloseDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bulk Reject Applications</DialogTitle>
-            <DialogDescription>
-              Reject all {applications.length} pending applications
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="p-3 bg-red-50 border border-red-200 rounded">
-              <div className="flex gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-red-800">
-                  <p className="font-medium">Warning</p>
-                  <p>This action cannot be undone</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-reason">Rejection Reason *</Label>
-              <Textarea
-                id="bulk-reason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Enter reason for bulk rejection..."
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog} disabled={processing}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleSubmitBulkRejection}
-              disabled={!rejectionReason.trim() || processing}
-            >
-              {processing ? "Processing..." : `Reject All ${applications.length}`}
             </Button>
           </DialogFooter>
         </DialogContent>
