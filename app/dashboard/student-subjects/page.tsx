@@ -52,7 +52,10 @@ interface StudentSubjectSelection {
 interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    id: string
+    year: string
+  }
   startDate: string
   endDate: string
   isCurrent: boolean
@@ -104,7 +107,7 @@ export default function StudentSubjectsPage() {
       const termsData = await termsRes.json()
       const currentTerm = termsData.find((t: Term) => t.isCurrent)
       if (currentTerm) {
-        setSelectedAcademicYear(currentTerm.academicYear)
+        setSelectedAcademicYear(currentTerm.academicYear.year)
         setSelectedTerm(currentTerm.name)
       }
     } catch (error) {
@@ -124,7 +127,7 @@ export default function StudentSubjectsPage() {
       const terms = await termsRes.json()
       const currentTerm = terms.find((t: Term) => t.isCurrent)
       if (currentTerm) {
-        setSelectedAcademicYear(currentTerm.academicYear)
+        setSelectedAcademicYear(currentTerm.academicYear.year)
         setSelectedTerm(currentTerm.name)
       }
     } catch (error) {

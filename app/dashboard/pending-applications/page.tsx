@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-import { CheckCircle, XCircle, Clock, AlertCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle, XCircle, Clock, AlertCircle, Eye, Pencil, Users } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
@@ -25,7 +26,10 @@ interface Application {
   studentId: string
   appliedClassId: string
   appliedSectionId: string | null
-  academicYear: string
+  academicYear: {
+    id: string
+    year: string
+  }
   applicationStatus: string
   notes: string | null
   createdAt: string
@@ -40,7 +44,10 @@ interface Application {
     classEnrollment: Array<{
       class: { name: string }
       section: { name: string }
-      academicYear: string
+      academicYear: {
+        id: string
+        year: string
+      }
     }>
   }
   appliedClass: {
@@ -62,29 +69,45 @@ interface Section {
   id: string
   name: string
   classId: string
+  capacity?: number
+  _count?: {
+    enrollments: number
+  }
+}
+
+interface ClassOption {
+  id: string
+  name: string
 }
 
 export default function PendingApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null)
-  const [actionType, setActionType] = useState<"approve" | "reject" | "bulkApprove" | "bulkReject" | null>(null)
+  const [actionType, setActionType] = useState<"approve" | "reject" | "bulkApprove" | "bulkReject" | "review" | null>(null)
   const [sections, setSections] = useState<Section[]>([])
+  const [classes, setClasses] = useState<ClassOption[]>([])
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
+  const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [rejectionReason, setRejectionReason] = useState<string>("")
+  const [editNotes, setEditNotes] = useState<string>("")
   const [processing, setProcessing] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     fetchPendingApplications()
+    fetchClasses()
   }, [])
 
   useEffect(() => {
-    if (selectedApplication && actionType === "approve") {
-      fetchSections(selectedApplication.appliedClassId)
+    if (selectedApplication && (actionType === "approve" || actionType === "review")) {
+      fetchSectionsWithCount(selectedApplication.appliedClassId)
       if (selectedApplication.appliedSectionId) {
         setSelectedSectionId(selectedApplication.appliedSectionId)
       }
+      setSelectedClassId(selectedApplication.appliedClassId)
+      setEditNotes(selectedApplication.notes || "")
     }
     if (actionType === "bulkApprove" && applications.length > 0) {
       const classIds = Array.from(new Set(applications.map(app => app.appliedClassId)))
@@ -95,6 +118,13 @@ export default function PendingApplicationsPage() {
       })
     }
   }, [selectedApplication, actionType, applications])
+
+  // Fetch sections when class changes in review mode
+  useEffect(() => {
+    if (selectedClassId && actionType === "review") {
+      fetchSectionsWithCount(selectedClassId)
+    }
+  }, [selectedClassId, actionType])
 
   const fetchPendingApplications = async () => {
     try {
@@ -113,7 +143,17 @@ export default function PendingApplicationsPage() {
     }
   }
 
-  const fetchSections = async (classId: string) => {
+  const fetchClasses = async () => {
+    try {
+      const res = await fetch("/api/classes")
+      const data = await res.json()
+      setClasses(data)
+    } catch (error) {
+      console.error("Failed to fetch classes:", error)
+    }
+  }
+
+  const fetchSectionsWithCount = async (classId: string) => {
     try {
       const res = await fetch(`/api/sections?classId=${classId}`)
       const data = await res.json()
@@ -122,6 +162,15 @@ export default function PendingApplicationsPage() {
       console.error("Failed to fetch sections:", error)
       setSections([])
     }
+  }
+
+  const handleReview = (application: Application) => {
+    setSelectedApplication(application)
+    setActionType("review")
+    setSelectedSectionId(application.appliedSectionId || "")
+    setSelectedClassId(application.appliedClassId)
+    setEditNotes(application.notes || "")
+    setIsEditing(false)
   }
 
   const handleApprove = (application: Application) => {
@@ -148,6 +197,73 @@ export default function PendingApplicationsPage() {
     setRejectionReason("")
   }
 
+  const handleUpdateApplication = async () => {
+    if (!selectedApplication) return
+
+    setProcessing(true)
+    try {
+      const res = await fetch(`/api/applications/${selectedApplication.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appliedClassId: selectedClassId,
+          appliedSectionId: selectedSectionId || null,
+          notes: editNotes.trim() || null,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        toast({
+          title: "Application Updated",
+          description: "Application details have been updated successfully",
+        })
+        setIsEditing(false)
+        fetchPendingApplications()
+        // Update the selected application with new data
+        setSelectedApplication({
+          ...selectedApplication,
+          appliedClassId: selectedClassId,
+          appliedSectionId: selectedSectionId || null,
+          notes: editNotes.trim() || null,
+          appliedClass: classes.find(c => c.id === selectedClassId) || selectedApplication.appliedClass,
+          appliedSection: sections.find(s => s.id === selectedSectionId) || null,
+        } as Application)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update application",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to update application:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleApproveFromReview = () => {
+    if (!selectedApplication) return
+    setActionType("approve")
+    // Keep the same section if already selected
+    if (!selectedSectionId && selectedApplication.appliedSectionId) {
+      setSelectedSectionId(selectedApplication.appliedSectionId)
+    }
+  }
+
+  const handleRejectFromReview = () => {
+    if (!selectedApplication) return
+    setActionType("reject")
+    setRejectionReason("")
+  }
+
   const handleSubmitApproval = async () => {
     if (!selectedApplication || !selectedSectionId) {
       toast({
@@ -165,7 +281,7 @@ export default function PendingApplicationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sectionId: selectedSectionId,
-          academicYear: selectedApplication.academicYear,
+          academicYear: selectedApplication.academicYear.year,
         }),
       })
 
@@ -248,16 +364,7 @@ export default function PendingApplicationsPage() {
   }
 
   const handleSubmitBulkApproval = async () => {
-    if (!selectedSectionId) {
-      toast({
-        title: "Error",
-        description: "Please select a section",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!confirm(`Are you sure you want to approve all ${applications.length} pending applications and enroll them in the current academic year?`)) {
+    if (!confirm(`Are you sure you want to approve all ${applications.length} pending applications? Each student will be enrolled in their applied class and section.`)) {
       return
     }
 
@@ -266,9 +373,7 @@ export default function PendingApplicationsPage() {
       const res = await fetch("/api/applications/bulk-approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sectionId: selectedSectionId,
-        }),
+        body: JSON.stringify({}),
       })
 
       const data = await res.json()
@@ -361,7 +466,10 @@ export default function PendingApplicationsPage() {
     setSelectedApplication(null)
     setActionType(null)
     setSelectedSectionId("")
+    setSelectedClassId("")
     setRejectionReason("")
+    setEditNotes("")
+    setIsEditing(false)
   }
 
   return (
@@ -453,13 +561,13 @@ export default function PendingApplicationsPage() {
                           <span className="text-muted-foreground italic">Not specified</span>
                         )}
                       </TableCell>
-                      <TableCell>{application.academicYear}</TableCell>
+                      <TableCell>{application.academicYear.year}</TableCell>
                       <TableCell>
                         {previousEnrollment ? (
                           <div className="text-sm">
                             <div>{previousEnrollment.class.name} - {previousEnrollment.section.name}</div>
                             <div className="text-muted-foreground">
-                              ({previousEnrollment.academicYear})
+                              ({previousEnrollment.academicYear.year})
                             </div>
                           </div>
                         ) : (
@@ -477,6 +585,14 @@ export default function PendingApplicationsPage() {
                       <TableCell>{formatDate(application.createdAt)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReview(application)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
                           <Button
                             size="sm"
                             onClick={() => handleApprove(application)}
@@ -547,7 +663,7 @@ export default function PendingApplicationsPage() {
             <div className="space-y-2">
               <Label>Academic Year</Label>
               <div className="p-2 bg-muted rounded">
-                {selectedApplication?.academicYear}
+                {selectedApplication?.academicYear?.year}
               </div>
             </div>
             {selectedApplication?.notes && (
@@ -619,6 +735,231 @@ export default function PendingApplicationsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Review & Edit Dialog */}
+      <Dialog open={actionType === "review"} onOpenChange={handleCloseDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Review Application
+            </DialogTitle>
+            <DialogDescription>
+              Review and edit application details before approval or rejection
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Student Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Student Name</Label>
+                <div className="p-2 bg-muted rounded">
+                  <div className="font-medium">{selectedApplication?.student.user.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {selectedApplication?.student.user.email}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Admission Number</Label>
+                <div className="p-2 bg-muted rounded font-medium">
+                  {selectedApplication?.student.admissionNumber}
+                </div>
+              </div>
+            </div>
+
+            {/* Previous Enrollment */}
+            {selectedApplication?.student.classEnrollment[0] && (
+              <div className="space-y-2">
+                <Label>Previous Enrollment</Label>
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+                  <span className="font-medium">
+                    {selectedApplication.student.classEnrollment[0].class.name} - {selectedApplication.student.classEnrollment[0].section.name}
+                  </span>
+                  <span className="text-muted-foreground ml-2">
+                    ({selectedApplication.student.classEnrollment[0].academicYear.year})
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Editable Fields */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Application Details</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  <Pencil className="h-4 w-4 mr-1" />
+                  {isEditing ? "Cancel Edit" : "Edit"}
+                </Button>
+              </div>
+
+              {/* Class Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="review-class">Class</Label>
+                {isEditing ? (
+                  <Select 
+                    value={selectedClassId} 
+                    onValueChange={(value) => {
+                      setSelectedClassId(value)
+                      setSelectedSectionId("")
+                      // Fetch sections for new class
+                      const selectedClass = classes.find(c => c.id === value)
+                      if (selectedClass) {
+                        fetchSectionsWithCount(value)
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="review-class">
+                      <SelectValue placeholder="Select class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="p-2 bg-muted rounded font-medium">
+                    {selectedApplication?.appliedClass.name}
+                  </div>
+                )}
+              </div>
+
+              {/* Section Selection with Enrollment Count */}
+              <div className="space-y-2">
+                <Label htmlFor="review-section" className="flex items-center gap-2">
+                  Section
+                  <Badge variant="outline" className="font-normal">
+                    <Users className="h-3 w-3 mr-1" />
+                    Shows enrollment count
+                  </Badge>
+                </Label>
+                {isEditing ? (
+                  <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
+                    <SelectTrigger id="review-section">
+                      <SelectValue placeholder="Select section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sections.map((section) => (
+                        <SelectItem key={section.id} value={section.id}>
+                          <div className="flex items-center justify-between w-full gap-4">
+                            <span>{section.name}</span>
+                            <Badge variant="secondary" className="ml-2">
+                              <Users className="h-3 w-3 mr-1" />
+                              {section._count?.enrollments || 0} students
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="p-2 bg-muted rounded">
+                    {selectedApplication?.appliedSection ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{selectedApplication.appliedSection.name}</span>
+                        {sections.find(s => s.id === selectedApplication.appliedSection?.id) && (
+                          <Badge variant="secondary">
+                            <Users className="h-3 w-3 mr-1" />
+                            {sections.find(s => s.id === selectedApplication.appliedSection?.id)?._count?.enrollments || 0} students
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground italic">Not specified</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="review-notes">Notes</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="review-notes"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Add notes about this application..."
+                    rows={3}
+                  />
+                ) : (
+                  <div className="p-2 bg-muted rounded text-sm min-h-[60px]">
+                    {selectedApplication?.notes || (
+                      <span className="text-muted-foreground italic">No notes</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Academic Year */}
+              <div className="space-y-2">
+                <Label>Academic Year</Label>
+                <div className="p-2 bg-muted rounded">
+                  {selectedApplication?.academicYear?.year}
+                </div>
+              </div>
+            </div>
+
+            {/* Application Meta */}
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <Label className="text-muted-foreground">Applied By</Label>
+                <div className="mt-1">
+                  {selectedApplication?.creator.name}
+                  <span className="text-muted-foreground ml-1">
+                    ({selectedApplication?.creator.email})
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Applied Date</Label>
+                <div className="mt-1">
+                  {selectedApplication && formatDate(selectedApplication.createdAt)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {isEditing && (
+              <Button 
+                variant="outline" 
+                onClick={handleUpdateApplication}
+                disabled={processing}
+                className="sm:mr-auto"
+              >
+                {processing ? "Saving..." : "Save Changes"}
+              </Button>
+            )}
+            <Button variant="outline" onClick={handleCloseDialog} disabled={processing}>
+              Close
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleRejectFromReview}
+              disabled={processing}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Reject
+            </Button>
+            <Button 
+              onClick={handleApproveFromReview}
+              disabled={processing}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bulk Approval Dialog */}
       <Dialog open={actionType === "bulkApprove"} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-2xl">
@@ -629,29 +970,23 @@ export default function PendingApplicationsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+              <div className="flex gap-2">
+                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium">How it works</p>
+                  <p>Each student will be enrolled in their applied class and section as specified in their application.</p>
+                </div>
+              </div>
+            </div>
             <div className="p-3 bg-orange-50 border border-orange-200 rounded">
               <div className="flex gap-2">
                 <AlertCircle className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-orange-800">
-                  <p className="font-medium">Important</p>
-                  <p>All students will be enrolled in the same section for the current academic year</p>
+                  <p className="font-medium">Note</p>
+                  <p>Applications without a specified section will fail. Review individual applications if needed.</p>
                 </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-section">Section *</Label>
-              <Select value={selectedSectionId} onValueChange={setSelectedSectionId}>
-                <SelectTrigger id="bulk-section">
-                  <SelectValue placeholder="Select section" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((section) => (
-                    <SelectItem key={section.id} value={section.id}>
-                      {section.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
@@ -660,7 +995,7 @@ export default function PendingApplicationsPage() {
             </Button>
             <Button 
               onClick={handleSubmitBulkApproval}
-              disabled={!selectedSectionId || processing}
+              disabled={processing}
               className="bg-green-600 hover:bg-green-700"
             >
               {processing ? "Processing..." : `Approve All ${applications.length}`}

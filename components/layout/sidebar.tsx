@@ -32,12 +32,14 @@ import { Button } from "@/components/ui/button"
 const menuItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ALL"] },
   // Admin-only management
+  { name: "Academic Years", href: "/dashboard/academic-years", icon: Calendar, roles: ["ADMIN"] },
   { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN"] },
   { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN"] },
   { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN"] },
   { name: "Exams", href: "/dashboard/exams", icon: FileText, roles: ["ADMIN"] },
   { name: "Subjects", href: "/dashboard/subjects", icon: FileText, roles: ["ADMIN"] },
   { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
+  { name: "Promotions", href: "/dashboard/promotions", icon: GraduationCap, roles: ["ADMIN"] },
   { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
   { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN"] },
   { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN"] },

@@ -42,7 +42,10 @@ interface StudentData {
 interface Term {
   id: string
   name: string
-  academicYear: string
+  academicYear: {
+    id: string
+    year: string
+  }
 }
 
 interface Exam {
@@ -383,7 +386,7 @@ export default function ClassResultsPage() {
                   <SelectItem value="all">All Terms</SelectItem>
                   {terms.map((term) => (
                     <SelectItem key={term.id} value={term.id}>
-                      {term.name} - {term.academicYear}
+                      {term.name} - {term.academicYear.year}
                     </SelectItem>
                   ))}
                 </SelectContent>

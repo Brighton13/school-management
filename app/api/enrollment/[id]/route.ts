@@ -22,6 +22,7 @@ export async function GET(
         },
         class: true,
         section: true,
+        academicYear: true,
       },
     })
 
@@ -51,12 +52,27 @@ export async function PUT(
     const body = await request.json()
     const { classId, sectionId, academicYear, status } = body
 
+    // Find the academic year by year string if provided
+    let academicYearId: string | undefined
+    if (academicYear) {
+      const academicYearRecord = await prisma.academicYear.findUnique({
+        where: { year: academicYear },
+      })
+      if (!academicYearRecord) {
+        return NextResponse.json(
+          { error: "Academic year not found" },
+          { status: 400 }
+        )
+      }
+      academicYearId = academicYearRecord.id
+    }
+
     const updatedEnrollment = await prisma.classEnrollment.update({
       where: { id: params.id },
       data: {
         classId,
         sectionId,
-        academicYear,
+        ...(academicYearId && { academicYearId }),
         status: status || "ACTIVE",
       },
       include: {
@@ -65,6 +81,7 @@ export async function PUT(
         },
         class: true,
         section: true,
+        academicYear: true,
       },
     })
 

@@ -58,42 +58,44 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Academic Management",
-    roles: ["ADMIN","PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL"],
     items: [
-      { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Subjects", href: "/dashboard/subjects", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Exams", href: "/dashboard/exams", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
-        { name: "Class Subjects", href: "/dashboard/class-subjects", icon: FileText, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Academic Years", href: "/dashboard/academic-years", icon: Calendar, roles: ["ADMIN"] },
+      { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Subjects", href: "/dashboard/subjects", icon: FileText, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Exams", href: "/dashboard/exams", icon: FileText, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Class Subjects", href: "/dashboard/class-subjects", icon: FileText, roles: ["ADMIN", "PRINCIPAL"] },
     ],
   },
   {
     title: "Student Management",
-    roles: ["ADMIN","PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL"],
     items: [
       { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
-      { name: "Students", href: "/dashboard/students", icon: GraduationCap, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Pending Applications", href: "/dashboard/pending-applications", icon: Clock, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Students", href: "/dashboard/students", icon: GraduationCap, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Student-promotions", href: "/dashboard/promotions", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Pending Applications", href: "/dashboard/pending-applications", icon: Clock, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
     ],
   },
-   {
+  {
     title: "Academic Info",
     roles: ["STUDENT"],
     items: [
-      { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: [ "STUDENT"] },
+      { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["STUDENT"] },
     ],
   },
   {
     title: "Staff Management",
-    roles: ["ADMIN","PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL"],
     items: [
-      { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN","PRINCIPAL"] },
-      { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Users", href: "/dashboard/users", icon: UserCog, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Roles", href: "/dashboard/roles", icon: Shield, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Permissions", href: "/dashboard/permissions", icon: Shield, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Staff", href: "/dashboard/staff", icon: Users, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN", "PRINCIPAL"] },
     ],
   },
   {
@@ -125,9 +127,9 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Tools",
-    roles: ["ADMIN","PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL"],
     items: [
-      { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN","PRINCIPAL"] },
+      { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Signatures", href: "/dashboard/signatures", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
     ],
   },
@@ -219,7 +221,7 @@ export function Sidebar({ userRole, userName, onClose }: SidebarProps) {
           </Button>
         )}
       </div>
-      
+
       {/* User info in sidebar - shown on desktop */}
       {userName && (
         <div className="hidden lg:flex items-center gap-2 px-4 sm:px-6 py-3 border-b bg-muted/30">
@@ -232,7 +234,7 @@ export function Sidebar({ userRole, userName, onClose }: SidebarProps) {
           </div>
         </div>
       )}
-      
+
       <nav className="flex-1 space-y-1 overflow-y-auto p-3 sm:p-4">
         {filteredGroups.map((group) => {
           const filteredItems = group.items.filter(

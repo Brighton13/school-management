@@ -33,12 +33,14 @@ export async function GET(request: NextRequest) {
               include: {
                 class: true,
                 section: true,
+                academicYear: true,
               },
             },
           },
         },
         appliedClass: true,
         appliedSection: true,
+        academicYear: true,
         creator: {
           select: {
             id: true,

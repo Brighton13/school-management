@@ -39,7 +39,7 @@ interface TeacherDashboardData {
     currentTerm: {
       id: string
       name: string
-      academicYear: string
+      academicYear: { id: string; year: string }
     } | null
   }
   studentPerformanceBySubject: Array<{
@@ -585,7 +585,7 @@ export function TeacherDashboard() {
           <CardContent>
             <p className="text-sm">
               <span className="font-medium">{data.overview.currentTerm.name}</span> -{" "}
-              {data.overview.currentTerm.academicYear}
+              {data.overview.currentTerm.academicYear.year}
             </p>
           </CardContent>
         </Card>

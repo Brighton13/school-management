@@ -243,7 +243,7 @@ model ClassEnrollment {
   classId        String
   sectionId      String
   academicYearId String
-  status         String   @default("ACTIVE") // ACTIVE, PROMOTED, REPEATED, WITHDRAWN
+  status         String   @default("ACTIVE") // ACTIVE, PROMOTED, GRADUATED, REPEATED, WITHDRAWN, TRANSFERRED, EXPELLED, SUSPENDED
   enrolledAt     DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

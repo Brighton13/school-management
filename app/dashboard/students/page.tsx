@@ -199,7 +199,7 @@ export default function StudentsPage() {
         color: "bg-green-100 text-green-800",
         icon: CheckCircle,
         details: `${student.classEnrollment[0].class.name} - ${student.classEnrollment[0].section.name}`,
-        academicYear: student.classEnrollment[0].academicYear
+        academicYear: student.classEnrollment[0].academicYear || student.classEnrollment[0].academicYear
       }
     } else if (pendingApplication) {
       return {
@@ -208,7 +208,7 @@ export default function StudentsPage() {
         color: "bg-orange-100 text-orange-800",
         icon: Clock,
         details: `Applied: ${pendingApplication.appliedClass.name}${pendingApplication.appliedSection ? ` - ${pendingApplication.appliedSection.name}` : ""}`,
-        academicYear: pendingApplication.academicYear
+        academicYear: pendingApplication.academicYear || pendingApplication.academicYear
       }
     } else {
       return {

@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import {
@@ -21,11 +22,22 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 
+interface AcademicYear {
+  id: string
+  year: string
+  isCurrent: boolean
+  isUpcoming: boolean
+  status: string
+}
 
 interface Term {
   id: string
   name: string
-  academicYear: string
+  termNumber: number
+  academicYear: {
+    id: string
+    year: string
+  }
   startDate: string
   endDate: string
   isCurrent: boolean
@@ -33,23 +45,45 @@ interface Term {
 
 export default function TermsPage() {
   const [terms, setTerms] = useState<Term[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingTerm, setEditingTerm] = useState<Term | null>(null)
   const [deletingTerm, setDeletingTerm] = useState<Term | null>(null)
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>("")
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchTerms()
+    fetchData()
   }, [])
 
-  const fetchTerms = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch("/api/terms")
-      const data = await res.json()
-      setTerms(data)
+      const [termsRes, yearsRes] = await Promise.all([
+        fetch("/api/terms"),
+        fetch("/api/academic-years")
+      ])
+      
+      const termsData = await termsRes.json()
+      const yearsData = await yearsRes.json()
+      
+      setTerms(termsData)
+      setAcademicYears(yearsData)
+      
+      // Set default academic year to current one
+      const currentYear = yearsData.find((y: AcademicYear) => y.isCurrent)
+      if (currentYear) {
+        setSelectedAcademicYearId(currentYear.id)
+      } else if (yearsData.length > 0) {
+        setSelectedAcademicYearId(yearsData[0].id)
+      }
     } catch (error) {
-      console.error("Failed to fetch terms:", error)
+      console.error("Failed to fetch data:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch data",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -59,6 +93,16 @@ export default function TermsPage() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     
+    const academicYearId = selectedAcademicYearId
+    if (!academicYearId) {
+      toast({
+        title: "Error",
+        description: "Please select an academic year",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const url = editingTerm ? `/api/terms/${editingTerm.id}` : "/api/terms"
       const method = editingTerm ? "PATCH" : "POST"
@@ -68,7 +112,8 @@ export default function TermsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.get("name"),
-          academicYear: formData.get("academicYear"),
+          academicYearId: academicYearId,
+          termNumber: parseInt(formData.get("termNumber") as string) || 1,
           startDate: formData.get("startDate"),
           endDate: formData.get("endDate"),
           isCurrent: formData.get("isCurrent") === "on",
@@ -78,8 +123,7 @@ export default function TermsPage() {
       if (res.ok) {
         setIsDialogOpen(false)
         setEditingTerm(null)
-        fetchTerms()
-        e.currentTarget.reset()
+        fetchData()
         toast({
           title: editingTerm ? "Term updated" : "Term created",
           description: editingTerm 
@@ -106,6 +150,7 @@ export default function TermsPage() {
 
   const handleEdit = (term: Term) => {
     setEditingTerm(term)
+    setSelectedAcademicYearId(term.academicYear.id)
     setIsDialogOpen(true)
   }
 
@@ -120,7 +165,7 @@ export default function TermsPage() {
       const data = await res.json()
 
       if (res.ok) {
-        fetchTerms()
+        fetchData()
         toast({
           title: "Term deleted",
           description: "Academic term has been deleted successfully.",
@@ -148,7 +193,22 @@ export default function TermsPage() {
     setIsDialogOpen(open)
     if (!open) {
       setEditingTerm(null)
+      // Reset to current academic year when closing
+      const currentYear = academicYears.find(y => y.isCurrent)
+      if (currentYear) {
+        setSelectedAcademicYearId(currentYear.id)
+      }
     }
+  }
+
+  const handleAddNew = () => {
+    setEditingTerm(null)
+    // Reset to current academic year
+    const currentYear = academicYears.find(y => y.isCurrent)
+    if (currentYear) {
+      setSelectedAcademicYearId(currentYear.id)
+    }
+    setIsDialogOpen(true)
   }
 
   return (
@@ -160,7 +220,7 @@ export default function TermsPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleAddNew}>
               <Plus className="mr-2 h-4 w-4" />
               Add Term
             </Button>
@@ -191,14 +251,35 @@ export default function TermsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="academicYear">Academic Year</Label>
-                    <Input 
-                      id="academicYear" 
-                      name="academicYear" 
-                      placeholder="2024-2025" 
-                      defaultValue={editingTerm?.academicYear}
-                      required 
-                    />
+                    <Select 
+                      value={selectedAcademicYearId} 
+                      onValueChange={setSelectedAcademicYearId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select academic year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {academicYears.map((year) => (
+                          <SelectItem key={year.id} value={year.id}>
+                            {year.year} {year.isCurrent && "(Current)"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="termNumber">Term Number</Label>
+                  <Select name="termNumber" defaultValue={editingTerm?.termNumber?.toString() || "1"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select term number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Term 1</SelectItem>
+                      <SelectItem value="2">Term 2</SelectItem>
+                      <SelectItem value="3">Term 3</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -253,6 +334,10 @@ export default function TermsPage() {
         <CardContent>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
+          ) : terms.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No terms found. Create one to get started.
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -269,7 +354,7 @@ export default function TermsPage() {
                 {terms.map((term) => (
                   <TableRow key={term.id}>
                     <TableCell className="font-medium">{term.name}</TableCell>
-                    <TableCell>{term.academicYear}</TableCell>
+                    <TableCell>{term.academicYear.year}</TableCell>
                     <TableCell>{formatDate(term.startDate)}</TableCell>
                     <TableCell>{formatDate(term.endDate)}</TableCell>
                     <TableCell>
@@ -311,7 +396,7 @@ export default function TermsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the academic term "{deletingTerm?.name}" ({deletingTerm?.academicYear}).
+              This will permanently delete the academic term "{deletingTerm?.name}" ({deletingTerm?.academicYear?.year}).
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -20,7 +20,7 @@ interface Enrollment {
   }
   class: { id: string; name: string }
   section: { id: string; name: string }
-  academicYear: string
+  academicYear: { id: string; year: string }
   status: string
 }
 
@@ -352,7 +352,7 @@ export default function EnrollmentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-academicYear">Academic Year</Label>
-                  <Select name="academicYear" defaultValue={editingEnrollment.academicYear} required>
+                  <Select name="academicYear" defaultValue={editingEnrollment.academicYear.year} required>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -428,7 +428,7 @@ export default function EnrollmentPage() {
                           {enrollment.section.name}
                         </TableCell>
                         <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
-                          {enrollment.academicYear}
+                          {enrollment.academicYear.year}
                         </TableCell>
                         <TableCell>
                           <span

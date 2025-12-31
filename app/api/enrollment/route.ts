@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { getCurrentAcademicYear } from "@/lib/academic-year"
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +14,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get("studentId")
+    const allYears = searchParams.get("allYears") === "true" // Optional flag to get all years
+
+    // Get current academic year
+    const currentAcademicYear = await getCurrentAcademicYear()
+    if (!currentAcademicYear && !allYears) {
+      return NextResponse.json(
+        { error: "No current academic year configured" },
+        { status: 400 }
+      )
+    }
 
     // For teachers, filter enrollments based on their assignments
     let studentIds: string[] | undefined
@@ -24,6 +35,7 @@ export async function GET(request: NextRequest) {
           sections: {
             include: {
               enrollments: {
+                where: currentAcademicYear ? { academicYearId: currentAcademicYear.id } : {},
                 select: { studentId: true },
               },
             },
@@ -34,6 +46,7 @@ export async function GET(request: NextRequest) {
               class: {
                 include: {
                   enrollments: {
+                    where: currentAcademicYear ? { academicYearId: currentAcademicYear.id } : {},
                     select: { studentId: true },
                   },
                 },
@@ -73,6 +86,8 @@ export async function GET(request: NextRequest) {
       where: {
         ...(studentId ? { studentId } : {}),
         ...(studentIds ? { studentId: { in: studentIds } } : {}),
+        // Filter by current academic year unless allYears flag is set
+        ...(!allYears && currentAcademicYear ? { academicYearId: currentAcademicYear.id } : {}),
       },
       include: {
         student: {
@@ -80,6 +95,7 @@ export async function GET(request: NextRequest) {
         },
         class: true,
         section: true,
+        academicYear: true,
       },
       orderBy: { enrolledAt: "desc" },
     })
@@ -103,19 +119,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { studentId, classId, sectionId, academicYear } = body
 
+    // Find the academic year by year string
+    const academicYearRecord = await prisma.academicYear.findUnique({
+      where: { year: academicYear },
+    })
+
+    if (!academicYearRecord) {
+      return NextResponse.json(
+        { error: "Academic year not found" },
+        { status: 400 }
+      )
+    }
+
     const enrollment = await prisma.classEnrollment.create({
       data: {
         studentId,
         classId,
         sectionId,
-        academicYear,
-      } as any, // Use 'as any' to bypass type error, or use 'prisma.classEnrollment.create({ data: { ... }, ... })' with 'unchecked' if available in your Prisma version
+        academicYearId: academicYearRecord.id,
+      },
       include: {
         student: {
           include: { user: true },
         },
         class: true,
         section: true,
+        academicYear: true,
       },
     })
 

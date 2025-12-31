@@ -97,7 +97,7 @@ interface AdminAnalyticsData {
   currentTerm: {
     id: string
     name: string
-    academicYear: string
+    academicYear: { id: string; year: string }
   } | null
 }
 
@@ -376,7 +376,7 @@ export function AdminAnalytics() {
           <CardContent>
             <p className="text-sm">
               <span className="font-medium">{data.currentTerm.name}</span> -{" "}
-              {data.currentTerm.academicYear}
+              {data.currentTerm.academicYear.year}
             </p>
           </CardContent>
         </Card>

@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
           include: {
             class: true,
             section: true,
+            academicYear: true,
           },
           orderBy: { enrolledAt: "desc" },
           take: 1,
@@ -85,6 +86,7 @@ export async function GET(request: NextRequest) {
           include: {
             appliedClass: true,
             appliedSection: true,
+            academicYear: true,
           },
           orderBy: { createdAt: "desc" },
         },

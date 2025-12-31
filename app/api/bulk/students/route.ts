@@ -116,6 +116,27 @@ export async function POST(request: NextRequest) {
         // Resolve class and section names to IDs if provided
         let appliedClassId = null
         let appliedSectionId = null
+        let academicYearId = null
+        
+        // Resolve academic year
+        if (academicyear) {
+          const foundYear = await prisma.academicYear.findUnique({
+            where: { year: academicyear }
+          })
+          if (foundYear) {
+            academicYearId = foundYear.id
+          }
+        }
+        
+        // If no academic year specified or not found, use current
+        if (!academicYearId) {
+          const currentYear = await prisma.academicYear.findFirst({
+            where: { isCurrent: true }
+          })
+          if (currentYear) {
+            academicYearId = currentYear.id
+          }
+        }
         
         if (intendedclass) {
           const foundClass = await prisma.class.findFirst({
@@ -171,17 +192,22 @@ export async function POST(request: NextRequest) {
           },
         }
 
-        // If class is provided, create application
-        if (appliedClassId) {
+        // If class is provided, create application with proper relations
+        if (appliedClassId && academicYearId) {
+          const applicationData: any = {
+            appliedClass: { connect: { id: appliedClassId } },
+            academicYear: { connect: { id: academicYearId } },
+            applicationStatus: "PENDING",
+            notes: remarks || null,
+            creator: { connect: { id: session.user.id } },
+          }
+          
+          if (appliedSectionId) {
+            applicationData.appliedSection = { connect: { id: appliedSectionId } }
+          }
+          
           userData.student.create.applications = {
-            create: {
-              appliedClassId,
-              appliedSectionId,
-              academicYear: academicyear || new Date().getFullYear().toString(),
-              applicationStatus: "PENDING",
-              notes: remarks || null,
-              createdBy: session.user.id,
-            }
+            create: applicationData
           }
         }
 
@@ -223,9 +249,14 @@ export async function GET() {
       orderBy: { name: "asc" },
       select: { name: true },
     })
-     const academicYears = await prisma.academicYear.findMany({
-      orderBy: { year: "asc" },
-      where:{isCurrent:true},
+    const academicYears = await prisma.academicYear.findMany({
+      orderBy: { year: "desc" },
+      where: {
+        OR: [
+          { isCurrent: true },
+          { isUpcoming: true },
+        ],
+      },
       select: { year: true },
     })
 
@@ -324,21 +355,17 @@ export async function GET() {
     }
 
     // Add data validation for AcademicYear
-   // const currentYear = new Date().getFullYear()
-    // const academicYears = [
-    //   `${currentYear - 1}-${currentYear}`,
-    //   `${currentYear}-${currentYear + 1}`,
-    //   `${currentYear + 1}-${currentYear + 2}`,
-    //   `${currentYear + 2}-${currentYear + 3}`,
-    // ].join(",") as any
-    (worksheet as any).dataValidations.add("J2:J1000", {
-      type: "list",
-      allowBlank: true,
-      formulae: [`"${academicYears}"`],
-      showErrorMessage: true,
-      errorTitle: "Invalid Academic Year",
-      error: "Please select from the dropdown list",
-    })
+    if (academicYears.length > 0) {
+      const academicYearNames = academicYears.map(y => y.year).join(",")
+      ;(worksheet as any).dataValidations.add("J2:J1000", {
+        type: "list",
+        allowBlank: true,
+        formulae: [`"${academicYearNames}"`],
+        showErrorMessage: true,
+        errorTitle: "Invalid Academic Year",
+        error: "Please select from the dropdown list",
+      })
+    }
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer()

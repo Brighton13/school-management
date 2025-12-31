@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...(studentId ? { studentId } : {}),
         ...(status ? { applicationStatus: status } : {}),
-        ...(academicYear ? { academicYear: { id: academicYear } } : {}),
+        ...(academicYear ? { academicYearId: academicYear } : {}),
       },
       include: {
         student: {
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         },
         appliedClass: true,
         appliedSection: true,
+        academicYear: true,
         creator: {
           select: {
             id: true,

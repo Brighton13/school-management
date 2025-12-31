@@ -275,20 +275,17 @@ export async function GET() {
     }
 
     // Add data validation for AcademicYear
-    // const currentYear = new Date().getFullYear() as any
-    // (worksheet as any).dataValidations.add(`E2:E${students.length + 1}`, {
-    //   type: "list",
-    //   allowBlank: false,
-    //   formulae: [`"${[
-    //     `${currentYear - 1}-${currentYear}`,
-    //     `${currentYear}-${currentYear + 1}`,
-    //     `${currentYear + 1}-${currentYear + 2}`,
-    //     `${currentYear + 2}-${currentYear + 3}`,
-    //   ].join(",")}"`],
-    //   showErrorMessage: true,
-    //   errorTitle: "Invalid Academic Year",
-    //   error: "Please select from the dropdown list",
-    // })
+    if (academicYears.length > 0) {
+      const academicYearNames = academicYears.map(y => y.year).join(",")
+      ;(worksheet as any).dataValidations.add(`E2:E${students.length + 1}`, {
+        type: "list",
+        allowBlank: false,
+        formulae: [`"${academicYearNames}"`],
+        showErrorMessage: true,
+        errorTitle: "Invalid Academic Year",
+        error: "Please select from the dropdown list",
+      })
+    }
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer()

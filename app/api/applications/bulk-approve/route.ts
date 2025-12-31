@@ -11,20 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { sectionId } = body
-
-    if (!sectionId) {
-      return NextResponse.json(
-        { error: "Section ID is required" },
-        { status: 400 }
-      )
-    }
-
     // Get current academic context - this is the single source of truth
     const context = await getAcademicContext()
 
-    // Fetch all pending applications
+    // Fetch all pending applications with their intended class and section
     const pendingApplications = await prisma.application.findMany({
       where: {
         applicationStatus: "PENDING",
@@ -36,6 +26,7 @@ export async function POST(request: NextRequest) {
           },
         },
         appliedClass: true,
+        appliedSection: true,
       },
     })
 
@@ -52,9 +43,18 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
-    // Process each application
+    // Process each application using their own intended class and section
     for (const application of pendingApplications) {
       try {
+        // Validate that application has required fields
+        if (!application.appliedSectionId) {
+          results.failed++
+          results.errors.push(
+            `${application.student.user.name}: No section specified in application`
+          )
+          continue
+        }
+
         // Check if student already enrolled for this academic year
         const existingEnrollment = await prisma.classEnrollment.findFirst({
           where: {
@@ -71,12 +71,12 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Enroll the student in current academic year
+        // Enroll the student using THEIR intended class and section
         await prisma.classEnrollment.create({
           data: {
             studentId: application.studentId,
             classId: application.appliedClassId,
-            sectionId: sectionId,
+            sectionId: application.appliedSectionId,
             academicYearId: context.academicYearId,
           },
         })
