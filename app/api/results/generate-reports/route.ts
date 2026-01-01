@@ -67,7 +67,9 @@ export async function POST(request: NextRequest) {
             },
           },
         },
-        term: true,
+        term: {
+          include: { academicYear: true }
+        },
         academicYear: true,
         exam: true,
       },
@@ -80,11 +82,65 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get enrollment with section and class details
+    const enrollmentWithDetails = await prisma.classEnrollment.findFirst({
+      where: {
+        studentId,
+        sectionId: { in: staff.sections.map(s => s.id) },
+      },
+      include: {
+        section: {
+          include: { class: true }
+        }
+      }
+    })
+
+    // Calculate position in class
+    // Get all students' results in the same section for the same term/exam
+    const allStudentsResults = await prisma.result.findMany({
+      where: {
+        classSubject: {
+          sectionId: enrollmentWithDetails?.sectionId
+        },
+        ...(termId ? { termId } : {}),
+        ...(examId ? { examId } : {}),
+        status: { in: ["APPROVED", "PUBLISHED"] },
+      },
+      select: {
+        studentId: true,
+        marksObtained: true,
+      }
+    })
+
+    // Group by student and calculate totals
+    const studentTotals = new Map<string, number>()
+    allStudentsResults.forEach(r => {
+      const current = studentTotals.get(r.studentId) || 0
+      studentTotals.set(r.studentId, current + r.marksObtained)
+    })
+
+    // Sort students by total marks to get position
+    const sortedStudents = Array.from(studentTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+
+    // Find this student's position
+    const studentTotal = results.reduce((sum, r) => sum + r.marksObtained, 0)
+    let position = 1
+    for (const [sid, total] of sortedStudents) {
+      if (sid === studentId) break
+      if (total > studentTotal) position++
+    }
+
+    // Get total students in class
+    const classSize = studentTotals.size
+
     // Generate report data
     const reportData = {
       student: results[0].student,
-      enrollment,
+      enrollment: enrollmentWithDetails,
       results,
+      position,
+      classSize,
       generatedAt: new Date(),
       generatedBy: session.user.id,
     }
@@ -101,6 +157,7 @@ export async function POST(request: NextRequest) {
       sendToStudent: sendToStudent || false,
     })
   } catch (error) {
+    console.error("Generate report error:", error)
     return NextResponse.json(
       { error: "Failed to generate report" },
       { status: 500 }

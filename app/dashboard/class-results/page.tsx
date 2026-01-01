@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Send, Download, CheckCircle, Clock } from "lucide-react"
 import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 
 interface Section {
   id: string
@@ -229,89 +230,309 @@ export default function ClassResultsPage() {
   }
 
   const generatePDFReport = async (reportData: any) => {
-    // Fetch signatures
-    let principalSig: any[] = []
-    let classTeacherSig: any[] = []
+    // Fetch school config, signatures, and remark templates
+    let schoolConfig: any = null
+    let principalSig: any = null
+    let classTeacherSig: any = null
     
     try {
-      const [principalSigRes, classTeacherSigRes] = await Promise.all([
-        fetch("/api/signatures?signatureType=PRINCIPAL"),
-        fetch("/api/signatures?signatureType=CLASS_TEACHER"),
+      const [schoolConfigRes, signaturesRes] = await Promise.all([
+        fetch("/api/settings/school-config"),
+        fetch("/api/signatures"),
       ])
-      if (principalSigRes.ok) {
-        principalSig = await principalSigRes.json()
+      if (schoolConfigRes.ok) {
+        schoolConfig = await schoolConfigRes.json()
       }
-      if (classTeacherSigRes.ok) {
-        classTeacherSig = await classTeacherSigRes.json()
+      if (signaturesRes.ok) {
+        const signatures = await signaturesRes.json()
+        principalSig = signatures.find((s: any) => s.signatureType === "PRINCIPAL")
+        classTeacherSig = signatures.find((s: any) => s.signatureType === "CLASS_TEACHER")
       }
     } catch (error) {
-      console.error("Error fetching signatures:", error)
+      console.error("Error fetching config/signatures:", error)
     }
 
     const doc = new jsPDF()
-    doc.setFontSize(18)
-    doc.text("Student Result Report", 105, 20, { align: "center" })
+    const pageWidth = doc.internal.pageSize.width
+    const pageHeight = doc.internal.pageSize.height
+    let yPos = 15
 
+    // Helper function to get remark based on percentage
+    const getRemark = (percentage: number): string => {
+      if (percentage >= 90) return "Excellent"
+      if (percentage >= 80) return "Very Good"
+      if (percentage >= 70) return "Good"
+      if (percentage >= 60) return "Satisfactory"
+      if (percentage >= 50) return "Fair"
+      if (percentage >= 40) return "Pass"
+      return "Needs Improvement"
+    }
+
+    // Ministry Header
     doc.setFontSize(12)
-    let yPos = 40
-    doc.text(`Student: ${reportData.student.user.name}`, 20, yPos)
-    yPos += 10
-    doc.text(`Admission Number: ${reportData.student.admissionNumber}`, 20, yPos)
-    yPos += 10
-    doc.text(`Class: ${reportData.enrollment?.class?.name || "N/A"} - ${reportData.enrollment?.section?.name || "N/A"}`, 20, yPos)
-    yPos += 10
-    doc.text(`Term: ${reportData.results[0]?.term.name || "N/A"}`, 20, yPos)
-    yPos += 15
-
-    // Results table
-    doc.setFontSize(14)
-    doc.text("Results", 20, yPos)
-    yPos += 10
-
-    doc.setFontSize(10)
-    doc.text("Subject", 20, yPos)
-    doc.text("Teacher", 70, yPos)
-    doc.text("Exam", 120, yPos)
-    doc.text("Marks", 160, yPos)
-    doc.text("Grade", 180, yPos)
+    doc.setFont("helvetica", "bold")
+    doc.text(schoolConfig?.ministryHeader || "MINISTRY OF EDUCATION", pageWidth / 2, yPos, { align: "center" })
     yPos += 8
 
-    reportData.results.forEach((result: any) => {
-      doc.text(result.classSubject.subject.name, 20, yPos)
-      doc.text(result.classSubject.teacher?.user.name || "N/A", 70, yPos)
-      doc.text(result.exam?.name || "N/A", 120, yPos)
-      doc.text(`${result.marksObtained}/${result.maxMarks}`, 160, yPos)
-      doc.text(result.grade || "-", 180, yPos)
-      yPos += 8
+    // School name with crest
+    doc.setFontSize(16)
+    doc.text(schoolConfig?.schoolName || "SCHOOL NAME", pageWidth / 2, yPos, { align: "center" })
+    yPos += 6
+
+    // School motto
+    if (schoolConfig?.schoolMotto) {
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "italic")
+      doc.text(`"${schoolConfig.schoolMotto}"`, pageWidth / 2, yPos, { align: "center" })
+      yPos += 5
+    }
+
+    // Address and contact
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(9)
+    if (schoolConfig?.schoolAddress) {
+      doc.text(schoolConfig.schoolAddress, pageWidth / 2, yPos, { align: "center" })
+      yPos += 4
+    }
+    if (schoolConfig?.schoolPhone || schoolConfig?.schoolEmail) {
+      const contact = [
+        schoolConfig?.schoolPhone ? `Tel: ${schoolConfig.schoolPhone}` : "",
+        schoolConfig?.schoolEmail ? `Email: ${schoolConfig.schoolEmail}` : ""
+      ].filter(Boolean).join(" | ")
+      doc.text(contact, pageWidth / 2, yPos, { align: "center" })
+      yPos += 4
+    }
+
+    // Line separator
+    doc.setLineWidth(0.5)
+    doc.line(15, yPos, pageWidth - 15, yPos)
+    yPos += 6
+
+    // Report Title
+    doc.setFontSize(14)
+    doc.setFont("helvetica", "bold")
+    const termName = reportData.results[0]?.term?.name || "Term"
+    const academicYear = reportData.results[0]?.term?.academicYear?.name || reportData.results[0]?.academicYear?.name || new Date().getFullYear()
+    doc.text(`REPORT FORM - ${termName.toUpperCase()} ${academicYear}`, pageWidth / 2, yPos, { align: "center" })
+    yPos += 8
+
+    // Student Information Box
+    doc.setFontSize(10)
+    doc.setFont("helvetica", "normal")
+    const studentName = reportData.student.user.name.toUpperCase()
+    // Get class and section from enrollment (section has class relation)
+    const sectionName = reportData.enrollment?.section?.name || "N/A"
+    const classNameStr = reportData.enrollment?.section?.class?.name || "N/A"
+    const className = `${classNameStr} - ${sectionName}`
+    const admNo = reportData.student.admissionNumber || "N/A"
+    
+    // Calculate totals and position
+    let totalMarks = 0
+    let totalMax = 0
+    reportData.results.forEach((r: any) => {
+      totalMarks += r.marksObtained
+      totalMax += r.maxMarks
+    })
+    const percentage = totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0
+    
+    // Get position and class size from API response
+    const position = reportData.position || "-"
+    const classSize = reportData.classSize || "-"
+
+    // Student info grid
+    doc.setFont("helvetica", "bold")
+    doc.text("Student Name:", 20, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(studentName, 55, yPos)
+    
+    doc.setFont("helvetica", "bold")
+    doc.text("Grade/Class:", pageWidth / 2 + 10, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(className, pageWidth / 2 + 45, yPos)
+    yPos += 6
+
+    doc.setFont("helvetica", "bold")
+    doc.text("Admission No:", 20, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(admNo, 55, yPos)
+
+    doc.setFont("helvetica", "bold")
+    doc.text("No. of Pupils:", pageWidth / 2 + 10, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(String(classSize), pageWidth / 2 + 45, yPos)
+    yPos += 6
+
+    doc.setFont("helvetica", "bold")
+    doc.text("Total Marks:", 20, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(`${totalMarks} / ${totalMax}`, 55, yPos)
+
+    doc.setFont("helvetica", "bold")
+    doc.text("Position:", pageWidth / 2 + 10, yPos)
+    doc.setFont("helvetica", "normal")
+    doc.text(`${position} out of ${classSize}`, pageWidth / 2 + 45, yPos)
+    yPos += 10
+
+    // Results table using autoTable
+    const tableData = reportData.results.map((result: any) => {
+      const pct = result.maxMarks > 0 ? Math.round((result.marksObtained / result.maxMarks) * 100) : 0
+      return [
+        result.classSubject.subject.name,
+        `${result.marksObtained}/${result.maxMarks}`,
+        `${pct}%`,
+        getRemark(pct)
+      ]
     })
 
-    // Add signatures
-    const pageHeight = doc.internal.pageSize.height
-    const sigYPos = pageHeight - 50
+    // Add total row
+    tableData.push([
+      "TOTAL",
+      `${totalMarks}/${totalMax}`,
+      `${percentage}%`,
+      getRemark(percentage)
+    ])
 
-    if (principalSig.length > 0 && principalSig[0].signatureImage) {
+    autoTable(doc, {
+      startY: yPos,
+      head: [["SUBJECT", "SCORE", "%", "REMARK"]],
+      body: tableData,
+      theme: "grid",
+      headStyles: {
+        fillColor: [220, 220, 220],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        halign: "center"
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 70 },
+        1: { halign: "center", cellWidth: 35 },
+        2: { halign: "center", cellWidth: 25 },
+        3: { halign: "center", cellWidth: 45 }
+      },
+      margin: { left: 20, right: 20 }
+    })
+
+    // Get final Y position after table
+    yPos = (doc as any).lastAutoTable.finalY + 10
+
+    // Performance summary boxes
+    doc.setFillColor(240, 248, 255)
+    doc.rect(20, yPos, 40, 20, "F")
+    doc.rect(70, yPos, 40, 20, "F")
+    doc.rect(120, yPos, 40, 20, "F")
+
+    doc.setFontSize(14)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(0, 100, 200)
+    doc.text(`${percentage}%`, 40, yPos + 13, { align: "center" })
+    
+    // Grade
+    let grade = "F"
+    if (percentage >= 90) grade = "A+"
+    else if (percentage >= 80) grade = "A"
+    else if (percentage >= 70) grade = "B+"
+    else if (percentage >= 60) grade = "B"
+    else if (percentage >= 50) grade = "C+"
+    else if (percentage >= 40) grade = "C"
+    
+    doc.setTextColor(0, 150, 0)
+    doc.text(grade, 90, yPos + 13, { align: "center" })
+    
+    doc.setTextColor(128, 0, 128)
+    doc.text(`${position || "-"}`, 140, yPos + 13, { align: "center" })
+
+    doc.setFontSize(7)
+    doc.setTextColor(100, 100, 100)
+    doc.setFont("helvetica", "normal")
+    doc.text("Average", 40, yPos + 18, { align: "center" })
+    doc.text("Grade", 90, yPos + 18, { align: "center" })
+    doc.text("Position", 140, yPos + 18, { align: "center" })
+    
+    doc.setTextColor(0, 0, 0)
+    yPos += 28
+
+    // Class Teacher Comments Box
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.5)
+    doc.rect(20, yPos, pageWidth - 40, 25)
+    doc.setFillColor(220, 220, 220)
+    doc.rect(20, yPos, pageWidth - 40, 8, "F")
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "bold")
+    doc.text("CLASS TEACHER'S COMMENTS:", 25, yPos + 6)
+    
+    // Auto comment based on percentage
+    const teacherComment = percentage >= 80 ? "Excellent work! Keep it up!" :
+      percentage >= 60 ? "Good performance. Continue to work hard." :
+      percentage >= 50 ? "Fair performance. More effort needed." :
+      "Needs improvement. Please seek help from teachers."
+    
+    doc.setFont("helvetica", "italic")
+    doc.setFontSize(9)
+    doc.text(teacherComment, 25, yPos + 16)
+    yPos += 30
+
+    // Head Teacher Comments Box
+    doc.rect(20, yPos, pageWidth - 40, 25)
+    doc.setFillColor(220, 220, 220)
+    doc.rect(20, yPos, pageWidth - 40, 8, "F")
+    doc.setFont("helvetica", "bold")
+    doc.text("HEAD TEACHER'S COMMENTS:", 25, yPos + 6)
+    
+    const principalComment = percentage >= 80 ? "Outstanding achievement. The school is proud of you!" :
+      percentage >= 60 ? "Good progress. Maintain your effort." :
+      percentage >= 50 ? "Satisfactory. More dedication required." :
+      "Below expectations. Parent consultation recommended."
+    
+    doc.setFont("helvetica", "italic")
+    doc.text(principalComment, 25, yPos + 16)
+    yPos += 35
+
+    // Signatures section
+    const sigY = Math.min(yPos, pageHeight - 45)
+    
+    // Class Teacher Signature
+    doc.setFont("helvetica", "normal")
+    doc.setFontSize(9)
+    if (classTeacherSig?.signatureImage) {
       try {
-        // Extract base64 data (remove data:image/...;base64, prefix if present)
-        const base64Data = principalSig[0].signatureImage.replace(/^data:image\/\w+;base64,/, "")
-        doc.addImage(base64Data, "PNG", 20, sigYPos, 40, 20)
-        doc.text("Principal", 30, sigYPos + 25)
+        doc.addImage(classTeacherSig.signatureImage, "PNG", 30, sigY, 35, 15)
       } catch (e) {
-        console.error("Error adding principal signature:", e)
+        doc.line(25, sigY + 12, 70, sigY + 12)
       }
+    } else {
+      doc.line(25, sigY + 12, 70, sigY + 12)
     }
+    doc.text("Class Teacher", 35, sigY + 20)
+    doc.setFontSize(8)
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 30, sigY + 25)
 
-    if (classTeacherSig.length > 0 && classTeacherSig[0].signatureImage) {
+    // Principal Signature
+    if (principalSig?.signatureImage || schoolConfig?.principalSignature) {
       try {
-        // Extract base64 data
-        const base64Data = classTeacherSig[0].signatureImage.replace(/^data:image\/\w+;base64,/, "")
-        doc.addImage(base64Data, "PNG", 150, sigYPos, 40, 20)
-        doc.text("Class Teacher", 155, sigYPos + 25)
+        const sigImg = principalSig?.signatureImage || schoolConfig?.principalSignature
+        doc.addImage(sigImg, "PNG", pageWidth - 70, sigY, 35, 15)
       } catch (e) {
-        console.error("Error adding class teacher signature:", e)
+        doc.line(pageWidth - 75, sigY + 12, pageWidth - 30, sigY + 12)
       }
+    } else {
+      doc.line(pageWidth - 75, sigY + 12, pageWidth - 30, sigY + 12)
     }
+    doc.setFontSize(9)
+    doc.text("Head Teacher", pageWidth - 60, sigY + 20)
+    doc.setFontSize(8)
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - 65, sigY + 25)
 
-    doc.save(`result-${reportData.student.admissionNumber}.pdf`)
+    // Footer
+    doc.setFontSize(7)
+    doc.setTextColor(128, 128, 128)
+    doc.text("This is a computer-generated report.", pageWidth / 2, pageHeight - 10, { align: "center" })
+
+    doc.save(`report-${reportData.student.admissionNumber || "student"}.pdf`)
   }
 
   const getStatusBadge = (status: string) => {

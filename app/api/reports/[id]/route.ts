@@ -2,16 +2,23 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { 
+  getSchoolConfig, 
+  getRemarkByPercentage, 
+  getCommentByPercentage,
+  getUserSignature 
+} from "@/lib/report-utils"
 
 /**
  * GET - Retrieve a specific report with all details
  * Includes:
+ * - School configuration (logo, ministry header)
  * - Student details
- * - All subject results and marks
+ * - All subject results and marks with auto-remarks
  * - Position in class
- * - Teacher comments
+ * - Teacher comments (manual and auto-generated)
  * - Progress ratio from last term
- * - Teacher signature
+ * - Teacher and Principal signatures
  */
 export async function GET(
   request: NextRequest,
@@ -166,7 +173,58 @@ export async function GET(
       commentsByArea.get(area).push(comment)
     })
 
+    // Get school configuration
+    const schoolConfig = await getSchoolConfig()
+
+    // Get auto-generated remarks for each subject result
+    const subjectResultsWithRemarks = await Promise.all(
+      results.map(async (result) => {
+        const subjectPercentage = (result.marksObtained / result.maxMarks) * 100
+        const remark = await getRemarkByPercentage(subjectPercentage, "SUBJECT")
+        return {
+          ...result,
+          percentage: Math.round(subjectPercentage * 100) / 100,
+          remark
+        }
+      })
+    )
+
+    // Get auto-generated comments based on overall percentage
+    const classTeacherAutoComment = await getCommentByPercentage(percentage, "CLASS_TEACHER")
+    const principalAutoComment = await getCommentByPercentage(percentage, "PRINCIPAL")
+
+    // Get class teacher signature
+    let classTeacherSignature = null
+    if (report.section.classTeacher?.userId) {
+      classTeacherSignature = await getUserSignature(report.section.classTeacher.userId)
+    }
+
+    // Get principal signature from school config or principal user
+    const principal = await prisma.staff.findFirst({
+      where: { designation: "PRINCIPAL" },
+      select: { userId: true, user: { select: { name: true } } }
+    })
+
+    let principalSignature = null
+    if (principal?.userId) {
+      principalSignature = await getUserSignature(principal.userId)
+    }
+
+    // Get overall remark based on percentage
+    const overallRemark = await getRemarkByPercentage(percentage, "OVERALL")
+
     return NextResponse.json({
+      schoolConfig: {
+        ministryHeader: schoolConfig.ministryHeader,
+        schoolName: schoolConfig.schoolName,
+        schoolLogo: schoolConfig.schoolLogo,
+        schoolMotto: schoolConfig.schoolMotto,
+        schoolAddress: schoolConfig.schoolAddress,
+        schoolPhone: schoolConfig.schoolPhone,
+        schoolEmail: schoolConfig.schoolEmail,
+        principalName: schoolConfig.principalName,
+        principalSignature: schoolConfig.principalSignature
+      },
       report: {
         ...report,
         metadata: {
@@ -175,6 +233,7 @@ export async function GET(
           maxMarks,
           percentage: Math.round(percentage * 100) / 100,
           grade,
+          overallRemark,
           positionInClass: report.positionInClass || 0,
           classSize: report.classSize || 0,
           progressRatio: Math.round((report.progressRatio || 0) * 100) / 100,
@@ -188,11 +247,27 @@ export async function GET(
           }
         }
       },
-      subjectResults: results,
+      subjectResults: subjectResultsWithRemarks,
       commentsByArea: Array.from(commentsByArea.entries()).map(([area, comments]) => ({
         area,
         comments
-      }))
+      })),
+      // Auto-generated comments based on performance
+      autoComments: {
+        classTeacher: classTeacherAutoComment,
+        principal: principalAutoComment
+      },
+      // Signatures for the report
+      signatures: {
+        classTeacher: {
+          name: report.section.classTeacher?.user.name || null,
+          signature: classTeacherSignature?.signatureImage || null
+        },
+        principal: {
+          name: principal?.user.name || schoolConfig.principalName || null,
+          signature: principalSignature?.signatureImage || schoolConfig.principalSignature || null
+        }
+      }
     })
   } catch (error) {
     console.error("Fetch report error:", error)

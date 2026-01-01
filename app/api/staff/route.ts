@@ -4,7 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
-import { sendStaffWelcomeEmail, loadEmailConfigFromDB } from "@/lib/email"
+import { sendStaffVerificationEmail, loadEmailConfigFromDB } from "@/lib/email"
+import { generateEmployeeId } from "@/lib/admission_number_gen"
 import crypto from "crypto"
 import { requirePermission, Permissions } from "@/lib/permissions"
 
@@ -36,10 +37,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       email,
-      password,
       name,
       phone,
-      employeeId,
       designation,
       department,
       qualification,
@@ -48,7 +47,13 @@ export async function POST(request: NextRequest) {
       joiningDate,
     } = body
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    // Auto-generate employee ID based on designation
+    const employeeId = await generateEmployeeId(designation)
+
+    // Generate a random placeholder password that cannot be used for login
+    // Staff will set their own password via the email verification link
+    const placeholderPassword = crypto.randomBytes(32).toString("hex")
+    const hashedPassword = await bcrypt.hash(placeholderPassword, 10)
 
     const user = await prisma.user.create({
       data: {
@@ -88,43 +93,50 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    // Generate password reset token for new staff member
-    const resetToken = crypto.randomBytes(32).toString("hex")
+    // Generate email verification token for new staff member
+    const verificationToken = crypto.randomBytes(32).toString("hex")
     const expiresAt = new Date()
-    expiresAt.setHours(expiresAt.getHours() + 24) // Token expires in 24 hours
+    expiresAt.setHours(expiresAt.getHours() + 72) // Token expires in 72 hours (3 days)
 
-    // Create password reset token
+    // Create verification token (using PasswordResetToken for this purpose)
     await prisma.passwordResetToken.create({
       data: {
         userId: user.id,
-        token: resetToken,
+        token: verificationToken,
         expiresAt,
       },
     })
 
-    // Generate reset link
+    // Generate verification link
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`
+    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`
 
-    // Send welcome email with password reset link
+    // Send verification email
+    let emailSent = false
     try {
       // Ensure email config is loaded
       await loadEmailConfigFromDB()
       
-      await sendStaffWelcomeEmail(
+      await sendStaffVerificationEmail(
         user.email,
-        resetLink,
+        verificationLink,
         user.name,
         employeeId,
         designation
       )
+      emailSent = true
     } catch (emailError: any) {
       // Log error but don't fail the staff creation
-      console.error("Failed to send welcome email to staff member:", emailError)
-      // Continue with the response even if email fails
+      console.error("Failed to send verification email to staff member:", emailError)
     }
 
-    return NextResponse.json(user, { status: 201 })
+    return NextResponse.json({ 
+      ...user, 
+      emailSent,
+      message: emailSent 
+        ? "Staff created successfully. Verification email sent." 
+        : "Staff created but email could not be sent. Please configure email settings or manually share the verification link."
+    }, { status: 201 })
   } catch (error: any) {
     if (error.code === "P2002") {
       return NextResponse.json(

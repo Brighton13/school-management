@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
       where: {
         ...(queryStudentId ? { studentId: queryStudentId } : {}),
         ...(academicYearId ? { academicYearId } : {}),
-        ...(term ? { term } : {}),
       },
       include: {
         student: {

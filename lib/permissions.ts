@@ -247,6 +247,14 @@ export const Permissions = {
   RESULTS_DELETE: "results.delete",
   RESULTS_APPROVE: "results.approve",
   RESULTS_REVIEW: "results.review",
+  RESULTS_CLASS_TEACHER_SUBMIT: "results.class_teacher_submit",
+  RESULTS_PRINCIPAL_APPROVE: "results.principal_approve",
+
+  // Reports
+  REPORTS_GENERATE: "reports.generate",
+  REPORTS_VIEW: "reports.view",
+  REPORTS_DOWNLOAD: "reports.download",
+  REPORTS_BULK_GENERATE: "reports.bulk_generate",
 
   // Fees
   FEES_CREATE: "fees.create",

@@ -97,15 +97,48 @@ export function BulkResultsUpload() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const response = await fetch("/api/bulk/results")
+      // Build URL with query parameters if class-subject and term are selected
+      let url = "/api/bulk/results"
+      const params = new URLSearchParams()
+      
+      if (selectedClassSubjectId) {
+        params.append("classSubjectId", selectedClassSubjectId)
+      }
+      if (selectedTermId) {
+        params.append("termId", selectedTermId)
+      }
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`
+      }
+
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        alert(errorData.error || "Failed to download template")
+        return
+      }
+
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      const blobUrl = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url
-      a.download = "bulk_results_template.csv"
+      a.href = blobUrl
+      
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get("Content-Disposition")
+      let filename = "bulk_results_template.csv"
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=(.+)/)
+        if (filenameMatch) {
+          filename = filenameMatch[1].replace(/"/g, "")
+        }
+      }
+      
+      a.download = filename
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
+      window.URL.revokeObjectURL(blobUrl)
       document.body.removeChild(a)
     } catch (error) {
       console.error("Failed to download template:", error)
@@ -144,7 +177,7 @@ export function BulkResultsUpload() {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("classSubjectId", selectedClassSubjectId)
-      formData.append("academicTermId", selectedTermId)
+      formData.append("termId", selectedTermId)
       formData.append("maxMarks", maxMarks)
       if (selectedExamId && selectedExamId.trim() !== "") {
         formData.append("examId", selectedExamId)
@@ -200,6 +233,15 @@ export function BulkResultsUpload() {
             <Download className="h-4 w-4" />
             Download Template
           </Button>
+          {selectedClassSubjectId && selectedTermId ? (
+            <span className="text-sm text-green-600">
+              Template will include students from selected class
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              Select class-subject and term first for a pre-filled template
+            </span>
+          )}
         </div>
 
         <div className="space-y-2">

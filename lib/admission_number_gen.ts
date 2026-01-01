@@ -32,3 +32,47 @@ export async function generateAdmissionNumber(): Promise<string> {
 
   return `${prefix}${sequence.toString().padStart(4, '0')}`
 }
+
+export async function generateEmployeeId(designation: string): Promise<string> {
+  const now = new Date()
+  const year = now.getFullYear().toString().slice(-2) // YY
+
+  // Create prefix based on designation
+  const designationPrefixes: Record<string, string> = {
+    TEACHER: "TCH",
+    PRINCIPAL: "PRI",
+    ACCOUNTANT: "ACC",
+    LIBRARIAN: "LIB",
+    ADMIN: "ADM",
+  }
+
+  const prefix = designationPrefixes[designation] || "STF"
+  const fullPrefix = `${prefix}${year}` // e.g., TCH25
+
+  // Find the latest staff with this prefix
+  const lastStaff = await prisma.staff.findFirst({
+    where: {
+      employeeId: {
+        startsWith: fullPrefix,
+      },
+    },
+    orderBy: {
+      employeeId: 'desc',
+    },
+  })
+
+  let sequence = 1
+
+  if (lastStaff?.employeeId) {
+    // Extract the sequence number from the end
+    const lastSequence = parseInt(
+      lastStaff.employeeId.slice(fullPrefix.length),
+      10
+    )
+    if (!isNaN(lastSequence)) {
+      sequence = lastSequence + 1
+    }
+  }
+
+  return `${fullPrefix}${sequence.toString().padStart(4, '0')}`
+}

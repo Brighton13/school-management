@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Upload, Edit, Trash2 } from "lucide-react"
+import { Plus, Upload, Edit, Trash2, Mail, CheckCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
 
 interface Staff {
@@ -30,6 +31,7 @@ export default function StaffPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchStaff()
@@ -50,38 +52,80 @@ export default function StaffPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
+    const isNewStaff = !editingStaff
+    const staffEmail = formData.get("email") as string
     
     try {
       const url = editingStaff ? `/api/staff/${editingStaff.id}` : "/api/staff"
       const method = editingStaff ? "PUT" : "POST"
       
+      // For new staff, employeeId is auto-generated; for edit, include it
+      const payload: Record<string, any> = {
+        email: staffEmail,
+        name: formData.get("name"),
+        phone: formData.get("phone"),
+        designation: formData.get("designation"),
+        department: formData.get("department"),
+        qualification: formData.get("qualification"),
+        experience: formData.get("experience"),
+        salary: formData.get("salary"),
+        joiningDate: formData.get("joiningDate"),
+      }
+      
+      // Only include employeeId for updates (editing existing staff)
+      if (editingStaff) {
+        payload.employeeId = formData.get("employeeId")
+      }
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.get("email"),
-          password: formData.get("password") || undefined,
-          name: formData.get("name"),
-          phone: formData.get("phone"),
-          employeeId: formData.get("employeeId"),
-          designation: formData.get("designation"),
-          department: formData.get("department"),
-          qualification: formData.get("qualification"),
-          experience: formData.get("experience"),
-          salary: formData.get("salary"),
-          joiningDate: formData.get("joiningDate"),
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (res.ok) {
+        const data = await res.json()
         setIsDialogOpen(false)
         setIsEditDialogOpen(false)
         setEditingStaff(null)
         fetchStaff()
         e.currentTarget.reset()
+        
+        // Show appropriate toast message
+        if (isNewStaff) {
+          if (data.emailSent) {
+            toast({
+              title: "Staff Created Successfully",
+              description: `A verification email has been sent to ${staffEmail}. They will need to verify their email and set a password to access the system.`,
+            })
+          } else {
+            toast({
+              title: "Staff Created",
+              description: `Staff account created but verification email could not be sent. Please check email configuration or manually send credentials.`,
+              variant: "destructive",
+            })
+          }
+        } else {
+          toast({
+            title: "Staff Updated",
+            description: "Staff information has been updated successfully.",
+          })
+        }
+      } else {
+        const errorData = await res.json()
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to save staff member.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Failed to save staff:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -108,9 +152,47 @@ export default function StaffPage() {
 
       if (res.ok) {
         fetchStaff()
+        toast({
+          title: "Staff Deleted",
+          description: "Staff member has been deleted successfully.",
+        })
       }
     } catch (error) {
       console.error("Failed to delete staff:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete staff member.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleResendVerification = async (staffId: string, email: string) => {
+    try {
+      const res = await fetch(`/api/staff/${staffId}/resend-verification`, {
+        method: "POST",
+      })
+
+      if (res.ok) {
+        toast({
+          title: "Verification Email Sent",
+          description: `A new verification email has been sent to ${email}.`,
+        })
+      } else {
+        const data = await res.json()
+        toast({
+          title: "Error",
+          description: data.error || "Failed to send verification email.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to resend verification:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send verification email.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -154,36 +236,31 @@ export default function StaffPage() {
                     <Input id="email" name="email" type="email" required />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" name="phone" />
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" name="phone" />
+                </div>
+                <div className="rounded-md bg-blue-50 p-3 text-sm text-blue-700">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <span>A verification email will be sent to the staff member to set their password.</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="employeeId">Employee ID</Label>
-                    <Input id="employeeId" name="employeeId" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="designation">Designation</Label>
-                    <Select name="designation" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select designation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TEACHER">Teacher</SelectItem>
-                        <SelectItem value="PRINCIPAL">Principal</SelectItem>
-                        <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
-                        <SelectItem value="LIBRARIAN">Librarian</SelectItem>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="designation">Designation</Label>
+                  <Select name="designation" required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select designation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TEACHER">Teacher</SelectItem>
+                      <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                      <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                      <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Employee ID will be auto-generated based on designation</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -241,20 +318,14 @@ export default function StaffPage() {
                     <Input id="edit-email" name="email" type="email" defaultValue={editingStaff.user.email} required />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-password">Password (leave blank to keep current)</Label>
-                    <Input id="edit-password" name="password" type="password" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-phone">Phone</Label>
-                    <Input id="edit-phone" name="phone" defaultValue={editingStaff.user.phone || ""} />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Phone</Label>
+                  <Input id="edit-phone" name="phone" defaultValue={editingStaff.user.phone || ""} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-employeeId">Employee ID</Label>
-                    <Input id="edit-employeeId" name="employeeId" defaultValue={editingStaff.employeeId} required />
+                    <Input id="edit-employeeId" name="employeeId" defaultValue={editingStaff.employeeId} readOnly className="bg-muted" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-designation">Designation</Label>
@@ -353,13 +424,23 @@ export default function StaffPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(member)}
+                          title="Edit staff"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => handleResendVerification(member.id, member.user.email)}
+                          title="Resend verification email"
+                        >
+                          <Mail className="h-4 w-4 text-blue-500" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDelete(member.id)}
+                          title="Delete staff"
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>

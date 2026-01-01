@@ -5,6 +5,129 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification, createBulkNotifications } from "@/lib/notifications"
 
+// Helper function to sync exam submission tracking
+async function syncExamSubmissionTracking(
+  examId: string,
+  sectionId: string,
+  classSubjectId: string,
+  termId: string,
+  academicYearId: string
+) {
+  try {
+    // Get or create ExamResultSubmission for this exam/section
+    let submission = await prisma.examResultSubmission.findUnique({
+      where: {
+        examId_sectionId: {
+          examId,
+          sectionId,
+        },
+      },
+    })
+
+    // Count total subjects for this section
+    const totalSubjects = await prisma.classSubject.count({
+      where: { sectionId },
+    })
+
+    // Count students in section
+    const totalStudents = await prisma.classEnrollment.count({
+      where: {
+        sectionId,
+        academicYearId,
+        status: "ACTIVE",
+      },
+    })
+
+    if (!submission) {
+      // Create new submission tracking record
+      submission = await prisma.examResultSubmission.create({
+        data: {
+          examId,
+          sectionId,
+          termId,
+          academicYearId,
+          totalSubjects,
+          submittedSubjects: 0,
+          totalStudents,
+          status: "PENDING_SUBJECTS",
+        },
+      })
+    }
+
+    // Get or create ExamSubjectSubmission for this class subject
+    let subjectSubmission = await prisma.examSubjectSubmission.findUnique({
+      where: {
+        examResultSubmissionId_classSubjectId: {
+          examResultSubmissionId: submission.id,
+          classSubjectId,
+        },
+      },
+    })
+
+    // Count results entered for this subject
+    const resultsEntered = await prisma.result.count({
+      where: {
+        examId,
+        classSubjectId,
+      },
+    })
+
+    if (!subjectSubmission) {
+      await prisma.examSubjectSubmission.create({
+        data: {
+          examResultSubmissionId: submission.id,
+          classSubjectId,
+          totalStudents,
+          resultsEntered,
+          isComplete: resultsEntered >= totalStudents,
+        },
+      })
+    } else {
+      await prisma.examSubjectSubmission.update({
+        where: { id: subjectSubmission.id },
+        data: {
+          resultsEntered,
+          isComplete: resultsEntered >= totalStudents,
+        },
+      })
+    }
+
+    // Update submission progress
+    const completedSubjects = await prisma.examSubjectSubmission.count({
+      where: {
+        examResultSubmissionId: submission.id,
+        isComplete: true,
+      },
+    })
+
+    // Calculate averages and totals
+    const allResults = await prisma.result.findMany({
+      where: { examId, classSubject: { sectionId } },
+      select: { marksObtained: true, maxMarks: true },
+    })
+
+    const totalMarks = allResults.reduce((sum, r) => sum + r.marksObtained, 0)
+    const averageMarks = allResults.length > 0 ? totalMarks / allResults.length : 0
+    const marksList = allResults.map(r => r.marksObtained)
+    const highestMarks = marksList.length > 0 ? Math.max(...marksList) : 0
+    const lowestMarks = marksList.length > 0 ? Math.min(...marksList) : 0
+
+    await prisma.examResultSubmission.update({
+      where: { id: submission.id },
+      data: {
+        submittedSubjects: completedSubjects,
+        averageMarks: Math.round(averageMarks * 100) / 100,
+        highestMarks,
+        lowestMarks,
+        status: completedSubjects >= totalSubjects ? "PENDING_CLASS_TEACHER" : "PENDING_SUBJECTS",
+      },
+    })
+  } catch (error) {
+    console.error("Error syncing exam submission tracking:", error)
+    // Don't fail the main operation
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -224,19 +347,28 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Log audit trail
-    await logAuditTrail(
-      session.user.id,
-      "CREATE",
-      "Result",
-      request,
-      {
-        entityId: result.id,
-        description: `Created result for ${result.student.user.name} - ${result.classSubject.subject.name} (${result.marksObtained}/${result.maxMarks})`,
-      }
-    )
+    // Sync exam submission tracking if examId is provided
+    if (examId) {
+      // Get the section ID from the student's enrollment
+      const enrollment = await prisma.classEnrollment.findFirst({
+        where: {
+          studentId,
+          academicYearId,
+          status: "ACTIVE",
+        },
+      })
 
-    // Create notification for student
+      if (enrollment) {
+        await syncExamSubmissionTracking(
+          examId,
+          enrollment.sectionId,
+          classSubjectId,
+          termId,
+          academicYearId
+        )
+      }
+    }
+
     await createNotification({
       userId: result.student.userId,
       title: "New Result Available",

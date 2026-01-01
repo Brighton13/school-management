@@ -60,7 +60,7 @@ const menuItems = [
   { name: "My Fees", href: "/dashboard/fees", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
   { name: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "PRINCIPAL", "LIBRARIAN"] },
   { name: "Announcements", href: "/dashboard/announcements", icon: Bell, roles: ["ALL"] },
-  { name: "Signatures", href: "/dashboard/signatures", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
+  { name: "Report Config", href: "/dashboard/settings/report-config", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
   { name: "Audit Trails", href: "/dashboard/audit-trails", icon: History, roles: ["ADMIN", "PRINCIPAL"] },
   { name: "Session Logs", href: "/dashboard/session-logs", icon: Activity, roles: ["ADMIN", "PRINCIPAL"] },
   { name: "Email Config", href: "/dashboard/email-config", icon: Mail, roles: ["ADMIN", "PRINCIPAL"] },

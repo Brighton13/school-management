@@ -181,9 +181,11 @@ export default function StudentSubjectsPage() {
         `/api/student-subjects?studentId=${selectedStudentId}&academicYear=${selectedAcademicYear}&term=${selectedTerm}`
       )
       const data = await res.json()
-      setSelectedSubjects(data)
+      // Ensure we always set an array, even if API returns an error
+      setSelectedSubjects(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error("Failed to fetch selected subjects:", error)
+      setSelectedSubjects([])
     }
   }
 

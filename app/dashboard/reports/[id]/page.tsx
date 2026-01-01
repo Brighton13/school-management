@@ -5,12 +5,47 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import Image from "next/image"
+
+interface SchoolConfig {
+  ministryHeader: string
+  schoolName: string
+  schoolLogo: string | null
+  schoolMotto: string | null
+  schoolAddress: string | null
+  schoolPhone: string | null
+  schoolEmail: string | null
+  principalName: string | null
+  principalSignature: string | null
+}
+
+interface SubjectResult {
+  id: string
+  marksObtained: number
+  maxMarks: number
+  percentage: number
+  remark: string
+  classSubject: {
+    subject: {
+      name: string
+      code: string
+      type: string
+    }
+    teacher: {
+      user: {
+        name: string
+      }
+    }
+  }
+}
 
 interface ReportDetail {
+  schoolConfig: SchoolConfig
   report: {
     id: string
     student: {
       id: string
+      admissionNumber: string
       user: {
         name: string
         email: string
@@ -34,6 +69,11 @@ interface ReportDetail {
       id: string
       name: string
     }
+    academicYear?: {
+      name: string
+      startDate: string
+      endDate: string
+    }
     status: string
     totalMarksObtained: number
     maxTotalMarks: number
@@ -47,6 +87,7 @@ interface ReportDetail {
       totalResults: number
       percentage: number
       grade: string
+      overallRemark: string
       classStatistics: {
         average: number
         highest: number
@@ -55,8 +96,22 @@ interface ReportDetail {
       }
     }
   }
-  subjectResults: any[]
+  subjectResults: SubjectResult[]
   commentsByArea: any[]
+  autoComments: {
+    classTeacher: string
+    principal: string
+  }
+  signatures: {
+    classTeacher: {
+      name: string | null
+      signature: string | null
+    }
+    principal: {
+      name: string | null
+      signature: string | null
+    }
+  }
 }
 
 export default function ReportDetailPage() {
@@ -168,9 +223,17 @@ export default function ReportDetailPage() {
     session?.user?.role === "PRINCIPAL"
   const canApprove = session?.user?.role === "PRINCIPAL"
 
+  const formatDate = () => {
+    return new Date().toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    })
+  }
+
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex justify-between items-center no-print">
         <h1 className="text-3xl font-bold">Student Report Card</h1>
         <div className="space-x-2">
           <button
@@ -181,7 +244,7 @@ export default function ReportDetailPage() {
           </button>
           <Link
             href="/dashboard/reports"
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded inline-block"
           >
             Back
           </Link>
@@ -189,205 +252,255 @@ export default function ReportDetailPage() {
       </div>
 
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 no-print">
           {error}
         </div>
       )}
 
-      <div ref={printRef} className="bg-white rounded-lg shadow p-8 mb-6">
-        {/* Header */}
-        <div className="text-center mb-8 border-b-2 pb-4">
-          <h2 className="text-2xl font-bold">STUDENT REPORT CARD</h2>
-          <p className="text-gray-600">{report.report.section.class.name}</p>
+      <div ref={printRef} className="bg-white rounded-lg shadow print-area" style={{ maxWidth: "900px", margin: "0 auto" }}>
+        <style jsx>{`
+          @media print {
+            .no-print { display: none !important; }
+            .print-area { box-shadow: none; }
+          }
+        `}</style>
+        
+        {/* Ministry Header */}
+        <div className="text-center pt-6 pb-2 border-b-2 border-gray-800">
+          <h2 className="text-lg font-bold uppercase tracking-wider">
+            {report.schoolConfig.ministryHeader || "MINISTRY OF EDUCATION"}
+          </h2>
         </div>
 
-        {/* Student & School Info */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div>
-            <h3 className="font-semibold text-gray-700">Student Information</h3>
-            <p><strong>Name:</strong> {report.report.student.user.name}</p>
-            <p><strong>Email:</strong> {report.report.student.user.email}</p>
+        {/* School Header with Logo */}
+        <div className="text-center py-4 border-b-2 border-gray-400">
+          <div className="flex justify-center items-center gap-4 mb-2">
+            {report.schoolConfig.schoolLogo && (
+              <img
+                src={report.schoolConfig.schoolLogo}
+                alt="School Logo"
+                className="h-16 w-16 object-contain"
+              />
+            )}
+            <div>
+              <h1 className="text-2xl font-bold uppercase">
+                {report.schoolConfig.schoolName || "School Name"}
+              </h1>
+              {report.schoolConfig.schoolMotto && (
+                <p className="text-sm italic text-gray-600">"{report.schoolConfig.schoolMotto}"</p>
+              )}
+            </div>
+            {report.schoolConfig.schoolLogo && (
+              <img
+                src={report.schoolConfig.schoolLogo}
+                alt="School Logo"
+                className="h-16 w-16 object-contain"
+              />
+            )}
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-700">Academic Information</h3>
-            <p><strong>Class:</strong> {report.report.section.class.name}</p>
-            <p><strong>Section:</strong> {report.report.section.name}</p>
-            <p><strong>Term:</strong> {report.report.term.name}</p>
-          </div>
+          {report.schoolConfig.schoolAddress && (
+            <p className="text-sm text-gray-600">{report.schoolConfig.schoolAddress}</p>
+          )}
+          {(report.schoolConfig.schoolPhone || report.schoolConfig.schoolEmail) && (
+            <p className="text-sm text-gray-600">
+              {report.schoolConfig.schoolPhone && `Tel: ${report.schoolConfig.schoolPhone}`}
+              {report.schoolConfig.schoolPhone && report.schoolConfig.schoolEmail && " | "}
+              {report.schoolConfig.schoolEmail && `Email: ${report.schoolConfig.schoolEmail}`}
+            </p>
+          )}
         </div>
 
-        {/* Performance Summary */}
-        <div className="bg-gray-50 rounded p-4 mb-8">
-          <h3 className="font-semibold text-gray-700 mb-3">Performance Summary</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">
-                {report.report.metadata.percentage}%
-              </div>
-              <p className="text-gray-600 text-sm">Overall Percentage</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
-                {report.report.metadata.grade}
-              </div>
-              <p className="text-gray-600 text-sm">Grade</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-600">
-                {report.report.positionInClass}
-              </div>
-              <p className="text-gray-600 text-sm">Position in Class</p>
-            </div>
-            <div className="text-center">
-              <div className={`text-3xl font-bold ${report.report.progressRatio >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {report.report.progressRatio > 0 ? "+" : ""}{Math.round(report.report.progressRatio)}%
-              </div>
-              <p className="text-gray-600 text-sm">Progress</p>
-            </div>
-          </div>
+        {/* Report Title */}
+        <div className="text-center py-3 bg-gray-100 border-b">
+          <h2 className="text-xl font-bold">
+            REPORT FORM - {report.report.term?.name?.toUpperCase()} {report.report.academicYear?.name || new Date().getFullYear()}
+          </h2>
         </div>
 
-        {/* Subject Results */}
-        <div className="mb-8">
-          <h3 className="font-semibold text-gray-700 mb-3">Subject Marks</h3>
-          <table className="w-full border-collapse border border-gray-300">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border border-gray-300 px-4 py-2 text-left">Subject</th>
-                <th className="border border-gray-300 px-4 py-2 text-right">Marks Obtained</th>
-                <th className="border border-gray-300 px-4 py-2 text-right">Max Marks</th>
-                <th className="border border-gray-300 px-4 py-2 text-right">Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.subjectResults.map((result, idx) => {
-                const percentage = (result.marksObtained / result.maxMarks) * 100
-                return (
-                  <tr key={idx} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-2">
+        {/* Student Information */}
+        <div className="p-6">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 mb-6 text-sm">
+            <div className="flex">
+              <span className="font-semibold w-32">Student Name:</span>
+              <span className="uppercase">{report.report.student.user.name}</span>
+            </div>
+            <div className="flex">
+              <span className="font-semibold w-32">Grade/Class:</span>
+              <span>{report.report.section.class.name} - {report.report.section.name}</span>
+            </div>
+            <div className="flex">
+              <span className="font-semibold w-32">Admission No:</span>
+              <span>{report.report.student.admissionNumber || "N/A"}</span>
+            </div>
+            <div className="flex">
+              <span className="font-semibold w-32">No. of Pupils:</span>
+              <span>{report.report.classSize}</span>
+            </div>
+            <div className="flex">
+              <span className="font-semibold w-32">Marks Obtained:</span>
+              <span className="font-bold">{report.report.totalMarksObtained} / {report.report.maxTotalMarks}</span>
+            </div>
+            <div className="flex">
+              <span className="font-semibold w-32">Position:</span>
+              <span className="font-bold text-blue-700">{report.report.positionInClass} out of {report.report.classSize}</span>
+            </div>
+          </div>
+
+          {/* Subject Results Table */}
+          <div className="mb-6">
+            <table className="w-full border-collapse border-2 border-gray-800 text-sm">
+              <thead>
+                <tr className="bg-gray-200">
+                  <th className="border border-gray-800 px-3 py-2 text-left font-bold">SUBJECT</th>
+                  <th className="border border-gray-800 px-3 py-2 text-center font-bold w-20">SCORE</th>
+                  <th className="border border-gray-800 px-3 py-2 text-center font-bold w-16">%</th>
+                  <th className="border border-gray-800 px-3 py-2 text-center font-bold w-28">REMARK</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.subjectResults.map((result, idx) => (
+                  <tr key={idx} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                    <td className="border border-gray-800 px-3 py-2">
                       {result.classSubject.subject.name}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-right">
-                      {result.marksObtained}
+                    <td className="border border-gray-800 px-3 py-2 text-center font-medium">
+                      {result.marksObtained}/{result.maxMarks}
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-right">
-                      {result.maxMarks}
+                    <td className="border border-gray-800 px-3 py-2 text-center font-medium">
+                      {result.percentage}%
                     </td>
-                    <td className="border border-gray-300 px-4 py-2 text-right">
-                      {Math.round(percentage)}%
+                    <td className="border border-gray-800 px-3 py-2 text-center text-xs">
+                      {result.remark}
                     </td>
                   </tr>
-                )
-              })}
-              <tr className="bg-gray-100 font-semibold">
-                <td className="border border-gray-300 px-4 py-2">Total</td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  {report.report.totalMarksObtained}
-                </td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  {report.report.maxTotalMarks}
-                </td>
-                <td className="border border-gray-300 px-4 py-2 text-right">
-                  {report.report.metadata.percentage}%
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Class Statistics */}
-        <div className="bg-gray-50 rounded p-4 mb-8">
-          <h3 className="font-semibold text-gray-700 mb-3">Class Statistics</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-gray-600 text-sm">Class Average</p>
-              <p className="text-xl font-bold">
-                {report.report.metadata.classStatistics.average}%
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Highest Marks</p>
-              <p className="text-xl font-bold">
-                {report.report.metadata.classStatistics.highest}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Lowest Marks</p>
-              <p className="text-xl font-bold">
-                {report.report.metadata.classStatistics.lowest}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm">Class Size</p>
-              <p className="text-xl font-bold">
-                {report.report.metadata.classStatistics.studentCount}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Ratio */}
-        {report.report.previousTermAverage > 0 && (
-          <div className="bg-blue-50 rounded p-4 mb-8">
-            <h3 className="font-semibold text-gray-700 mb-3">Progress Analysis</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-gray-600 text-sm">Previous Term</p>
-                <p className="text-xl font-bold">{Math.round(report.report.previousTermAverage)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Current Term</p>
-                <p className="text-xl font-bold">{Math.round(report.report.currentTermAverage)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-600 text-sm">Change</p>
-                <p className={`text-xl font-bold ${report.report.progressRatio >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {report.report.progressRatio > 0 ? "+" : ""}{Math.round(report.report.progressRatio)}%
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Comments Section */}
-        {report.commentsByArea && report.commentsByArea.length > 0 && (
-          <div className="mb-8">
-            <h3 className="font-semibold text-gray-700 mb-3">Teacher Comments</h3>
-            {report.commentsByArea.map((area, idx) => (
-              <div key={idx} className="mb-4 p-4 border-l-4 border-blue-500 bg-blue-50">
-                <h4 className="font-medium text-gray-700">{area.area}</h4>
-                {area.comments.map((comment: any, cidx: number) => (
-                  <p key={cidx} className="text-gray-600 mt-2">
-                    {comment.commentText}
-                  </p>
                 ))}
-              </div>
-            ))}
+                {/* Total Row */}
+                <tr className="bg-gray-300 font-bold">
+                  <td className="border border-gray-800 px-3 py-2">TOTAL</td>
+                  <td className="border border-gray-800 px-3 py-2 text-center">
+                    {report.report.totalMarksObtained}/{report.report.maxTotalMarks}
+                  </td>
+                  <td className="border border-gray-800 px-3 py-2 text-center">
+                    {report.report.metadata.percentage}%
+                  </td>
+                  <td className="border border-gray-800 px-3 py-2 text-center text-xs">
+                    {report.report.metadata.overallRemark}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* Class Teacher Signature */}
-        {report.report.section.classTeacher && (
-          <div className="mt-8 pt-8 border-t-2 grid grid-cols-3 gap-8">
-            <div>
-              <p className="text-gray-600 text-sm">Class Teacher</p>
-              <p className="font-semibold">{report.report.section.classTeacher.user.name}</p>
+          {/* Performance Summary */}
+          <div className="grid grid-cols-4 gap-4 mb-6 text-center">
+            <div className="bg-blue-50 rounded p-3 border border-blue-200">
+              <div className="text-2xl font-bold text-blue-700">{report.report.metadata.percentage}%</div>
+              <p className="text-xs text-gray-600">Average</p>
             </div>
-            <div className="text-center">
-              <p className="text-gray-600 text-sm mb-8">Date</p>
-              <p>_________________</p>
+            <div className="bg-green-50 rounded p-3 border border-green-200">
+              <div className="text-2xl font-bold text-green-700">{report.report.metadata.grade}</div>
+              <p className="text-xs text-gray-600">Grade</p>
             </div>
-            <div className="text-right">
-              <p className="text-gray-600 text-sm mb-8">Signature</p>
-              <p>_________________</p>
+            <div className="bg-purple-50 rounded p-3 border border-purple-200">
+              <div className="text-2xl font-bold text-purple-700">
+                {report.report.positionInClass}/{report.report.classSize}
+              </div>
+              <p className="text-xs text-gray-600">Position</p>
+            </div>
+            <div className={`rounded p-3 border ${report.report.progressRatio >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+              <div className={`text-2xl font-bold ${report.report.progressRatio >= 0 ? "text-green-700" : "text-red-700"}`}>
+                {report.report.progressRatio > 0 ? "+" : ""}{Math.round(report.report.progressRatio)}%
+              </div>
+              <p className="text-xs text-gray-600">Progress</p>
             </div>
           </div>
-        )}
+
+          {/* Class Teacher Comments */}
+          <div className="mb-4">
+            <div className="border-2 border-gray-800 rounded">
+              <div className="bg-gray-200 px-3 py-2 border-b border-gray-800">
+                <h3 className="font-bold text-sm">CLASS TEACHER'S COMMENTS:</h3>
+              </div>
+              <div className="px-3 py-3 min-h-[60px]">
+                {/* Show manual comments first, then auto-comment */}
+                {report.commentsByArea.find(a => a.area === "OVERALL")?.comments?.length > 0 ? (
+                  report.commentsByArea.find(a => a.area === "OVERALL").comments.map((c: any, i: number) => (
+                    <p key={i} className="text-sm">{c.commentText}</p>
+                  ))
+                ) : (
+                  <p className="text-sm italic">{report.autoComments.classTeacher}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Head Teacher / Principal Comments */}
+          <div className="mb-6">
+            <div className="border-2 border-gray-800 rounded">
+              <div className="bg-gray-200 px-3 py-2 border-b border-gray-800">
+                <h3 className="font-bold text-sm">HEAD TEACHER'S COMMENTS:</h3>
+              </div>
+              <div className="px-3 py-3 min-h-[60px]">
+                {report.commentsByArea.find(a => a.area === "PRINCIPAL")?.comments?.length > 0 ? (
+                  report.commentsByArea.find(a => a.area === "PRINCIPAL").comments.map((c: any, i: number) => (
+                    <p key={i} className="text-sm">{c.commentText}</p>
+                  ))
+                ) : (
+                  <p className="text-sm italic">{report.autoComments.principal}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Signatures Section */}
+          <div className="grid grid-cols-2 gap-8 pt-4 border-t-2 border-gray-400">
+            {/* Class Teacher Signature */}
+            <div className="text-center">
+              <div className="h-16 flex items-end justify-center mb-1">
+                {report.signatures.classTeacher.signature ? (
+                  <img 
+                    src={report.signatures.classTeacher.signature} 
+                    alt="Class Teacher Signature"
+                    className="max-h-14 max-w-[150px] object-contain"
+                  />
+                ) : (
+                  <div className="border-b border-gray-400 w-40"></div>
+                )}
+              </div>
+              <p className="text-sm font-semibold">{report.signatures.classTeacher.name || "Class Teacher"}</p>
+              <p className="text-xs text-gray-600">Class Teacher</p>
+              <p className="text-xs text-gray-500 mt-1">Date: {formatDate()}</p>
+            </div>
+
+            {/* Principal Signature */}
+            <div className="text-center">
+              <div className="h-16 flex items-end justify-center mb-1">
+                {report.signatures.principal.signature ? (
+                  <img 
+                    src={report.signatures.principal.signature} 
+                    alt="Principal Signature"
+                    className="max-h-14 max-w-[150px] object-contain"
+                  />
+                ) : (
+                  <div className="border-b border-gray-400 w-40"></div>
+                )}
+              </div>
+              <p className="text-sm font-semibold">{report.signatures.principal.name || "Head Teacher"}</p>
+              <p className="text-xs text-gray-600">Head Teacher</p>
+              <p className="text-xs text-gray-500 mt-1">Date: {formatDate()}</p>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-6 pt-4 border-t text-xs text-gray-500">
+            <p>This is a computer-generated report. For any queries, please contact the school office.</p>
+          </div>
+        </div>
       </div>
 
-      {/* Add Comment Section */}
+      {/* Add Comment Section - Non-printable */}
       {canAddComments && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6 no-print" style={{ maxWidth: "900px", margin: "24px auto 0" }}>
           <h3 className="font-semibold text-gray-700 mb-4">Add Comment</h3>
           <div className="space-y-3">
             <div>
@@ -399,7 +512,8 @@ export default function ReportDetailPage() {
                 onChange={(e) => setPerformanceArea(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-2"
               >
-                <option value="OVERALL">Overall</option>
+                <option value="OVERALL">Overall (Class Teacher)</option>
+                <option value="PRINCIPAL">Principal/Head Teacher</option>
                 <option value="CONDUCT">Conduct</option>
                 <option value="PARTICIPATION">Participation</option>
                 <option value="EFFORT">Effort</option>

@@ -49,6 +49,9 @@ model User {
   notifications       Notification[]
   createdApplications Application[]          @relation("ApplicationCreator")
   approvedApplications Application[]         @relation("ApplicationApprover")
+  examSubmissionReviews ExamResultSubmission[] @relation("ExamSubmissionReviewer")
+  examSubmissionApprovals ExamResultSubmission[] @relation("ExamSubmissionApprover")
+  subjectSubmissions  ExamSubjectSubmission[] @relation("SubjectSubmitter")
 }
 
 // Dynamic Roles - Users can create custom roles
@@ -235,6 +238,7 @@ model Section {
   reports            StudentReport[]
   commentConfigs     ReportCommentConfig[]
   applications       Application[]
+  examResultSubmissions ExamResultSubmission[]
 }
 
 model ClassEnrollment {
@@ -280,6 +284,7 @@ model AcademicYear {
   exams             Exam[]
   reports           StudentReport[]
   attendance        Attendance[]
+  examResultSubmissions ExamResultSubmission[]
 
   @@index([isCurrent])
   @@index([isUpcoming])
@@ -304,6 +309,7 @@ model Term {
   exams        Exam[]
   reports      StudentReport[]
   attendance   Attendance[]
+  examResultSubmissions ExamResultSubmission[]
 
   @@unique([academicYearId, termNumber])
   @@index([isCurrent])
@@ -366,6 +372,7 @@ model ClassSubject {
   timetable               Timetable[]
   assignments             Assignment[]              @relation("ClassSubjectAssignments")
   StudentSubjectSelection StudentSubjectSelection[]
+  examSubjectSubmissions  ExamSubjectSubmission[]
 
   @@unique([classId, sectionId, subjectId])
 }
@@ -413,6 +420,7 @@ model Exam {
   creator      User         @relation(fields: [createdBy], references: [id])
   results      Result[]
   reports      StudentReport[]
+  examResultSubmissions ExamResultSubmission[]
 
   @@index([termId])
   @@index([academicYearId])
@@ -840,4 +848,131 @@ model ReportCommentConfig {
   
   @@unique([teacherId, sectionId, marksLowerBound, marksUpperBound, performanceArea])
   @@index([sectionId])
+}
+
+// Exam Result Submission Tracking - Tracks the submission status of results per exam/section
+model ExamResultSubmission {
+  id               String    @id @default(cuid())
+  examId           String
+  sectionId        String
+  academicYearId   String
+  termId           String
+  
+  // Subject-level tracking
+  totalSubjects    Int       // Total core subjects for this section
+  submittedSubjects Int      @default(0) // Number of subjects with all results entered
+  
+  // Workflow status
+  status           String    @default("PENDING_SUBJECTS") // PENDING_SUBJECTS, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, PUBLISHED
+  
+  // Class teacher review
+  classTeacherReviewedBy   String?
+  classTeacherReviewedAt   DateTime?
+  classTeacherComments     String?
+  
+  // Principal approval
+  principalApprovedBy      String?
+  principalApprovedAt      DateTime?
+  principalComments        String?
+  
+  // Aggregate stats
+  totalStudents    Int?
+  averageMarks     Float?
+  highestMarks     Float?
+  lowestMarks      Float?
+  passRate         Float?    // Percentage of students who passed
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  exam             Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  section          Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term             Term      @relation(fields: [termId], references: [id], onDelete: Cascade)
+  classTeacherReviewer User? @relation("ExamSubmissionReviewer", fields: [classTeacherReviewedBy], references: [id], onDelete: SetNull)
+  principalApprover User?    @relation("ExamSubmissionApprover", fields: [principalApprovedBy], references: [id], onDelete: SetNull)
+  
+  subjectSubmissions ExamSubjectSubmission[]
+  
+  @@unique([examId, sectionId])
+  @@index([examId])
+  @@index([sectionId])
+  @@index([status])
+}
+
+// Tracks individual subject submission status within an exam/section
+model ExamSubjectSubmission {
+  id                     String    @id @default(cuid())
+  examResultSubmissionId String
+  classSubjectId         String
+  
+  // Submission status
+  totalStudents          Int       // Expected number of students
+  resultsEntered         Int       @default(0) // Actual results entered
+  isComplete             Boolean   @default(false) // All students have results
+  
+  // Teacher tracking
+  submittedBy            String?   // Subject teacher who submitted
+  submittedAt            DateTime?
+  
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  
+  examResultSubmission   ExamResultSubmission @relation(fields: [examResultSubmissionId], references: [id], onDelete: Cascade)
+  classSubject           ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  submitter              User?      @relation("SubjectSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
+  
+  @@unique([examResultSubmissionId, classSubjectId])
+  @@index([classSubjectId])
+}
+
+// School Configuration (Singleton - stores school-wide settings)
+model SchoolConfig {
+  id                    String   @id @default(cuid())
+  schoolName            String   @default("School Name")
+  schoolMotto           String?
+  schoolAddress         String?
+  schoolPhone           String?
+  schoolEmail           String?
+  schoolLogo            String?  // Base64 encoded image or file path
+  ministryHeader        String?  @default("MINISTRY OF EDUCATION")
+  
+  // Principal Info
+  principalName         String?
+  principalSignature    String?  // Base64 encoded signature image
+  
+  // Default report settings
+  reportFooterText      String?
+  nextTermDate          DateTime?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+// Remark Templates - Auto-generate remarks based on score ranges
+model RemarkTemplate {
+  id            String   @id @default(cuid())
+  minPercentage Float    // Minimum percentage (inclusive)
+  maxPercentage Float    // Maximum percentage (inclusive)
+  remark        String   // e.g., "Excellent", "Very Good", "Good", "Fair", "Poor"
+  category      String   @default("SUBJECT") // SUBJECT, OVERALL - for subject-level or overall remarks
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([minPercentage, maxPercentage, category])
+}
+
+// Comment Templates - Pre-defined comments for teachers/principals
+model CommentTemplate {
+  id            String   @id @default(cuid())
+  minPercentage Float    // Minimum percentage (inclusive)
+  maxPercentage Float    // Maximum percentage (inclusive)
+  comment       String   // e.g., "Excellent work. Keep it up!"
+  commentType   String   // CLASS_TEACHER, PRINCIPAL
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([minPercentage, maxPercentage, commentType])
 }

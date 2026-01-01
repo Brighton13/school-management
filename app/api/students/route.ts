@@ -12,6 +12,62 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const classId = searchParams.get("classId")
+    const sectionId = searchParams.get("sectionId")
+    const currentAcademicYear = searchParams.get("currentAcademicYear") === "true"
+
+    // If filtering by class/section for current academic year
+    if (classId && currentAcademicYear) {
+      // Get current academic year
+      const academicYear = await prisma.academicYear.findFirst({
+        where: { isCurrent: true },
+      })
+
+      if (!academicYear) {
+        return NextResponse.json({ error: "No current academic year found" }, { status: 400 })
+      }
+
+      // Build enrollment filter
+      const enrollmentWhere: any = {
+        classId,
+        academicYearId: academicYear.id,
+        status: "ACTIVE",
+      }
+
+      if (sectionId) {
+        enrollmentWhere.sectionId = sectionId
+      }
+
+      // Get students enrolled in this class/section
+      const enrollments = await prisma.classEnrollment.findMany({
+        where: enrollmentWhere,
+        include: {
+          student: {
+            include: {
+              user: true,
+            },
+          },
+        },
+        orderBy: {
+          student: {
+            admissionNumber: "asc",
+          },
+        },
+      })
+
+      // Map to student format expected by frontend
+      const students = enrollments.map(e => ({
+        id: e.student.id,
+        admissionNumber: e.student.admissionNumber,
+        user: {
+          name: e.student.user.name,
+        },
+      }))
+
+      return NextResponse.json(students)
+    }
+
     // For teachers, filter students based on their assignments
     let studentIds: string[] | undefined
     if (session.user.role === "TEACHER") {

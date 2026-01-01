@@ -4,6 +4,20 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 
+// Function to calculate grade based on percentage
+function calculateGrade(marks: number, maxMarks: number): string {
+  if (maxMarks <= 0) return ""
+  const percentage = (marks / maxMarks) * 100
+  if (percentage >= 90) return "A+"
+  if (percentage >= 80) return "A"
+  if (percentage >= 70) return "B+"
+  if (percentage >= 60) return "B"
+  if (percentage >= 50) return "C+"
+  if (percentage >= 40) return "C"
+  if (percentage >= 30) return "D"
+  return "F"
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -156,7 +170,6 @@ export async function POST(request: NextRequest) {
         // Support multiple column name variations
         const admissionNumber = row["admissionnumber"] || row["admission_number"] || row["admission no"] || row["admission_no"] || row["admissionnumber"]
         const marksObtained = row["marksobtained"] || row["marks_obtained"] || row["marks obtained"] || row["marks"] || row["score"]
-        const grade = row["grade"] || ""
         const remarks = row["remarks"] || row["remark"] || ""
 
         if (!admissionNumber) {
@@ -209,6 +222,9 @@ export async function POST(request: NextRequest) {
           continue
         }
 
+        // Auto-calculate grade based on marks
+        const calculatedGrade = calculateGrade(parsedMarks, parsedMaxMarks)
+
         // Create result
         await prisma.result.create({
           data: {
@@ -219,7 +235,7 @@ export async function POST(request: NextRequest) {
             examId: examId || null,
             marksObtained: parsedMarks,
             maxMarks: parsedMaxMarks,
-            grade: grade.trim() || null,
+            grade: calculatedGrade,
             remarks: remarks.trim() || null,
             status,
             submittedBy,
@@ -261,25 +277,139 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const template = `AdmissionNumber,MarksObtained,Grade,Remarks
-ADM001,85,A,Excellent work
-ADM002,72,B,Good performance
-ADM003,65,C,Needs improvement`
+    const { searchParams } = new URL(request.url)
+    const classSubjectId = searchParams.get("classSubjectId")
+    const termId = searchParams.get("termId")
+
+    // If no class-subject selected, return a basic template
+    if (!classSubjectId) {
+      const template = `AdmissionNumber,MarksObtained,Remarks
+ADM001,85,Excellent work
+ADM002,72,Good performance
+ADM003,65,Needs improvement
+# Note: Grade is auto-calculated based on marks`
+
+      return new Response(template, {
+        headers: {
+          "Content-Type": "text/csv",
+          "Content-Disposition": "attachment; filename=bulk_results_template.csv",
+        },
+      })
+    }
+
+    // Get class-subject details
+    const classSubject = await prisma.classSubject.findUnique({
+      where: { id: classSubjectId },
+      include: {
+        class: true,
+        subject: true,
+        section: true,
+      },
+    })
+
+    if (!classSubject) {
+      return NextResponse.json({ error: "Class-Subject not found" }, { status: 404 })
+    }
+
+    // For teachers, verify they are assigned to this class-subject
+    if (session.user.role === "TEACHER") {
+      const staff = await prisma.staff.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          classSubjects: {
+            where: { id: classSubjectId },
+          },
+        },
+      })
+
+      if (!staff || staff.classSubjects.length === 0) {
+        return NextResponse.json(
+          { error: "You are not assigned to this class-subject" },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Always get the current academic year for enrollment lookup
+    const currentAcademicYear = await prisma.academicYear.findFirst({
+      where: { isCurrent: true },
+    })
+
+    if (!currentAcademicYear) {
+      return NextResponse.json(
+        { error: "No current academic year found. Please set an active academic year." },
+        { status: 400 }
+      )
+    }
+
+    // Get enrolled students for this class in the current academic year
+    const whereClause: any = {
+      status: "ACTIVE",
+      classId: classSubject.classId,
+      academicYearId: currentAcademicYear.id,
+    }
+
+    // If classSubject has a section, also filter by section
+    if (classSubject.sectionId) {
+      whereClause.sectionId = classSubject.sectionId
+    }
+
+    const enrolledStudents = await prisma.classEnrollment.findMany({
+      where: whereClause,
+      include: {
+        student: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: {
+        student: {
+          admissionNumber: "asc",
+        },
+      },
+    })
+
+    // Generate CSV with student details
+    const className = classSubject.section 
+      ? `${classSubject.class.name} ${classSubject.section.name}`
+      : classSubject.class.name
+    const subjectName = classSubject.subject.name
+
+    let template = `AdmissionNumber,StudentName,MarksObtained,Remarks\n`
+    template += `# Grade is auto-calculated based on marks\n`
+    
+    if (enrolledStudents.length === 0) {
+      // No students enrolled, provide empty template with example
+      template += `# No students enrolled in ${className} for ${subjectName}\n`
+      template += `# Example format:\n`
+      template += `ADM001,John Doe,85,Excellent work\n`
+    } else {
+      // Add each enrolled student
+      for (const enrollment of enrolledStudents) {
+        const student = enrollment.student
+        const studentName = `${student.user.name}`.replace(/,/g, " ")
+        template += `${student.admissionNumber},${studentName},,\n`
+      }
+    }
+
+    const filename = `results_${className.replace(/\s+/g, "_")}_${subjectName.replace(/\s+/g, "_")}.csv`
 
     return new Response(template, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": "attachment; filename=bulk_results_template.csv",
+        "Content-Disposition": `attachment; filename=${filename}`,
       },
     })
   } catch (error) {
+    console.error("Error generating template:", error)
     return NextResponse.json(
       { error: "Failed to generate template" },
       { status: 500 }

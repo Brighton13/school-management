@@ -127,10 +127,10 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Tools",
-    roles: ["ADMIN", "PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL", "TEACHER"],
     items: [
       { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN", "PRINCIPAL"] },
-      { name: "Signatures", href: "/dashboard/signatures", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
+      { name: "Report Config", href: "/dashboard/settings/report-config", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
     ],
   },
   {

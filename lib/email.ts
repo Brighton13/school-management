@@ -144,6 +144,97 @@ export async function sendPasswordResetEmail(
   return sendEmail(to, subject, html)
 }
 
+export async function sendStaffVerificationEmail(
+  to: string,
+  verificationLink: string,
+  userName: string,
+  employeeId: string,
+  designation: string
+) {
+  const subject = "Welcome to School Management System - Verify Your Email & Set Password"
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
+        .button { display: inline-block; padding: 14px 28px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+        .alert-box { background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .info-box { background-color: #DBEAFE; border-left: 4px solid #3B82F6; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .success-box { background-color: #D1FAE5; border-left: 4px solid #10B981; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        .steps { background-color: #fff; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .step { display: flex; align-items: flex-start; margin: 10px 0; }
+        .step-number { background-color: #4F46E5; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 10px; flex-shrink: 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Welcome to School Management System</h1>
+        </div>
+        <div class="content">
+          <p>Hello <strong>${userName}</strong>,</p>
+          <p>Congratulations! Your staff account has been created. You're just one step away from getting started!</p>
+          
+          <div class="info-box">
+            <p><strong>📋 Your Account Details:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li><strong>Employee ID:</strong> ${employeeId}</li>
+              <li><strong>Designation:</strong> ${designation}</li>
+              <li><strong>Email:</strong> ${to}</li>
+            </ul>
+          </div>
+
+          <div class="success-box">
+            <p><strong>✅ Next Step: Verify Your Email & Set Your Password</strong></p>
+            <p>Click the button below to verify your email address and create your password. This is required to activate your account.</p>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verificationLink}" class="button">Verify Email & Set Password</a>
+          </div>
+
+          <div class="steps">
+            <p><strong>What happens next:</strong></p>
+            <div class="step">
+              <span class="step-number">1</span>
+              <span>Click the button above to open the verification page</span>
+            </div>
+            <div class="step">
+              <span class="step-number">2</span>
+              <span>Create a secure password (at least 6 characters)</span>
+            </div>
+            <div class="step">
+              <span class="step-number">3</span>
+              <span>Log in with your email and new password</span>
+            </div>
+          </div>
+
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #4F46E5; background-color: #f3f4f6; padding: 10px; border-radius: 4px; font-size: 14px;">${verificationLink}</p>
+          
+          <div class="alert-box">
+            <p><strong>⏰ Important:</strong> This verification link will expire in <strong>72 hours</strong>.</p>
+          </div>
+          
+          <p>If you did not expect this email or have any questions, please contact the system administrator.</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated message. Please do not reply to this email.</p>
+          <p>© School Management System</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  return sendEmail(to, subject, html)
+}
+
 export async function sendStaffWelcomeEmail(
   to: string,
   resetLink: string,

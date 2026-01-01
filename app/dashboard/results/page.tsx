@@ -60,13 +60,17 @@ interface Term {
   id: string
   name: string
   academicYear: {
+    id: string
     year: string
   }
 }
 
 interface ClassSubject {
   id: string
-  class: { name: string }
+  classId: string
+  sectionId: string | null
+  class: { id: string; name: string }
+  section: { id: string; name: string } | null
   subject: { name: string; code: string }
 }
 
@@ -90,6 +94,87 @@ export default function ResultsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>("")
   const [selectedExamId, setSelectedExamId] = useState<string>("")
+  const [selectedTermId, setSelectedTermId] = useState<string>("")
+  const [marksObtained, setMarksObtained] = useState<string>("")
+  const [maxMarks, setMaxMarks] = useState<string>("")
+  const [calculatedGrade, setCalculatedGrade] = useState<string>("")
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+
+  // Function to calculate grade based on percentage
+  const calculateGrade = (marks: number, max: number): string => {
+    if (max <= 0) return ""
+    const percentage = (marks / max) * 100
+    if (percentage >= 90) return "A+"
+    if (percentage >= 80) return "A"
+    if (percentage >= 70) return "B+"
+    if (percentage >= 60) return "B"
+    if (percentage >= 50) return "C+"
+    if (percentage >= 40) return "C"
+    if (percentage >= 30) return "D"
+    return "F"
+  }
+
+  // Update grade when marks change
+  useEffect(() => {
+    const marks = parseFloat(marksObtained)
+    const max = parseFloat(maxMarks)
+    if (!isNaN(marks) && !isNaN(max) && max > 0) {
+      setCalculatedGrade(calculateGrade(marks, max))
+    } else {
+      setCalculatedGrade("")
+    }
+  }, [marksObtained, maxMarks])
+
+  // Fetch students when class-subject is selected
+  useEffect(() => {
+    const fetchStudentsForClassSubject = async () => {
+      if (!selectedClassSubjectId) {
+        setFilteredStudents([])
+        return
+      }
+
+      const selectedCS = classSubjects.find(cs => cs.id === selectedClassSubjectId)
+      if (!selectedCS) {
+        setFilteredStudents([])
+        return
+      }
+
+      setLoadingStudents(true)
+      try {
+        // Fetch students enrolled in this class/section for current academic year
+        const params = new URLSearchParams({
+          classId: selectedCS.classId,
+          currentAcademicYear: "true",
+        })
+        if (selectedCS.sectionId) {
+          params.append("sectionId", selectedCS.sectionId)
+        }
+        
+        const res = await fetch(`/api/students?${params.toString()}`)
+        if (res.ok) {
+          const data = await res.json()
+          setFilteredStudents(data)
+        } else {
+          setFilteredStudents([])
+        }
+      } catch (error) {
+        console.error("Failed to fetch students for class:", error)
+        setFilteredStudents([])
+      } finally {
+        setLoadingStudents(false)
+      }
+    }
+
+    fetchStudentsForClassSubject()
+  }, [selectedClassSubjectId, classSubjects])
+
+  // Auto-select class-subject if teacher has only one
+  useEffect(() => {
+    if (classSubjects.length === 1 && !selectedClassSubjectId) {
+      setSelectedClassSubjectId(classSubjects[0].id)
+    }
+  }, [classSubjects, selectedClassSubjectId])
 
   const fetchData = async () => {
     try {
@@ -138,6 +223,11 @@ export default function ResultsPage() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     
+    // Get academicYearId from selected term
+    const termId = formData.get("termId") as string
+    const selectedTerm = terms.find(t => t.id === termId)
+    const academicYearId = selectedTerm?.academicYear?.id || null
+    
     try {
       const res = await fetch("/api/results", {
         method: "POST",
@@ -145,8 +235,8 @@ export default function ResultsPage() {
         body: JSON.stringify({
           studentId: formData.get("studentId"),
           classSubjectId: formData.get("classSubjectId"),
-          termId: formData.get("termId"),
-          academicYearId: formData.get("academicYearId"),
+          termId: termId,
+          academicYearId: academicYearId,
           examId: formData.get("examId") || null,
           marksObtained: formData.get("marksObtained"),
           maxMarks: formData.get("maxMarks"),
@@ -158,6 +248,11 @@ export default function ResultsPage() {
       if (res.ok) {
         setIsDialogOpen(false)
         setSelectedClassSubjectId("")
+        setSelectedExamId("")
+        setSelectedTermId("")
+        setMarksObtained("")
+        setMaxMarks("")
+        setCalculatedGrade("")
         fetchData()
         e.currentTarget.reset()
       } else {
@@ -290,36 +385,25 @@ export default function ResultsPage() {
             <form onSubmit={handleSubmit}>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="studentId">Student</Label>
-                  <Select name="studentId" required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.user.name} ({student.admissionNumber})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="classSubjectId">Class & Subject</Label>
+                  <Label htmlFor="classSubjectId">Class & Subject *</Label>
                   {classSubjects.length > 0 ? (
                     <Select 
                       name="classSubjectId" 
                       value={selectedClassSubjectId}
-                      onValueChange={setSelectedClassSubjectId}
+                      onValueChange={(value) => {
+                        setSelectedClassSubjectId(value)
+                        // Reset student selection when class changes
+                        setFilteredStudents([])
+                      }}
                       required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select class and subject" />
+                        <SelectValue placeholder="Select class and subject first" />
                       </SelectTrigger>
                       <SelectContent>
                         {classSubjects.map((cs) => (
                           <SelectItem key={cs.id} value={cs.id}>
-                            {cs.class.name} - {cs.subject.name} ({cs.subject.code})
+                            {cs.class.name}{cs.section ? ` ${cs.section.name}` : ""} - {cs.subject.name} ({cs.subject.code})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -328,6 +412,35 @@ export default function ResultsPage() {
                     <div className="text-sm text-muted-foreground p-2 border rounded">
                       No class-subjects available. Please create class-subject combinations first in the Class Subjects page.
                     </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="studentId">Student *</Label>
+                  {!selectedClassSubjectId ? (
+                    <div className="text-sm text-muted-foreground p-2 border rounded">
+                      Please select a class and subject first to see enrolled students.
+                    </div>
+                  ) : loadingStudents ? (
+                    <div className="text-sm text-muted-foreground p-2 border rounded">
+                      Loading students...
+                    </div>
+                  ) : filteredStudents.length === 0 ? (
+                    <div className="text-sm text-muted-foreground p-2 border rounded">
+                      No students enrolled in this class for the current academic year.
+                    </div>
+                  ) : (
+                    <Select name="studentId" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredStudents.map((student) => (
+                          <SelectItem key={student.id} value={student.id}>
+                            {student.user?.name} ({student.admissionNumber})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -376,15 +489,38 @@ export default function ResultsPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="marksObtained">Marks Obtained</Label>
-                    <Input id="marksObtained" name="marksObtained" type="number" step="0.01" required />
+                    <Input 
+                      id="marksObtained" 
+                      name="marksObtained" 
+                      type="number" 
+                      step="0.01" 
+                      value={marksObtained}
+                      onChange={(e) => setMarksObtained(e.target.value)}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="maxMarks">Max Marks</Label>
-                    <Input id="maxMarks" name="maxMarks" type="number" step="0.01" required />
+                    <Input 
+                      id="maxMarks" 
+                      name="maxMarks" 
+                      type="number" 
+                      step="0.01" 
+                      value={maxMarks}
+                      onChange={(e) => setMaxMarks(e.target.value)}
+                      required 
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="grade">Grade</Label>
-                    <Input id="grade" name="grade" />
+                    <Input 
+                      id="grade" 
+                      name="grade" 
+                      value={calculatedGrade}
+                      readOnly
+                      className="bg-muted"
+                      placeholder="Auto-calculated"
+                    />
                   </div>
                 </div>
                 {session?.user.role !== "TEACHER" && (

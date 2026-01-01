@@ -103,7 +103,7 @@ interface ExamData {
   groupedResults: ClassData[]
 }
 
-export default function ApprovalsPage() {
+export default function PrincipalApprovalsPage() {
   const { data: session } = useSession()
   const [examData, setExamData] = useState<ExamData[]>([])
   const [loading, setLoading] = useState(true)
@@ -715,4 +715,3 @@ export default function ApprovalsPage() {
     </div>
   )
 }
-
