@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
         const password = "Test1234"
         const hashedPassword = await bcrypt.hash(password, 10)
 
-        // Create user with student first
+        // Create user with student, and optionally create application
         const userData: any = {
           email,
           password: hashedPassword,
@@ -192,26 +192,26 @@ export async function POST(request: NextRequest) {
           },
         }
 
-        const newUser = await prisma.user.create({ 
-          data: userData,
-          include: { student: true }
-        })
-
-        // If class is provided, create application separately after user is created
-        // This avoids the nested connect issue with the creator relation
-        if (appliedClassId && academicYearId && newUser.student) {
-          await prisma.application.create({
-            data: {
-              studentId: newUser.student.id,
-              appliedClassId: appliedClassId,
-              appliedSectionId: appliedSectionId,
-              academicYearId: academicYearId,
-              applicationStatus: "PENDING",
-              notes: remarks || null,
-              createdBy: session.user.id,
-            }
-          })
+        // If class is provided, create application with proper relations
+        if (appliedClassId && academicYearId) {
+          const applicationData: any = {
+            appliedClass: { connect: { id: appliedClassId } },
+            academicYear: { connect: { id: academicYearId } },
+            applicationStatus: "PENDING",
+            notes: remarks || null,
+            creator: { connect: { id: session.user.id } },
+          }
+          
+          if (appliedSectionId) {
+            applicationData.appliedSection = { connect: { id: appliedSectionId } }
+          }
+          
+          userData.student.create.applications = {
+            create: applicationData
+          }
         }
+
+        await prisma.user.create({ data: userData })
 
         results.success++
       } catch (error: any) {
