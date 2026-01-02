@@ -3,6 +3,7 @@
 import { Menu, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { useState } from "react"
 import { Sidebar } from "./sidebar-with-dropdowns"
 
@@ -32,7 +33,7 @@ export function Header({ userName, userRole }: HeaderProps) {
           {/* Desktop spacer */}
           <div className="hidden lg:flex flex-1" />
 
-          {/* User info and notifications */}
+          {/* User info, theme toggle, and notifications */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* User name - shown on sm and up, with icon on mobile */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-md bg-muted/50">
@@ -41,6 +42,7 @@ export function Header({ userName, userRole }: HeaderProps) {
                 {userName}
               </span>
             </div>
+            <ThemeToggle />
             <NotificationBell />
           </div>
         </div>
