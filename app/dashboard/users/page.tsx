@@ -75,6 +75,7 @@ const MODULES = [
   "students",
   "staff",
   "classes",
+  "sections",
   "subjects",
   "results",
   "fees",
@@ -83,6 +84,14 @@ const MODULES = [
   "announcements",
   "exams",
   "enrollment",
+  "applications",
+  "roles",
+  "permissions",
+  "users",
+  "settings",
+  "audit",
+  "session_logs",
+  "academic_years",
 ]
 
 export default function UsersPage() {
@@ -274,6 +283,12 @@ export default function UsersPage() {
     return acc
   }, {} as Record<string, Permission[]>)
 
+  // Get all unique modules from permissions (dynamic)
+  const allModules = Array.from(new Set([
+    ...MODULES,
+    ...Object.keys(groupedPermissions)
+  ]))
+
   // Filter users
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
@@ -413,10 +428,11 @@ export default function UsersPage() {
                 </TabsContent>
                 <TabsContent value="permissions" className="space-y-4">
                   <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {MODULES.map((module) => (
+                    {allModules.map((module) => (
+                      groupedPermissions[module]?.length > 0 && (
                       <div key={module} className="space-y-2">
                         <Label className="text-sm font-semibold capitalize">
-                          {module}
+                          {module.replace(/_/g, ' ')}
                         </Label>
                         <div className="grid grid-cols-2 gap-2">
                           {groupedPermissions[module]?.map((permission) => (
@@ -437,6 +453,7 @@ export default function UsersPage() {
                           ))}
                         </div>
                       </div>
+                      )
                     ))}
                   </div>
                 </TabsContent>
@@ -742,10 +759,11 @@ export default function UsersPage() {
                 </TabsContent>
                 <TabsContent value="permissions" className="space-y-4">
                   <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {MODULES.map((module) => (
+                    {allModules.map((module) => (
+                      groupedPermissions[module]?.length > 0 && (
                       <div key={module} className="space-y-2">
                         <Label className="text-sm font-semibold capitalize">
-                          {module}
+                          {module.replace(/_/g, ' ')}
                         </Label>
                         <div className="grid grid-cols-2 gap-2">
                           {groupedPermissions[module]?.map((permission) => (
@@ -766,6 +784,7 @@ export default function UsersPage() {
                           ))}
                         </div>
                       </div>
+                      )
                     ))}
                   </div>
                 </TabsContent>

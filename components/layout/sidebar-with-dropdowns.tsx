@@ -60,7 +60,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     title: "Academic Management",
     roles: ["ADMIN", "PRINCIPAL"],
     items: [
-      { name: "Academic Years", href: "/dashboard/academic-years", icon: Calendar, roles: ["ADMIN"] },
+      { name: "Academic Years", href: "/dashboard/academic-years", icon: Calendar, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Terms", href: "/dashboard/terms", icon: Calendar, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Classes", href: "/dashboard/classes", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Sections", href: "/dashboard/sections", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
