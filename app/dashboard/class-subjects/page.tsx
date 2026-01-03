@@ -128,15 +128,33 @@ export default function ClassSubjectsPage() {
     return true
   })
 
+  // Debug: Log class subjects data
+  useEffect(() => {
+    if (classSubjects.length > 0) {
+      console.log("All ClassSubjects:", classSubjects.map(cs => ({
+        id: cs.id,
+        className: cs.class.name,
+        classId: cs.class.id,
+        sectionName: cs.section?.name,
+        sectionId: cs.section?.id,
+        subjectName: cs.subject.name,
+      })))
+    }
+  }, [classSubjects])
+
   // Group class subjects by class/section for overview
-  const classSubjectsBySection = sections.map(section => ({
-    ...section,
-    className: section.class.name,
-    subjects: classSubjects.filter(cs => cs.section?.id === section.id),
-    coreCount: classSubjects.filter(cs => cs.section?.id === section.id && cs.subject.type === "CORE").length,
-    electiveCount: classSubjects.filter(cs => cs.section?.id === section.id && cs.subject.type === "ELECTIVE").length,
-    optionalCount: classSubjects.filter(cs => cs.section?.id === section.id && cs.subject.type === "OPTIONAL").length,
-  }))
+  const classSubjectsBySection = sections.map(section => {
+    const sectionSubjects = classSubjects.filter(cs => cs.section?.id === section.id && cs.class.id === section.classId)
+    console.log(`Section ${section.name} (id: ${section.id}, classId: ${section.classId}): ${sectionSubjects.length} subjects`)
+    return {
+      ...section,
+      className: section.class.name,
+      subjects: sectionSubjects,
+      coreCount: sectionSubjects.filter(cs => cs.subject.type === "CORE").length,
+      electiveCount: sectionSubjects.filter(cs => cs.subject.type === "ELECTIVE").length,
+      optionalCount: sectionSubjects.filter(cs => cs.subject.type === "OPTIONAL").length,
+    }
+  })
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()

@@ -105,9 +105,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if this combination already exists
-    const existing = await prisma.classSubject.findFirst({
-      where: { classId, sectionId, subjectId },
+    // Verify section belongs to the class
+    const section = await prisma.section.findUnique({
+      where: { id: sectionId },
+    })
+
+    if (!section || section.classId !== classId) {
+      return NextResponse.json(
+        { error: "Invalid section for this class" },
+        { status: 400 }
+      )
+    }
+
+    // Check if this combination already exists using the unique constraint
+    const existing = await prisma.classSubject.findUnique({
+      where: { 
+        classId_sectionId_subjectId: {
+          classId,
+          sectionId,
+          subjectId
+        }
+      },
     })
 
     if (existing) {
