@@ -103,11 +103,14 @@ export default function AttendancePage() {
         `/api/attendance?sectionId=${selectedSection}&date=${selectedDate}`
       )
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(await response.text())
+        showMessage("error", data.error || "Failed to load attendance records")
+        setStudents([])
+        return
       }
 
-      const data = await response.json()
       setStudents(data.students || [])
 
       const statusMap: Record<string, { status: string; remarks?: string }> = {}
@@ -169,11 +172,13 @@ export default function AttendancePage() {
         }),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error(await response.text())
+        showMessage("error", result.error || "Failed to save attendance")
+        return
       }
 
-      const result = await response.json()
       showMessage("success", `Attendance saved successfully (${result.successCount} records)`)
       fetchAttendance()
     } catch (error: any) {

@@ -29,6 +29,34 @@ export async function GET(request: NextRequest) {
     // Get current academic context
     const context = await getAcademicContext()
 
+    // Validate that the requested date is within the current term
+    const currentTerm = await prisma.term.findUnique({
+      where: { id: context.termId },
+    })
+
+    if (!currentTerm) {
+      return NextResponse.json(
+        { error: "No active term found" },
+        { status: 400 }
+      )
+    }
+
+    const requestedDate = new Date(date)
+    requestedDate.setHours(0, 0, 0, 0)
+    const termStartDate = new Date(currentTerm.startDate)
+    termStartDate.setHours(0, 0, 0, 0)
+    const termEndDate = new Date(currentTerm.endDate)
+    termEndDate.setHours(23, 59, 59, 999)
+
+    if (requestedDate < termStartDate || requestedDate > termEndDate) {
+      return NextResponse.json(
+        { 
+          error: `Date is outside the current term period (${termStartDate.toLocaleDateString()} - ${termEndDate.toLocaleDateString()})` 
+        },
+        { status: 400 }
+      )
+    }
+
     // Get user's staff record
     const staff = await prisma.staff.findUnique({
       where: { userId: session.user.id },
@@ -171,6 +199,32 @@ export async function POST(request: NextRequest) {
     // Parse date
     const attendanceDate = new Date(date)
     attendanceDate.setHours(0, 0, 0, 0)
+
+    // Validate that the date is within the current term's configured dates
+    const currentTerm = await prisma.term.findUnique({
+      where: { id: context.termId },
+    })
+
+    if (!currentTerm) {
+      return NextResponse.json(
+        { error: "No active term found" },
+        { status: 400 }
+      )
+    }
+
+    const termStartDate = new Date(currentTerm.startDate)
+    termStartDate.setHours(0, 0, 0, 0)
+    const termEndDate = new Date(currentTerm.endDate)
+    termEndDate.setHours(23, 59, 59, 999)
+
+    if (attendanceDate < termStartDate || attendanceDate > termEndDate) {
+      return NextResponse.json(
+        { 
+          error: `Attendance can only be recorded for dates within the current term (${termStartDate.toLocaleDateString()} - ${termEndDate.toLocaleDateString()})` 
+        },
+        { status: 400 }
+      )
+    }
 
     // Update or create attendance records (always linked to current academic context)
     const results = await Promise.all(
