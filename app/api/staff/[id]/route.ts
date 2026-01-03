@@ -70,46 +70,75 @@ export async function PUT(
       return NextResponse.json({ error: "Staff not found" }, { status: 404 })
     }
 
-    const updateData: any = {
-      name,
-      phone: phone || null,
-    }
+    const updateData: any = {}
 
+    // Only update user fields if provided
+    if (name !== undefined) updateData.name = name
+    if (phone !== undefined) updateData.phone = phone || null
     if (email && email !== staff.user.email) {
       updateData.email = email
     }
-
     if (password) {
       updateData.password = await bcrypt.hash(password, 10)
     }
 
-    const role = designation === "PRINCIPAL" ? "PRINCIPAL" :
-                 designation === "ACCOUNTANT" ? "ACCOUNTANT" :
-                 designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER"
-
-    if (designation) {
-      updateData.role = role
+    // Only update role if designation is changing
+    let newRoleName: string | null = null
+    if (designation && designation !== staff.designation) {
+      newRoleName = designation === "PRINCIPAL" ? "PRINCIPAL" :
+                    designation === "ACCOUNTANT" ? "ACCOUNTANT" :
+                    designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER"
+      updateData.role = newRoleName
     }
 
-    await prisma.user.update({
-      where: { id: staff.userId },
-      data: updateData,
-    })
+    // Build staff update data - only include fields that are provided
+    const staffUpdateData: any = {}
+    if (employeeId !== undefined) staffUpdateData.employeeId = employeeId
+    if (designation !== undefined) staffUpdateData.designation = designation
+    if (department !== undefined) staffUpdateData.department = department
+    if (qualification !== undefined) staffUpdateData.qualification = qualification
+    if (experience !== undefined) staffUpdateData.experience = experience ? parseInt(experience) : null
+    if (salary !== undefined) staffUpdateData.salary = salary ? parseFloat(salary) : null
+    if (joiningDate !== undefined) staffUpdateData.joiningDate = joiningDate ? new Date(joiningDate) : null
 
-    const updatedStaff = await prisma.staff.update({
-      where: { id: params.id },
-      data: {
-        employeeId: employeeId || staff.employeeId,
-        designation: designation || staff.designation,
-        department: department !== undefined ? department : staff.department,
-        qualification: qualification !== undefined ? qualification : staff.qualification,
-        experience: experience ? parseInt(experience) : staff.experience,
-        salary: salary ? parseFloat(salary) : staff.salary,
-        joiningDate: joiningDate ? new Date(joiningDate) : staff.joiningDate,
-      },
-      include: {
-        user: true,
-      },
+    // Use a transaction to update user, staff, and role assignment
+    const updatedStaff = await prisma.$transaction(async (tx) => {
+      // Only update user if there are changes
+      if (Object.keys(updateData).length > 0) {
+        await tx.user.update({
+          where: { id: staff.userId },
+          data: updateData,
+        })
+      }
+
+      // If role is changing, update UserRole table
+      if (newRoleName) {
+        const newRole = await tx.role.findUnique({
+          where: { name: newRoleName },
+        })
+
+        if (newRole) {
+          // Remove existing role assignments and add new one
+          await tx.userRole.deleteMany({
+            where: { userId: staff.userId },
+          })
+
+          await tx.userRole.create({
+            data: {
+              userId: staff.userId,
+              roleId: newRole.id,
+            },
+          })
+        }
+      }
+
+      return tx.staff.update({
+        where: { id: params.id },
+        data: staffUpdateData,
+        include: {
+          user: true,
+        },
+      })
     })
 
     // Log audit trail
