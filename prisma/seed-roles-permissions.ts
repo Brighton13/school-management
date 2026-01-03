@@ -98,6 +98,56 @@ async function main() {
     // Audit & Logs
     { name: "audit.read", module: "audit", action: "read", description: "View audit trails" },
     { name: "session_logs.read", module: "session_logs", action: "read", description: "View session logs" },
+
+    // Terms
+    { name: "terms.create", module: "terms", action: "create", description: "Create new terms" },
+    { name: "terms.read", module: "terms", action: "read", description: "View terms" },
+    { name: "terms.update", module: "terms", action: "update", description: "Update terms" },
+    { name: "terms.delete", module: "terms", action: "delete", description: "Delete terms" },
+
+    // Academic Years
+    { name: "academic_years.create", module: "academic_years", action: "create", description: "Create new academic years" },
+    { name: "academic_years.read", module: "academic_years", action: "read", description: "View academic years" },
+    { name: "academic_years.update", module: "academic_years", action: "update", description: "Update academic years" },
+    { name: "academic_years.delete", module: "academic_years", action: "delete", description: "Delete academic years" },
+
+    // Teacher Assignments
+    { name: "teacher_assignments.create", module: "teacher_assignments", action: "create", description: "Create teacher assignments" },
+    { name: "teacher_assignments.read", module: "teacher_assignments", action: "read", description: "View teacher assignments" },
+    { name: "teacher_assignments.update", module: "teacher_assignments", action: "update", description: "Update teacher assignments" },
+    { name: "teacher_assignments.delete", module: "teacher_assignments", action: "delete", description: "Delete teacher assignments" },
+
+    // Promotions
+    { name: "promotions.create", module: "promotions", action: "create", description: "Create student promotions" },
+    { name: "promotions.read", module: "promotions", action: "read", description: "View promotions" },
+    { name: "promotions.update", module: "promotions", action: "update", description: "Update promotions" },
+    { name: "promotions.delete", module: "promotions", action: "delete", description: "Delete promotions" },
+
+    // Applications
+    { name: "applications.create", module: "applications", action: "create", description: "Create new applications" },
+    { name: "applications.read", module: "applications", action: "read", description: "View applications" },
+    { name: "applications.update", module: "applications", action: "update", description: "Update applications" },
+    { name: "applications.delete", module: "applications", action: "delete", description: "Delete applications" },
+
+    // Reports
+    { name: "reports.generate", module: "reports", action: "generate", description: "Generate reports" },
+    { name: "reports.view", module: "reports", action: "view", description: "View reports" },
+    { name: "reports.download", module: "reports", action: "download", description: "Download reports" },
+    { name: "reports.bulk_generate", module: "reports", action: "bulk_generate", description: "Bulk generate reports" },
+    { name: "reports.comments.create", module: "reports", action: "comments_create", description: "Create report comments" },
+    { name: "reports.comments.read", module: "reports", action: "comments_read", description: "View report comments" },
+    { name: "reports.comments.update", module: "reports", action: "comments_update", description: "Update report comments" },
+    { name: "reports.comments.delete", module: "reports", action: "comments_delete", description: "Delete report comments" },
+
+    // Signatures
+    { name: "signatures.create", module: "signatures", action: "create", description: "Create signatures" },
+    { name: "signatures.read", module: "signatures", action: "read", description: "View signatures" },
+    { name: "signatures.update", module: "signatures", action: "update", description: "Update signatures" },
+    { name: "signatures.delete", module: "signatures", action: "delete", description: "Delete signatures" },
+
+    // Results workflow permissions
+    { name: "results.class_teacher_submit", module: "results", action: "class_teacher_submit", description: "Submit results as class teacher" },
+    { name: "results.principal_approve", module: "results", action: "principal_approve", description: "Approve results as principal" },
   ]
 
   // Create permissions

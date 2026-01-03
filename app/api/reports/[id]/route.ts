@@ -8,6 +8,7 @@ import {
   getCommentByPercentage,
   getUserSignature 
 } from "@/lib/report-utils"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 /**
  * GET - Retrieve a specific report with all details
@@ -25,7 +26,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.REPORTS_VIEW)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -76,11 +77,10 @@ export async function GET(
     }
 
     // Verify access
+    const canViewAll = await hasPermission(session.user.id, Permissions.REPORTS_VIEW)
     const hasAccess =
-      session.user.role === "ADMIN" ||
-      session.user.role === "PRINCIPAL" ||
-      (session.user.role === "TEACHER" &&
-        report.section.classTeacher?.userId === session.user.id) ||
+      canViewAll ||
+      (report.section.classTeacher?.userId === session.user.id) ||
       (report.student.userId === session.user.id)
 
     if (!hasAccess) {
@@ -286,7 +286,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.REPORTS_VIEW)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -311,13 +311,12 @@ export async function DELETE(
       )
     }
 
-    // Only admin/principal or class teacher can delete
-    const canDelete =
-      session.user.role === "ADMIN" ||
-      session.user.role === "PRINCIPAL" ||
-      (session.user.role === "TEACHER" &&
-        report.section.classTeacher?.userId === session.user.id &&
-        (report.status === "DRAFT" || report.status === "PENDING_CLASS_TEACHER"))
+    // Check if user can delete reports
+    const canDeleteAll = await hasPermission(session.user.id, Permissions.REPORTS_GENERATE)
+    const isClassTeacher = report.section.classTeacher?.userId === session.user.id
+    const isDraftOrPending = report.status === "DRAFT" || report.status === "PENDING_CLASS_TEACHER"
+    
+    const canDelete = canDeleteAll || (isClassTeacher && isDraftOrPending)
 
     if (!canDelete) {
       return NextResponse.json(

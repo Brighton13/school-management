@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification } from "@/lib/notifications"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 /**
  * Generate student report for a specific term/exam
@@ -15,8 +16,8 @@ import { createNotification } from "@/lib/notifications"
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_GENERATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -324,30 +325,32 @@ export async function GET(request: NextRequest) {
 
     let whereClause: any = {}
 
-    if (session.user.role === "TEACHER") {
-      // Get teacher's sections
+    // Check if user can view all reports
+    const canViewAll = await hasPermission(session.user.id, Permissions.REPORTS_VIEW)
+    
+    if (!canViewAll) {
+      // Check if user is a teacher
       const staff = await prisma.staff.findUnique({
         where: { userId: session.user.id },
         select: { sections: { select: { id: true } } }
       })
 
-      if (!staff || staff.sections.length === 0) {
-        return NextResponse.json([])
-      }
+      if (staff && staff.sections.length > 0) {
+        // Teacher can only see their sections' reports
+        whereClause.sectionId = { in: staff.sections.map(s => s.id) }
+      } else {
+        // Non-admin, non-principal, non-teacher users can only see their own reports
+        const studentEnrollment = await prisma.student.findUnique({
+          where: { userId: session.user.id },
+          select: { id: true }
+        })
+        
+        if (!studentEnrollment) {
+          return NextResponse.json([])
+        }
 
-      whereClause.sectionId = { in: staff.sections.map(s => s.id) }
-    } else if (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL") {
-      // Non-admin, non-principal, non-teacher users can only see their own reports
-      const studentEnrollment = await prisma.student.findUnique({
-        where: { userId: session.user.id },
-        select: { id: true }
-      })
-      
-      if (!studentEnrollment) {
-        return NextResponse.json([])
+        whereClause.studentId = studentEnrollment.id
       }
-
-      whereClause.studentId = studentEnrollment.id
     }
 
     // Apply filters

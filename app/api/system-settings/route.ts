@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 // Get system settings
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.SETTINGS_READ)
     
-    // Only admins and principals can view settings
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL")) {
+    // Only users with settings.read permission can view settings
+    if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 403 }
@@ -42,10 +43,10 @@ export async function GET() {
 // Update system settings
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.SETTINGS_UPDATE)
     
-    // Only admins and principals can update settings
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL")) {
+    // Only users with settings.update permission can update settings
+    if (!session) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 403 }

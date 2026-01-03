@@ -18,6 +18,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const includePermissions = searchParams.get("includePermissions") === "true"
+
     const roles = await prisma.role.findMany({
       include: {
         _count: {
@@ -26,6 +29,14 @@ export async function GET(request: NextRequest) {
             permissions: true,
           },
         },
+        ...(includePermissions && {
+          permissions: {
+            where: { granted: true },
+            include: {
+              permission: true,
+            },
+          },
+        }),
       },
       orderBy: { name: "asc" },
     })

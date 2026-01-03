@@ -51,7 +51,8 @@ export default function StaffPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const formData = new FormData(e.currentTarget)
+    const form = e.currentTarget
+    const formData = new FormData(form)
     const isNewStaff = !editingStaff
     const staffEmail = formData.get("email") as string
     
@@ -89,7 +90,13 @@ export default function StaffPage() {
         setIsEditDialogOpen(false)
         setEditingStaff(null)
         fetchStaff()
-        e.currentTarget.reset()
+        
+        // Reset form safely
+        try {
+          form.reset()
+        } catch (resetError) {
+          // Form reset failed, but that's okay - dialog is closing anyway
+        }
         
         // Show appropriate toast message
         if (isNewStaff) {

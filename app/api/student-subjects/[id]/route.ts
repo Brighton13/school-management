@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function DELETE(
   request: NextRequest,
@@ -35,8 +36,9 @@ export async function DELETE(
       }
     }
 
-    // Only ADMIN can delete selections (students should use status update instead)
-    if (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL") {
+    // Only users with permission can delete selections (students should use status update instead)
+    const deleteSession = await requirePermission(request, Permissions.STUDENTS_UPDATE)
+    if (!deleteSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification, createBulkNotifications } from "@/lib/notifications"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 // Helper function to sync exam submission tracking
 async function syncExamSubmissionTracking(
@@ -207,8 +208,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.RESULTS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -282,8 +283,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (session.user.role === "TEACHER") {
-      // Teachers always submit results - they go to class teacher automatically
+    // Check if user can directly approve results
+    const canApprove = await hasPermission(session.user.id, Permissions.RESULTS_APPROVE)
+    
+    if (!canApprove) {
+      // Users without approval permission submit results - they go to class teacher automatically
       // Check if student's section has a class teacher
       const studentEnrollment = await prisma.classEnrollment.findFirst({
         where: { studentId },
@@ -305,8 +309,8 @@ export async function POST(request: NextRequest) {
       }
       submittedBy = session.user.id
       submittedAt = new Date()
-    } else if (["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
-      // Admins/Principals can directly approve and publish
+    } else {
+      // Users with approval permission can directly approve and publish
       status = "APPROVED"
       publishedValue = true
       publishedAtValue = new Date()

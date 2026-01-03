@@ -4,14 +4,15 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.USERS_READ)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -77,8 +78,8 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
+    const session = await requirePermission(request, Permissions.USERS_UPDATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -94,11 +95,12 @@ export async function PUT(
     }
 
     // Validate role exists in database if provided
+    let newRole = null
     if (role) {
-      const roleExists = await prisma.role.findUnique({
+      newRole = await prisma.role.findUnique({
         where: { name: role },
       })
-      if (!roleExists) {
+      if (!newRole) {
         return NextResponse.json(
           { error: `Invalid role. Role "${role}" does not exist in the system.` },
           { status: 400 }
@@ -130,52 +132,35 @@ export async function PUT(
       updateData.password = await bcrypt.hash(password, 10)
     }
 
-    // Update user
-    const updatedUser = await prisma.user.update({
-      where: { id: params.id },
-      data: updateData,
-    })
-
-    // Update permissions if provided
-    if (permissions !== undefined && Array.isArray(permissions)) {
-      // Get all existing permissions
-      const existingPermissions = await prisma.userPermission.findMany({
-        where: { userId: params.id },
+    // Update user and role assignment in a transaction
+    const updatedUser = await prisma.$transaction(async (tx) => {
+      // Update user basic info
+      const user = await tx.user.update({
+        where: { id: params.id },
+        data: updateData,
       })
 
-      const existingPermissionIds = new Set(
-        existingPermissions.map((p) => p.permissionId)
-      )
-      const newPermissionIds = new Set(permissions)
+      // If role is being changed, update the UserRole assignment
+      if (role !== undefined && newRole && role !== existingUser.role) {
+        // Remove all existing role assignments for this user
+        await tx.userRole.deleteMany({
+          where: { userId: params.id },
+        })
 
-      // Remove permissions that are no longer in the list
-      const toRemove = existingPermissions.filter(
-        (p) => !newPermissionIds.has(p.permissionId)
-      )
-      await Promise.all(
-        toRemove.map((p) =>
-          prisma.userPermission.delete({
-            where: { id: p.id },
-          })
-        )
-      )
+        // Assign the new role
+        await tx.userRole.create({
+          data: {
+            userId: params.id,
+            roleId: newRole.id,
+          },
+        })
+      }
 
-      // Add new permissions
-      const toAdd = permissions.filter(
-        (permissionId: string) => !existingPermissionIds.has(permissionId)
-      )
-      await Promise.all(
-        toAdd.map((permissionId: string) =>
-          prisma.userPermission.create({
-            data: {
-              userId: params.id,
-              permissionId,
-              granted: true,
-            },
-          })
-        )
-      )
-    }
+      return user
+    })
+
+    // Note: Direct permissions are no longer managed when user has role-based permissions
+    // All permissions come from the assigned role. This ensures consistency across all users with the same role.
 
     // Fetch updated user with permissions and roles
     const userWithPermissions = await prisma.user.findUnique({
@@ -240,8 +225,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
+    const session = await requirePermission(request, Permissions.USERS_DELETE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

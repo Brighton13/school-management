@@ -4,12 +4,13 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { getCurrentAcademicYear, getUpcomingAcademicYear } from "@/lib/academic-year"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 // GET: Fetch classes with enrolled students for promotion preview
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
+    const session = await requirePermission(request, Permissions.PROMOTIONS_READ)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -114,8 +115,8 @@ export async function GET(request: NextRequest) {
 // POST: Promote students from one class to the next (or graduate final level)
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
+    const session = await requirePermission(request, Permissions.PROMOTIONS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

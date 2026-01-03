@@ -69,6 +69,16 @@ interface Role {
   id: string
   name: string
   description: string | null
+  permissions?: Array<{
+    id: string
+    permission: {
+      id: string
+      name: string
+      module: string
+      action: string
+    }
+    granted: boolean
+  }>
 }
 
 const MODULES = [
@@ -124,7 +134,7 @@ export default function UsersPage() {
     try {
       const [usersRes, rolesRes, permissionsRes] = await Promise.all([
         fetch("/api/users"),
-        fetch("/api/roles"),
+        fetch("/api/roles?includePermissions=true"),
         fetch("/api/permissions"),
       ])
       
@@ -342,7 +352,7 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>
-                Create a new user account with role and permissions
+                Create a new user account with a role. Permissions are inherited from the assigned role.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
@@ -427,35 +437,67 @@ export default function UsersPage() {
                   </div>
                 </TabsContent>
                 <TabsContent value="permissions" className="space-y-4">
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {allModules.map((module) => (
-                      groupedPermissions[module]?.length > 0 && (
-                      <div key={module} className="space-y-2">
-                        <Label className="text-sm font-semibold capitalize">
-                          {module.replace(/_/g, ' ')}
-                        </Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {groupedPermissions[module]?.map((permission) => (
-                            <div
-                              key={permission.id}
-                              className="flex items-center space-x-2 p-2 border rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedPermissions.includes(permission.id)}
-                                onChange={() => togglePermission(permission.id)}
-                                className="rounded border-gray-300"
-                              />
-                              <Label className="text-sm font-normal cursor-pointer">
-                                {permission.action}
-                              </Label>
-                            </div>
-                          ))}
+                  {formRole ? (
+                    (() => {
+                      const selectedRoleData = roles.find(r => r.name === formRole)
+                      const rolePerms = selectedRoleData?.permissions || []
+                      const rolePermsByModule = rolePerms.reduce((acc, rp) => {
+                        if (rp.granted) {
+                          const mod = rp.permission.module
+                          if (!acc[mod]) acc[mod] = []
+                          acc[mod].push({ ...rp.permission, description: null })
+                        }
+                        return acc
+                      }, {} as Record<string, Permission[]>)
+                      
+                      return (
+                        <div className="space-y-4">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-800">
+                              <Shield className="inline h-4 w-4 mr-1" />
+                              Permissions are inherited from the <strong>{formRole}</strong> role. 
+                              To modify permissions, edit the role in Role Management.
+                            </p>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">
+                            {rolePerms.filter(rp => rp.granted).length} permissions assigned via role
+                          </div>
+                          <div className="space-y-4 max-h-80 overflow-y-auto">
+                            {Object.keys(rolePermsByModule).sort().map((module) => (
+                              <div key={module} className="space-y-2">
+                                <Label className="text-sm font-semibold capitalize">
+                                  {module.replace(/_/g, ' ')}
+                                </Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {rolePermsByModule[module].map((permission) => (
+                                    <div
+                                      key={permission.id}
+                                      className="flex items-center space-x-2 p-2 border rounded bg-green-50 border-green-200"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      <span className="text-sm text-green-800">
+                                        {permission.action}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {Object.keys(rolePermsByModule).length === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No permissions assigned to this role.
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       )
-                    ))}
-                  </div>
+                    })()
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Select a role first to see assigned permissions</p>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
               <DialogFooter className="mt-4">
@@ -670,7 +712,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update user information, role, and permissions
+              Update user information and role. Permissions are inherited from the assigned role.
             </DialogDescription>
           </DialogHeader>
           {editingUser && (
@@ -758,35 +800,67 @@ export default function UsersPage() {
                   </div>
                 </TabsContent>
                 <TabsContent value="permissions" className="space-y-4">
-                  <div className="space-y-4 max-h-96 overflow-y-auto">
-                    {allModules.map((module) => (
-                      groupedPermissions[module]?.length > 0 && (
-                      <div key={module} className="space-y-2">
-                        <Label className="text-sm font-semibold capitalize">
-                          {module.replace(/_/g, ' ')}
-                        </Label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {groupedPermissions[module]?.map((permission) => (
-                            <div
-                              key={permission.id}
-                              className="flex items-center space-x-2 p-2 border rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedPermissions.includes(permission.id)}
-                                onChange={() => togglePermission(permission.id)}
-                                className="rounded border-gray-300"
-                              />
-                              <Label className="text-sm font-normal cursor-pointer">
-                                {permission.action}
-                              </Label>
-                            </div>
-                          ))}
+                  {formRole ? (
+                    (() => {
+                      const selectedRoleData = roles.find(r => r.name === formRole)
+                      const rolePerms = selectedRoleData?.permissions || []
+                      const rolePermsByModule = rolePerms.reduce((acc, rp) => {
+                        if (rp.granted) {
+                          const mod = rp.permission.module
+                          if (!acc[mod]) acc[mod] = []
+                          acc[mod].push({ ...rp.permission, description: null })
+                        }
+                        return acc
+                      }, {} as Record<string, Permission[]>)
+                      
+                      return (
+                        <div className="space-y-4">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <p className="text-sm text-blue-800">
+                              <Shield className="inline h-4 w-4 mr-1" />
+                              Permissions are inherited from the <strong>{formRole}</strong> role. 
+                              To modify permissions, edit the role in Role Management.
+                            </p>
+                          </div>
+                          <div className="text-sm text-muted-foreground mb-2">
+                            {rolePerms.filter(rp => rp.granted).length} permissions assigned via role
+                          </div>
+                          <div className="space-y-4 max-h-80 overflow-y-auto">
+                            {Object.keys(rolePermsByModule).sort().map((module) => (
+                              <div key={module} className="space-y-2">
+                                <Label className="text-sm font-semibold capitalize">
+                                  {module.replace(/_/g, ' ')}
+                                </Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {rolePermsByModule[module].map((permission) => (
+                                    <div
+                                      key={permission.id}
+                                      className="flex items-center space-x-2 p-2 border rounded bg-green-50 border-green-200"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                      <span className="text-sm text-green-800">
+                                        {permission.action}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                            {Object.keys(rolePermsByModule).length === 0 && (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                No permissions assigned to this role.
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
                       )
-                    ))}
-                  </div>
+                    })()
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Shield className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Select a role first to see assigned permissions</p>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
               <DialogFooter className="mt-4">

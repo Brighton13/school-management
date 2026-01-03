@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 // Function to calculate grade based on percentage
 function calculateGrade(marks: number, maxMarks: number): string {
@@ -20,8 +21,8 @@ function calculateGrade(marks: number, maxMarks: number): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.RESULTS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -137,8 +138,11 @@ export async function POST(request: NextRequest) {
     let publishedValue = false
     let publishedAtValue = null
 
-    if (session.user.role === "TEACHER") {
-      // Check if any section in this class has a class teacher
+    // Check if user can directly approve results
+    const canApprove = await hasPermission(session.user.id, Permissions.RESULTS_APPROVE)
+    
+    if (!canApprove) {
+      // Users without approval permission - check if any section in this class has a class teacher
       const sections = await prisma.section.findMany({
         where: { classId: classSubject.classId },
         include: { classTeacher: true },
@@ -153,7 +157,8 @@ export async function POST(request: NextRequest) {
       }
       submittedBy = session.user.id
       submittedAt = new Date()
-    } else if (["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    } else {
+      // Users with approval permission can directly approve and publish
       status = "APPROVED"
       publishedValue = true
       publishedAtValue = new Date()
@@ -279,8 +284,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.RESULTS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

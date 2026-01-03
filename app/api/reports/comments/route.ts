@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification } from "@/lib/notifications"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 /**
  * POST - Add comment and signature to a report
@@ -11,8 +12,8 @@ import { createNotification } from "@/lib/notifications"
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_READ)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -153,18 +154,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Check access permissions
-    if (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL") {
-      if (session.user.role === "TEACHER") {
-        const staff = await prisma.staff.findUnique({
-          where: { userId: session.user.id },
-          include: { sections: { where: { id: report.sectionId } } }
-        })
-        if (!staff || staff.sections.length === 0) {
-          return NextResponse.json(
-            { error: "Unauthorized" },
-            { status: 403 }
-          )
-        }
+    const canViewAll = await hasPermission(session.user.id, Permissions.REPORTS_VIEW)
+    if (!canViewAll) {
+      // Check if user is a teacher with access to this section
+      const staff = await prisma.staff.findUnique({
+        where: { userId: session.user.id },
+        include: { sections: { where: { id: report.sectionId } } }
+      })
+      if (staff && staff.sections.length > 0) {
+        // Teacher has access to this section - allowed
       } else {
         // Student can only see their own report comments
         const student = await prisma.student.findUnique({
@@ -203,8 +201,8 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_UPDATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -279,8 +277,8 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_DELETE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

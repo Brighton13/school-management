@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 /**
  * POST - Create or update comment configuration for a teacher
@@ -11,8 +12,8 @@ import { logAuditTrail } from "@/lib/audit"
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "TEACHER") {
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -185,8 +186,8 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "TEACHER") {
+    const session = await requirePermission(request, Permissions.REPORTS_COMMENTS_DELETE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

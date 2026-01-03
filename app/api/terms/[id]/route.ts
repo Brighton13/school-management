@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function GET(
   request: NextRequest,
@@ -34,8 +35,8 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.TERMS_UPDATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -109,8 +110,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.TERMS_DELETE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

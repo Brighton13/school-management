@@ -4,11 +4,12 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.USERS_READ)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -89,8 +90,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
+    const session = await requirePermission(request, Permissions.USERS_CREATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -130,39 +131,42 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        phone: phone || null,
-        role,
-        isActive: isActive !== false,
-      },
-      include: {
-        permissions: {
-          include: {
-            permission: true,
+    // Create user with role assignment in a transaction
+    const user = await prisma.$transaction(async (tx) => {
+      // Create the user
+      const newUser = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          phone: phone || null,
+          role,
+          isActive: isActive !== false,
+        },
+        include: {
+          permissions: {
+            include: {
+              permission: true,
+            },
           },
         },
-      },
+      })
+
+      // Automatically assign the user to the role in UserRole table
+      // This ensures permissions are inherited from the role
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: roleExists.id,
+        },
+      })
+
+      return newUser
     })
 
-    // Assign permissions if provided
-    if (permissions && Array.isArray(permissions) && permissions.length > 0) {
-      await Promise.all(
-        permissions.map((permissionId: string) =>
-          prisma.userPermission.create({
-            data: {
-              userId: user.id,
-              permissionId,
-              granted: true,
-            },
-          })
-        )
-      )
-    }
+    // Note: Direct permissions are no longer assigned when creating users with roles
+    // All permissions come from the assigned role. This ensures consistency.
+    // If direct permissions are needed for fine-grained control, they can be added separately.
 
     // Fetch user with permissions and roles
     const userWithPermissions = await prisma.user.findUnique({

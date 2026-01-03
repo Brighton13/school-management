@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 /**
  * GET - Get user's signature or all signatures (admin only)
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.SIGNATURES_READ)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -17,8 +18,9 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
     const signatureType = searchParams.get("signatureType")
 
-    // If admin and requesting all, return all signatures
-    if (["ADMIN", "PRINCIPAL"].includes(session.user.role) && !userId) {
+    // Check if user can view all signatures
+    const canViewAll = await hasPermission(session.user.id, Permissions.USERS_READ)
+    if (canViewAll && !userId) {
       const signatures = await prisma.signature.findMany({
         where: signatureType ? { signatureType } : {},
         include: {
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.SIGNATURES_CREATE)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -79,9 +81,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine target user (admin can update others)
+    // Check if user can update others' signatures
+    const canUpdateOthers = await hasPermission(session.user.id, Permissions.USERS_UPDATE)
     const targetUserId = 
-      (["ADMIN", "PRINCIPAL"].includes(session.user.role) && userId) 
+      (canUpdateOthers && userId) 
         ? userId 
         : session.user.id
 
@@ -127,7 +130,7 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.SIGNATURES_DELETE)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -135,9 +138,10 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
 
-    // Determine target user (admin can delete others)
+    // Check if user can delete others' signatures
+    const canDeleteOthers = await hasPermission(session.user.id, Permissions.USERS_DELETE)
     const targetUserId = 
-      (["ADMIN", "PRINCIPAL"].includes(session.user.role) && userId) 
+      (canDeleteOthers && userId) 
         ? userId 
         : session.user.id
 

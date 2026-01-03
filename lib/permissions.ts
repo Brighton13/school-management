@@ -234,6 +234,18 @@ export const Permissions = {
   SECTIONS_UPDATE: "sections.update",
   SECTIONS_DELETE: "sections.delete",
 
+  // Terms
+  TERMS_CREATE: "terms.create",
+  TERMS_READ: "terms.read",
+  TERMS_UPDATE: "terms.update",
+  TERMS_DELETE: "terms.delete",
+
+  // Academic Years
+  ACADEMIC_YEARS_CREATE: "academic_years.create",
+  ACADEMIC_YEARS_READ: "academic_years.read",
+  ACADEMIC_YEARS_UPDATE: "academic_years.update",
+  ACADEMIC_YEARS_DELETE: "academic_years.delete",
+
   // Subjects
   SUBJECTS_CREATE: "subjects.create",
   SUBJECTS_READ: "subjects.read",
@@ -255,6 +267,16 @@ export const Permissions = {
   REPORTS_VIEW: "reports.view",
   REPORTS_DOWNLOAD: "reports.download",
   REPORTS_BULK_GENERATE: "reports.bulk_generate",
+  REPORTS_COMMENTS_CREATE: "reports.comments.create",
+  REPORTS_COMMENTS_READ: "reports.comments.read",
+  REPORTS_COMMENTS_UPDATE: "reports.comments.update",
+  REPORTS_COMMENTS_DELETE: "reports.comments.delete",
+
+  // Signatures
+  SIGNATURES_CREATE: "signatures.create",
+  SIGNATURES_READ: "signatures.read",
+  SIGNATURES_UPDATE: "signatures.update",
+  SIGNATURES_DELETE: "signatures.delete",
 
   // Fees
   FEES_CREATE: "fees.create",
@@ -309,5 +331,23 @@ export const Permissions = {
   // Audit & Logs
   AUDIT_READ: "audit.read",
   SESSION_LOGS_READ: "session_logs.read",
+
+  // Teacher Assignments
+  TEACHER_ASSIGNMENTS_CREATE: "teacher_assignments.create",
+  TEACHER_ASSIGNMENTS_READ: "teacher_assignments.read",
+  TEACHER_ASSIGNMENTS_UPDATE: "teacher_assignments.update",
+  TEACHER_ASSIGNMENTS_DELETE: "teacher_assignments.delete",
+
+  // Promotions
+  PROMOTIONS_CREATE: "promotions.create",
+  PROMOTIONS_READ: "promotions.read",
+  PROMOTIONS_UPDATE: "promotions.update",
+  PROMOTIONS_DELETE: "promotions.delete",
+
+  // Applications
+  APPLICATIONS_CREATE: "applications.create",
+  APPLICATIONS_READ: "applications.read",
+  APPLICATIONS_UPDATE: "applications.update",
+  APPLICATIONS_DELETE: "applications.delete",
 }
 

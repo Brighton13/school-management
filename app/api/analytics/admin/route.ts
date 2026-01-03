@@ -3,16 +3,13 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getAcademicContext } from "@/lib/academic-year"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    // Only users with reports.view permission can access admin analytics
+    const session = await requirePermission(request, Permissions.REPORTS_VIEW)
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Only ADMIN and PRINCIPAL can access admin analytics
-    if (session.user.role !== "ADMIN" && session.user.role !== "PRINCIPAL") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

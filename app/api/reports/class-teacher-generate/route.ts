@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import jsPDF from "jspdf"
 import "jspdf-autotable"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 // Extend jsPDF type to include autoTable
 declare module "jspdf" {
@@ -59,8 +60,8 @@ interface ReportData {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_VIEW)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -166,8 +167,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !["TEACHER", "ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const session = await requirePermission(request, Permissions.REPORTS_GENERATE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createBulkNotifications } from "@/lib/notifications"
+import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 
 export async function GET() {
   try {
@@ -17,9 +18,10 @@ export async function GET() {
       ],
     }
 
-    // Admins and principals can see all announcements (published and unpublished)
+    // Users with announcements.create permission can see all announcements (published and unpublished)
     // Others only see published announcements
-    if (!session || !["ADMIN", "PRINCIPAL"].includes(session.user.role)) {
+    const canSeeAll = session ? await hasPermission(session.user.id, Permissions.ANNOUNCEMENTS_CREATE) : false
+    if (!canSeeAll) {
       whereClause.published = true
     }
 
@@ -42,17 +44,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await requirePermission(request, Permissions.ANNOUNCEMENTS_CREATE)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Only allow ADMIN, PRINCIPAL, and TEACHER to create announcements
-    if (!["ADMIN", "PRINCIPAL", "TEACHER"].includes(session.user.role)) {
-      return NextResponse.json(
-        { error: "Forbidden - Students cannot create announcements" },
-        { status: 403 }
-      )
     }
 
     const body = await request.json()

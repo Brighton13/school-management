@@ -55,30 +55,59 @@ export async function POST(request: NextRequest) {
     const placeholderPassword = crypto.randomBytes(32).toString("hex")
     const hashedPassword = await bcrypt.hash(placeholderPassword, 10)
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        phone,
-        role: designation === "PRINCIPAL" ? "PRINCIPAL" : 
-              designation === "ACCOUNTANT" ? "ACCOUNTANT" :
-              designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER",
-        staff: {
-          create: {
-            employeeId,
-            designation,
-            department,
-            qualification,
-            experience: experience ? parseInt(experience) : null,
-            salary: salary ? parseFloat(salary) : null,
-            joiningDate: joiningDate ? new Date(joiningDate) : null,
+    // Determine the role based on designation
+    const roleName = designation === "PRINCIPAL" ? "PRINCIPAL" : 
+                     designation === "ACCOUNTANT" ? "ACCOUNTANT" :
+                     designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER"
+
+    // Find the role in the database
+    const role = await prisma.role.findUnique({
+      where: { name: roleName },
+    })
+
+    if (!role) {
+      return NextResponse.json(
+        { error: `Role "${roleName}" not found. Please run the seed script first.` },
+        { status: 400 }
+      )
+    }
+
+    // Create user with role assignment in a transaction
+    const user = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name,
+          phone,
+          role: roleName,
+          staff: {
+            create: {
+              employeeId,
+              designation,
+              department,
+              qualification,
+              experience: experience ? parseInt(experience) : null,
+              salary: salary ? parseFloat(salary) : null,
+              joiningDate: joiningDate ? new Date(joiningDate) : null,
+            },
           },
         },
-      },
-      include: {
-        staff: true,
-      },
+        include: {
+          staff: true,
+        },
+      })
+
+      // Automatically assign the user to the role in UserRole table
+      // This ensures permissions are inherited from the role
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: role.id,
+        },
+      })
+
+      return newUser
     })
 
     // Log audit trail

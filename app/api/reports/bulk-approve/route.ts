@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createBulkNotifications, createNotification } from "@/lib/notifications"
+import { requirePermission, Permissions } from "@/lib/permissions"
 
 /**
  * Principal bulk approval of reports for a specific class section
@@ -12,8 +13,8 @@ import { createBulkNotifications, createNotification } from "@/lib/notifications
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "PRINCIPAL") {
+    const session = await requirePermission(request, Permissions.RESULTS_PRINCIPAL_APPROVE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -140,8 +141,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "PRINCIPAL") {
+    const session = await requirePermission(request, Permissions.RESULTS_PRINCIPAL_APPROVE)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
