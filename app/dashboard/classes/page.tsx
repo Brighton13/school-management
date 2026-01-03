@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -24,6 +25,7 @@ export default function ClassesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingClass, setEditingClass] = useState<Class | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchClasses()
@@ -32,6 +34,11 @@ export default function ClassesPage() {
   const fetchClasses = async () => {
     try {
       const res = await fetch("/api/classes")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setClasses(data)
     } catch (error) {
@@ -98,6 +105,15 @@ export default function ClassesPage() {
     } catch (error) {
       console.error("Failed to delete class:", error)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

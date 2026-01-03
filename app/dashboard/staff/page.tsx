@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -32,6 +33,7 @@ export default function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const { toast } = useToast()
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchStaff()
@@ -40,6 +42,11 @@ export default function StaffPage() {
   const fetchStaff = async () => {
     try {
       const res = await fetch("/api/staff")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setStaff(data)
     } catch (error) {
@@ -201,6 +208,15 @@ export default function StaffPage() {
         variant: "destructive",
       })
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -58,6 +59,7 @@ export default function EnrollmentPage() {
   const [editingEnrollment, setEditingEnrollment] = useState<Enrollment | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editSelectedClassId, setEditSelectedClassId] = useState<string>("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -71,6 +73,11 @@ export default function EnrollmentPage() {
         fetch("/api/classes"),
         fetch("/api/terms"),
       ])
+      if (enrollmentsRes.status === 401 || enrollmentsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       setEnrollments(await enrollmentsRes.json())
       setStudents(await studentsRes.json())
       const classesData = await classesRes.json()
@@ -170,6 +177,15 @@ export default function EnrollmentPage() {
     } catch (error) {
       console.error("Failed to delete enrollment:", error)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
 

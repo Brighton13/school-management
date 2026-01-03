@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -64,6 +65,7 @@ export default function ClassResultsPage() {
   const [selectedTermId, setSelectedTermId] = useState<string>("all")
   const [selectedExamId, setSelectedExamId] = useState<string>("all")
   const [loading, setLoading] = useState(true)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchInitialData()
@@ -79,6 +81,11 @@ export default function ClassResultsPage() {
   const fetchSections = async () => {
     try {
       const res = await fetch("/api/results/class-results")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         setSections(data.sections || [])
@@ -554,6 +561,15 @@ export default function ClassResultsPage() {
   const pendingCount = students.reduce((count, student) => {
     return count + student.results.filter(r => r.status === "PENDING_CLASS_TEACHER").length
   }, 0)
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

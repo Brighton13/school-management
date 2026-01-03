@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import {
   Card,
   CardContent,
@@ -114,6 +115,7 @@ export default function GenerateReportsPage() {
   const [previewPdf, setPreviewPdf] = useState<string | null>(null)
   const [previewStudentName, setPreviewStudentName] = useState<string>("")
   const [generationProgress, setGenerationProgress] = useState(0)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   // Check authorization
   useEffect(() => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import Link from "next/link"
 
 interface GroupedReports {
@@ -40,6 +41,7 @@ export default function BulkApprovePage() {
   const [success, setSuccess] = useState("")
   const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   const [approvingGroup, setApprovingGroup] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -56,6 +58,11 @@ export default function BulkApprovePage() {
     try {
       setLoading(true)
       const response = await fetch("/api/reports/bulk-approve")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (!response.ok) {
         throw new Error("Failed to fetch pending reports")
       }
@@ -153,6 +160,15 @@ export default function BulkApprovePage() {
       <div className="text-center py-8">
         <p className="text-red-600">You do not have access to this page</p>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

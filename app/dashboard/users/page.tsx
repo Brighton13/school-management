@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Edit, Trash2, Search, Filter, CheckCircle2, XCircle, Shield, UserCog } from "lucide-react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 
 interface User {
   id: string
@@ -110,6 +111,7 @@ export default function UsersPage() {
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -137,6 +139,13 @@ export default function UsersPage() {
         fetch("/api/roles?includePermissions=true"),
         fetch("/api/permissions"),
       ])
+      
+      // Check for permission denied on users endpoint
+      if (usersRes.status === 401 || usersRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       
       const usersData = await usersRes.json()
       const rolesData = await rolesRes.json()
@@ -324,6 +333,15 @@ export default function UsersPage() {
       PARENT: "bg-pink-100 text-pink-800",
     }
     return colors[role] || "bg-gray-100 text-gray-800"
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied
+        title="Access Denied"
+        message="You don't have permission to manage users. Please contact your administrator if you need access to this feature."
+      />
+    )
   }
 
   return (

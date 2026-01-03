@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Shield } from "lucide-react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 
 interface Permission {
   id: string
@@ -16,6 +17,7 @@ interface Permission {
 export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchPermissions()
@@ -24,6 +26,11 @@ export default function PermissionsPage() {
   const fetchPermissions = async () => {
     try {
       const response = await fetch("/api/permissions")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (response.ok) {
         const data = await response.json()
         setPermissions(data)
@@ -45,6 +52,15 @@ export default function PermissionsPage() {
 
   if (loading) {
     return <div className="p-6">Loading...</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to view permissions. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -24,6 +25,7 @@ export default function SubjectsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchSubjects()
@@ -32,6 +34,11 @@ export default function SubjectsPage() {
   const fetchSubjects = async () => {
     try {
       const res = await fetch("/api/subjects")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setSubjects(data)
     } catch (error) {
@@ -99,6 +106,15 @@ export default function SubjectsPage() {
     } catch (error) {
       console.error("Failed to delete subject:", error)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

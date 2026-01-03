@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -98,6 +99,7 @@ export default function ClassTeacherSubmissionPage() {
   const [submitComments, setSubmitComments] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState("submissions")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (session?.user.role === "TEACHER") {
@@ -112,6 +114,12 @@ export default function ClassTeacherSubmissionPage() {
         fetch("/api/results/exam-submissions"),
         fetch("/api/results/class-teacher-pending"),
       ])
+
+      if (submissionsRes.status === 401 || submissionsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
 
       if (submissionsRes.ok) {
         const data = await submissionsRes.json()
@@ -191,6 +199,15 @@ export default function ClassTeacherSubmissionPage() {
           </AlertDescription>
         </Alert>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

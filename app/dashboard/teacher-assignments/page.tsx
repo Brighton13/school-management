@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -56,6 +57,7 @@ export default function TeacherAssignmentsPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>("")
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -71,6 +73,11 @@ export default function TeacherAssignmentsPage() {
         fetch("/api/staff"),
         fetch("/api/class-subjects"),
       ])
+      if (assignmentsRes.status === 401 || assignmentsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       setAssignments(await assignmentsRes.json())
       setClasses(await classesRes.json())
       setSections(await sectionsRes.json())
@@ -160,6 +167,15 @@ export default function TeacherAssignmentsPage() {
     } catch (error) {
       console.error("Failed to remove assignment:", error)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

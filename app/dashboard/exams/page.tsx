@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -65,6 +66,7 @@ export default function ExamsPage() {
   const [editFormStatus, setEditFormStatus] = useState("DRAFT")
   
   const canApprove = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -76,6 +78,11 @@ export default function ExamsPage() {
         fetch("/api/exams"),
         fetch("/api/terms"),
       ])
+      if (examsRes.status === 401 || examsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       setExams(await examsRes.json())
       setTerms(await termsRes.json())
     } catch (error) {
@@ -216,6 +223,15 @@ export default function ExamsPage() {
     }
     return true // "all" tab
   })
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

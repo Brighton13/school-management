@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -72,6 +73,7 @@ export default function StudentSubjectsPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<StudentSubjectSelection[]>([])
   const [loading, setLoading] = useState(true)
   const [isStudent, setIsStudent] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (session?.user.role === "STUDENT") {
@@ -256,6 +258,15 @@ export default function StudentSubjectsPage() {
       <div className="space-y-6">
         <div className="text-center py-8">Loading...</div>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

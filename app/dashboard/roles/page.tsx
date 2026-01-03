@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, Edit, Trash2, Shield, Users } from "lucide-react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 
 interface Role {
   id: string
@@ -33,6 +34,7 @@ export default function RolesPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false)
@@ -51,6 +53,11 @@ export default function RolesPage() {
   const fetchRoles = async () => {
     try {
       const response = await fetch("/api/roles")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (response.ok) {
         const data = await response.json()
         setRoles(Array.isArray(data) ? data : [])
@@ -222,6 +229,15 @@ export default function RolesPage() {
 
   if (loading) {
     return <div className="p-6">Loading...</div>
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to view roles. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

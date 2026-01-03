@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -69,6 +70,7 @@ export default function ClassSubjectsPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
   const [filterClass, setFilterClass] = useState<string>("all")
   const [filterSection, setFilterSection] = useState<string>("all")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -83,6 +85,11 @@ export default function ClassSubjectsPage() {
         fetch("/api/subjects"),
         fetch("/api/staff"),
       ])
+      if (classSubjectsRes.status === 401 || classSubjectsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (classSubjectsRes.ok) setClassSubjects(await classSubjectsRes.json())
       if (classesRes.ok) setClasses(await classesRes.json())
       if (sectionsRes.ok) setSections(await sectionsRes.json())
@@ -249,6 +256,15 @@ export default function ClassSubjectsPage() {
     }
     const { color, label } = config[type] || config.CORE
     return <Badge className={color}>{label}</Badge>
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

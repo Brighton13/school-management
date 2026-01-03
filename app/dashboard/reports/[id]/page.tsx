@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useParams } from "next/navigation"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -127,6 +128,7 @@ export default function ReportDetailPage() {
   const [performanceArea, setPerformanceArea] = useState("OVERALL")
   const [addingComment, setAddingComment] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -229,6 +231,15 @@ export default function ReportDetailPage() {
       month: "long",
       year: "numeric"
     })
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

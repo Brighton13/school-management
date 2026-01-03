@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -26,6 +27,7 @@ export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchInventory()
@@ -34,6 +36,11 @@ export default function InventoryPage() {
   const fetchInventory = async () => {
     try {
       const res = await fetch("/api/inventory")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setItems(data)
     } catch (error) {
@@ -74,6 +81,15 @@ export default function InventoryPage() {
   }
 
   const isLowStock = (item: InventoryItem) => item.quantity <= item.minStock
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

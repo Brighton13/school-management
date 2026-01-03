@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,6 +35,7 @@ export default function EmailConfigPage() {
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchConfig()
@@ -42,6 +44,11 @@ export default function EmailConfigPage() {
   const fetchConfig = async () => {
     try {
       const res = await fetch("/api/email-config")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         setConfig(data)
@@ -91,6 +98,15 @@ export default function EmailConfigPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div>Loading...</div>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

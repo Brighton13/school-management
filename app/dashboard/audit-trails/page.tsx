@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Filter, Download, Clock } from "lucide-react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 
 interface AuditTrail {
   id: string
@@ -67,6 +68,7 @@ export default function AuditTrailsPage() {
   const [loading, setLoading] = useState(true)
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const limit = 50
 
   // Filters
@@ -112,6 +114,10 @@ export default function AuditTrailsPage() {
       if (endDate) params.append("endDate", endDate)
 
       const res = await fetch(`/api/audit-trails?${params}`)
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
       if (!res.ok) {
         throw new Error(`Failed to fetch audit trails: ${res.statusText}`)
       }
@@ -123,6 +129,15 @@ export default function AuditTrailsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied
+        title="Access Denied"
+        message="You don't have permission to view audit trails. Please contact your administrator if you need access to this feature."
+      />
+    )
   }
 
   const getActionColor = (action: string) => {

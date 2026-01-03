@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,6 +27,7 @@ export default function SignaturesPage() {
   const [success, setSuccess] = useState(false)
   const [currentSignature, setCurrentSignature] = useState<CurrentSignature | null>(null)
   const [loadingCurrent, setLoadingCurrent] = useState(true)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     // Set default signature type based on role
@@ -45,6 +47,11 @@ export default function SignaturesPage() {
     try {
       setLoadingCurrent(true)
       const res = await fetch(`/api/signatures?userId=${session.user.id}`)
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoadingCurrent(false)
+        return
+      }
       if (res.ok) {
         const signatures = await res.json()
         if (signatures.length > 0) {
@@ -115,6 +122,15 @@ export default function SignaturesPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

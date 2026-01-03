@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -129,6 +130,7 @@ export default function ReportConfigPage() {
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const signatureInputRef = useRef<HTMLInputElement>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -402,6 +404,15 @@ export default function ReportConfigPage() {
           </AlertDescription>
         </Alert>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

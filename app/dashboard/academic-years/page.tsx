@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -66,6 +67,7 @@ export default function AcademicYearsPage() {
   const [deletingTerm, setDeletingTerm] = useState<{ term: Term; yearId: string } | null>(null)
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
   const [settingCurrent, setSettingCurrent] = useState<string | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -75,6 +77,11 @@ export default function AcademicYearsPage() {
   const fetchAcademicYears = async () => {
     try {
       const res = await fetch("/api/academic-years")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setAcademicYears(data)
       // Auto-expand current year
@@ -330,6 +337,15 @@ export default function AcademicYearsPage() {
 
   const currentYear = academicYears.find(y => y.isCurrent)
   const upcomingYear = academicYears.find(y => y.isUpcoming)
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

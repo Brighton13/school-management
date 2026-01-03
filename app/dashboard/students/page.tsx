@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -53,6 +54,7 @@ export default function StudentsPage() {
   const [sections, setSections] = useState<Array<{ id: string; name: string; classId: string }>>([])
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchStudents()
@@ -62,6 +64,11 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       const res = await fetch("/api/students")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setStudents(data)
     } catch (error) {
@@ -220,6 +227,15 @@ export default function StudentsPage() {
         academicYear: null
       }
     }
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

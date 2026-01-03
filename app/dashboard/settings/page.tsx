@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchSettings()
@@ -29,6 +31,11 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       const response = await fetch("/api/system-settings")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (response.ok) {
         const data = await response.json()
         setSettings(data)
@@ -95,6 +102,15 @@ export default function SettingsPage() {
           <AlertDescription>Failed to load settings</AlertDescription>
         </Alert>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

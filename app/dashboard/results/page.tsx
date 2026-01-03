@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -100,6 +101,7 @@ export default function ResultsPage() {
   const [calculatedGrade, setCalculatedGrade] = useState<string>("")
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   // Function to calculate grade based on percentage
   const calculateGrade = (marks: number, max: number): string => {
@@ -349,6 +351,15 @@ export default function ResultsPage() {
     }
     
     doc.save(`result-${result.student.admissionNumber}-${result.id}.pdf`)
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

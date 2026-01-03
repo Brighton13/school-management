@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -43,6 +44,7 @@ export default function ClassTeacherReviewPage() {
   const [loading, setLoading] = useState(true)
   const [selectedResult, setSelectedResult] = useState<Result | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchPendingResults()
@@ -51,6 +53,11 @@ export default function ClassTeacherReviewPage() {
   const fetchPendingResults = async () => {
     try {
       const res = await fetch("/api/results/class-teacher-pending")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setResults(data)
     } catch (error) {
@@ -85,6 +92,15 @@ export default function ClassTeacherReviewPage() {
   const handleView = (result: Result) => {
     setSelectedResult(result)
     setIsViewDialogOpen(true)
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

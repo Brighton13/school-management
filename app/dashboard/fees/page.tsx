@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -73,6 +74,7 @@ export default function FeesPage() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null)
   const [bulkTarget, setBulkTarget] = useState<string>("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   const canManage = ["ADMIN", "PRINCIPAL", "ACCOUNTANT"].includes(session?.user.role || "")
 
@@ -88,6 +90,11 @@ export default function FeesPage() {
         fetch("/api/terms"),
         fetch("/api/classes"),
       ])
+      if (feesRes.status === 401 || feesRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (feesRes.ok) setFees(await feesRes.json())
       if (studentsRes.ok) setStudents(await studentsRes.json())
       if (termsRes.ok) setTerms(await termsRes.json())
@@ -326,6 +333,15 @@ export default function FeesPage() {
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

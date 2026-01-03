@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -32,6 +33,7 @@ export default function AnnouncementsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formType, setFormType] = useState<string>("")
   const [formTargetAudience, setFormTargetAudience] = useState<string>("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchAnnouncements()
@@ -40,6 +42,11 @@ export default function AnnouncementsPage() {
   const fetchAnnouncements = async () => {
     try {
       const res = await fetch("/api/announcements")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       
       // Ensure data is an array
@@ -140,6 +147,15 @@ export default function AnnouncementsPage() {
 
   const canManage = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
   const canCreate = ["ADMIN", "PRINCIPAL", "TEACHER"].includes(session?.user.role || "")
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
+  }
 
   return (
     <div className="space-y-6">

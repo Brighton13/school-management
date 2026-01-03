@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 
 interface CommentConfig {
   id: string
@@ -48,6 +49,7 @@ export default function CommentConfigPage() {
   const [commentTemplate, setCommentTemplate] = useState("")
   const [performanceArea, setPerformanceArea] = useState("OVERALL")
   const [saving, setSaving] = useState(false)
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -76,6 +78,11 @@ export default function CommentConfigPage() {
     try {
       setLoading(true)
       const response = await fetch("/api/reports/comment-config")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (!response.ok) throw new Error("Failed to fetch configs")
       const data = await response.json()
       setConfigs(data)
@@ -164,6 +171,15 @@ export default function CommentConfigPage() {
       <div className="text-center py-8">
         <p className="text-red-600">You do not have access to this page</p>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

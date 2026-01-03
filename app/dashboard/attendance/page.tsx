@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,6 +57,7 @@ export default function AttendancePage() {
   const [attendanceStatus, setAttendanceStatus] = useState<
     Record<string, { status: string; remarks?: string }>
   >({})
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -77,6 +79,10 @@ export default function AttendancePage() {
   const fetchSections = async () => {
     try {
       const response = await fetch("/api/sections?teacherId=true")
+      if (response.status === 401 || response.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
       const data = await response.json()
       setSections(data || [])
     } catch (error) {
@@ -201,6 +207,15 @@ export default function AttendancePage() {
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 

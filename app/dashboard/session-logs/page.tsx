@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -63,6 +64,7 @@ export default function SessionLogsPage() {
   const [isActive, setIsActive] = useState<string>("all")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -95,6 +97,11 @@ export default function SessionLogsPage() {
       if (endDate) params.append("endDate", endDate)
 
       const res = await fetch(`/api/session-logs?${params}`)
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       setSessionLogs(data.data)
       setTotal(data.total)
@@ -149,6 +156,15 @@ export default function SessionLogsPage() {
     a.href = url
     a.download = `session-logs-${new Date().toISOString()}.csv`
     a.click()
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
+    )
   }
 
   return (

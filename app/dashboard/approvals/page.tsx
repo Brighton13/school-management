@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Fragment } from "react"
 import { useSession } from "next-auth/react"
+import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -117,6 +118,7 @@ export default function ApprovalsPage() {
   const [processing, setProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState("pending")
   const [selectedSectionIds, setSelectedSectionIds] = useState<string[]>([])
+  const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
     if (session?.user.role === "PRINCIPAL" || session?.user.role === "ADMIN") {
@@ -128,6 +130,11 @@ export default function ApprovalsPage() {
     try {
       setLoading(true)
       const res = await fetch("/api/results/principal-approval/grouped")
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (res.ok) {
         const data = await res.json()
         setExamData(data)
@@ -250,6 +257,15 @@ export default function ApprovalsPage() {
           </AlertDescription>
         </Alert>
       </div>
+    )
+  }
+
+  if (permissionDenied) {
+    return (
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page. Please contact your administrator if you believe this is an error."
+      />
     )
   }
 
