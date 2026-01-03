@@ -87,6 +87,10 @@ export default function AuditTrailsPage() {
   const fetchUsers = async () => {
     try {
       const res = await fetch("/api/users")
+      if (!res.ok) {
+        console.error("Failed to fetch users:", res.statusText)
+        return
+      }
       const data = await res.json()
       setUsers(data)
     } catch (error) {
@@ -108,6 +112,9 @@ export default function AuditTrailsPage() {
       if (endDate) params.append("endDate", endDate)
 
       const res = await fetch(`/api/audit-trails?${params}`)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch audit trails: ${res.statusText}`)
+      }
       const data = await res.json()
       setAuditTrails(data.data)
       setTotal(data.total)
