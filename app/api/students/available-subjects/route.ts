@@ -65,10 +65,11 @@ export async function GET(request: NextRequest) {
     const targetAcademicYear = academicYear || currentTerm?.academicYearId || new Date().getFullYear().toString()
     const targetTerm = term || currentTerm?.name || "Term 1"
 
-    // Get all class subjects for the student's class
+    // Get all class subjects for the student's class AND section
     const classSubjects = await prisma.classSubject.findMany({
       where: {
         classId: currentEnrollment.classId,
+        sectionId: currentEnrollment.sectionId,
       },
       include: {
         subject: true,
