@@ -17,14 +17,27 @@ export async function GET(request: NextRequest) {
     const academicYearId = searchParams.get("academicYearId")
     const status = searchParams.get("status")
     const classId = searchParams.get("classId")
+    const hasApprovedResults = searchParams.get("hasApprovedResults")
+
+    // Build the where clause
+    const whereClause: any = {
+      ...(termId ? { termId } : {}),
+      ...(academicYearId ? { academicYearId } : {}),
+      ...(status ? { status } : {}),
+      ...(classId ? { classId } : {}),
+    }
+
+    // If hasApprovedResults is true, only return exams that have at least one approved/published result
+    if (hasApprovedResults === "true") {
+      whereClause.results = {
+        some: {
+          status: { in: ["APPROVED", "PUBLISHED"] }
+        }
+      }
+    }
 
     const exams = await prisma.exam.findMany({
-      where: {
-        ...(termId ? { termId } : {}),
-        ...(academicYearId ? { academicYearId } : {}),
-        ...(status ? { status } : {}),
-        ...(classId ? { classId } : {}),
-      },
+      where: whereClause,
       include: {
         term: {
           include: { academicYear: true },
