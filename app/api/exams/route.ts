@@ -16,18 +16,25 @@ export async function GET(request: NextRequest) {
     const termId = searchParams.get("termId")
     const academicYearId = searchParams.get("academicYearId")
     const status = searchParams.get("status")
+    const classId = searchParams.get("classId")
 
     const exams = await prisma.exam.findMany({
       where: {
         ...(termId ? { termId } : {}),
         ...(academicYearId ? { academicYearId } : {}),
         ...(status ? { status } : {}),
+        ...(classId ? { classId } : {}),
       },
       include: {
         term: {
           include: { academicYear: true },
         },
         academicYear: true,
+        class: {
+          include: {
+            sections: true,
+          },
+        },
         creator: true,
         _count: {
           select: { results: true },
@@ -60,6 +67,7 @@ export async function POST(request: NextRequest) {
       examType,
       termId,
       academicYearId,
+      classId,
       startDate,
       endDate,
       isFinal,
@@ -85,6 +93,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "academicYearId is required" }, { status: 400 })
     }
 
+    // If classId provided, verify it exists
+    if (classId) {
+      const classExists = await prisma.class.findUnique({
+        where: { id: classId },
+        include: { sections: true },
+      })
+      if (!classExists) {
+        return NextResponse.json({ error: "Invalid classId" }, { status: 400 })
+      }
+    }
+
     const exam = await prisma.exam.create({
       data: {
         name,
@@ -92,6 +111,7 @@ export async function POST(request: NextRequest) {
         examType,
         termId,
         academicYearId: resolvedAcademicYearId,
+        classId: classId || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isFinal: isFinal || false,
@@ -104,6 +124,9 @@ export async function POST(request: NextRequest) {
           include: { academicYear: true },
         },
         academicYear: true,
+        class: {
+          include: { sections: true },
+        },
         creator: true,
       },
     })
@@ -116,7 +139,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         entityId: exam.id,
-        description: `Created exam: ${name} (${examType})`,
+        description: `Created exam: ${name} (${examType})${classId ? ` for class` : ''}`,
       }
     )
 

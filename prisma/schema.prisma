@@ -218,6 +218,7 @@ model Class {
   subjects     ClassSubject[]
   timetable    Timetable[]
   applications Application[]
+  exams        Exam[]
 }
 
 model Section {
@@ -409,6 +410,7 @@ model Exam {
   examType         String // MID_TERM, FINAL, QUIZ, ASSIGNMENT, CONTINUOUS_ASSESSMENT
   termId           String
   academicYearId   String
+  classId          String?   // Optional: if set, exam is for this class and all its sections
   startDate        DateTime?
   endDate          DateTime?
   isFinal          Boolean   @default(false)
@@ -420,6 +422,7 @@ model Exam {
 
   term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  class        Class?       @relation(fields: [classId], references: [id], onDelete: Cascade)
   creator      User         @relation(fields: [createdBy], references: [id])
   results      Result[]
   reports      StudentReport[]
@@ -427,6 +430,7 @@ model Exam {
 
   @@index([termId])
   @@index([academicYearId])
+  @@index([classId])
 }
 
 // Results Management

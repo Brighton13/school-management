@@ -19,6 +19,7 @@ interface Exam {
   description: string | null
   examType: string
   termId: string
+  classId: string | null
   term: {
     id: string
     name: string
@@ -29,6 +30,11 @@ interface Exam {
   academicYear: {
     year: string
   }
+  class: {
+    id: string
+    name: string
+    sections: Array<{ id: string; name: string }>
+  } | null
   startDate: string | null
   endDate: string | null
   isFinal: boolean
@@ -47,10 +53,17 @@ interface Term {
   }
 }
 
+interface Class {
+  id: string
+  name: string
+  sections: Array<{ id: string; name: string }>
+}
+
 export default function ExamsPage() {
   const { data: session } = useSession()
   const [exams, setExams] = useState<Exam[]>([])
   const [terms, setTerms] = useState<Term[]>([])
+  const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
@@ -60,9 +73,11 @@ export default function ExamsPage() {
   // Form state for Select components
   const [formExamType, setFormExamType] = useState("")
   const [formTermId, setFormTermId] = useState("")
+  const [formClassId, setFormClassId] = useState("")
   const [formStatus, setFormStatus] = useState("DRAFT")
   const [editFormExamType, setEditFormExamType] = useState("")
   const [editFormTermId, setEditFormTermId] = useState("")
+  const [editFormClassId, setEditFormClassId] = useState("")
   const [editFormStatus, setEditFormStatus] = useState("DRAFT")
   
   const canApprove = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
@@ -74,9 +89,10 @@ export default function ExamsPage() {
 
   const fetchData = async () => {
     try {
-      const [examsRes, termsRes] = await Promise.all([
+      const [examsRes, termsRes, classesRes] = await Promise.all([
         fetch("/api/exams"),
         fetch("/api/terms"),
+        fetch("/api/classes"),
       ])
       if (examsRes.status === 401 || examsRes.status === 403) {
         setPermissionDenied(true)
@@ -85,6 +101,9 @@ export default function ExamsPage() {
       }
       setExams(await examsRes.json())
       setTerms(await termsRes.json())
+      if (classesRes.ok) {
+        setClasses(await classesRes.json())
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -99,6 +118,7 @@ export default function ExamsPage() {
     // Use state values for Select components
     const examType = editingExam ? editFormExamType : formExamType
     const termId = editingExam ? editFormTermId : formTermId
+    const classId = editingExam ? editFormClassId : formClassId
     const status = editingExam ? editFormStatus : formStatus
     
     // Validation
@@ -124,6 +144,7 @@ export default function ExamsPage() {
           description: formData.get("description"),
           examType,
           termId,
+          classId: classId || null,
           startDate: formData.get("startDate") || null,
           endDate: formData.get("endDate") || null,
           isFinal: formData.get("isFinal") === "on",
@@ -138,8 +159,10 @@ export default function ExamsPage() {
         setEditingExam(null)
         setFormExamType("")
         setFormTermId("")
+        setFormClassId("")
         setFormStatus("DRAFT")
         setEditFormExamType("")
+        setEditFormClassId("")
         setEditFormStatus("DRAFT")
         fetchData()
         if (e.currentTarget) {
@@ -159,6 +182,7 @@ export default function ExamsPage() {
     setEditingExam(exam)
     setEditFormExamType(exam.examType)
     setEditFormTermId(exam.termId)
+    setEditFormClassId(exam.classId || "")
     setEditFormStatus(exam.status)
     setIsEditDialogOpen(true)
   }
@@ -245,6 +269,7 @@ export default function ExamsPage() {
           if (!open) {
             setFormExamType("")
             setFormTermId("")
+            setFormClassId("")
             setFormStatus("DRAFT")
           }
         }}>
@@ -302,6 +327,25 @@ export default function ExamsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="classId">Class (Optional)</Label>
+                  <Select value={formClassId} onValueChange={setFormClassId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Classes (School-wide)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Classes (School-wide)</SelectItem>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name} ({cls.sections?.length || 0} sections)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select a class to create this exam for that class and all its sections only
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -385,9 +429,9 @@ export default function ExamsPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Class</TableHead>
                     <TableHead>Term</TableHead>
                     <TableHead>Final</TableHead>
-                    <TableHead>Requires Approval</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Results</TableHead>
                     <TableHead>Actions</TableHead>
@@ -406,6 +450,17 @@ export default function ExamsPage() {
                         <TableCell className="font-medium">{exam.name}</TableCell>
                         <TableCell>{exam.examType}</TableCell>
                         <TableCell>
+                          {exam.class ? (
+                            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                              {exam.class.name}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                              All Classes
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           {exam.term.name} - {exam.term.academicYear.year}
                         </TableCell>
                         <TableCell>
@@ -415,17 +470,6 @@ export default function ExamsPage() {
                             </span>
                           ) : (
                             <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
-                              No
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {exam.requiresApproval ? (
-                            <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-                              Yes
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                               No
                             </span>
                           )}
@@ -503,6 +547,7 @@ export default function ExamsPage() {
           setEditingExam(null)
           setEditFormExamType("")
           setEditFormTermId("")
+          setEditFormClassId("")
           setEditFormStatus("DRAFT")
         }
       }}>
@@ -555,6 +600,25 @@ export default function ExamsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-classId">Class (Optional)</Label>
+                  <Select value={editFormClassId} onValueChange={setEditFormClassId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Classes (School-wide)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Classes (School-wide)</SelectItem>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name} ({cls.sections?.length || 0} sections)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select a class to limit this exam to that class and all its sections only
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-status">Status</Label>

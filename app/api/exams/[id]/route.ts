@@ -20,6 +20,9 @@ export async function GET(
       include: {
         term: true,
         academicYear: true,
+        class: {
+          include: { sections: true },
+        },
         creator: true,
         _count: {
           select: { results: true },
@@ -55,6 +58,7 @@ export async function PUT(
       name,
       description,
       examType,
+      classId,
       startDate,
       endDate,
       isFinal,
@@ -68,6 +72,7 @@ export async function PUT(
         name,
         description: description !== undefined ? description : null,
         examType,
+        classId: classId || null,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         isFinal,
@@ -77,6 +82,9 @@ export async function PUT(
       include: {
         term: true,
         academicYear: true,
+        class: {
+          include: { sections: true },
+        },
         creator: true,
       },
     })
