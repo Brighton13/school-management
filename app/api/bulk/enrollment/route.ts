@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
           include: {
             class: true,
             section: true,
+            academicYear: true,
           },
         },
         applications: {
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
           include: {
             appliedClass: true,
             appliedSection: true,
+            academicYear: true,
           },
         },
       },
@@ -240,7 +242,8 @@ export async function GET(request: NextRequest) {
 
       const currentClass = latestEnrollment?.class.name || (pendingApplication?.appliedClass.name || "")
       const currentSection = latestEnrollment?.section.name || (pendingApplication?.appliedSection?.name || "")
-      const academicYear = latestEnrollment?.academicYearId || pendingApplication?.academicYearId || ""
+      // Use the actual year value, not the ID
+      const academicYear = latestEnrollment?.academicYear?.year || pendingApplication?.academicYear?.year || ""
 
       worksheet.addRow({
         admissionNumber: student.admissionNumber,
