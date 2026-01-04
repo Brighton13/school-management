@@ -323,6 +323,8 @@ export async function GET(request: NextRequest) {
     // Subject Performance Distribution
     const subjectPerformanceDistribution = studentPerformanceBySubject.map((subject) => ({
       subjectName: subject.subjectName,
+      className: subject.className,
+      displayName: `${subject.subjectName} (${subject.className})`,
       averageScore: subject.averageScore,
       totalStudents: subject.totalStudents,
       passCount: subject.students.filter((s: any) => s.percentage >= 50).length,

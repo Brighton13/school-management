@@ -87,6 +87,8 @@ interface TeacherDashboardData {
   }>
   subjectPerformanceDistribution: Array<{
     subjectName: string
+    className: string
+    displayName: string
     averageScore: number
     totalStudents: number
     passCount: number
@@ -156,10 +158,13 @@ export function TeacherDashboard() {
 
   // Prepare chart data
   const subjectPerformanceChart = data.subjectPerformanceDistribution.map((s) => ({
-    name: s.subjectName,
+    name: s.displayName || `${s.subjectName} (${s.className})`,
+    subjectName: s.subjectName,
+    className: s.className,
     averageScore: parseFloat(s.averageScore.toFixed(1)),
     passCount: s.passCount,
     failCount: s.failCount,
+    totalStudents: s.totalStudents,
   }))
 
   const classAttendanceChart = data.classStatistics.map((c) => ({
@@ -233,7 +238,7 @@ export function TeacherDashboard() {
               Subject Performance Overview
             </CardTitle>
             <CardDescription className="text-sm">
-              Average scores and pass/fail distribution by subject
+              Average scores and pass/fail distribution by subject and class
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -244,8 +249,9 @@ export function TeacherDashboard() {
                   dataKey="name"
                   angle={-45}
                   textAnchor="end"
-                  height={100}
-                  tick={{ fill: "#6b7280", fontSize: 12 }}
+                  height={120}
+                  tick={{ fill: "#6b7280", fontSize: 11 }}
+                  interval={0}
                 />
                 <YAxis domain={[0, 100]} tick={{ fill: "#6b7280", fontSize: 12 }} />
                 <Tooltip
@@ -254,6 +260,22 @@ export function TeacherDashboard() {
                     border: "1px solid #e5e7eb",
                     borderRadius: "8px",
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload
+                      return (
+                        <div className="bg-white p-3 border rounded-lg shadow-lg">
+                          <p className="font-bold text-sm">{data.subjectName}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{data.className}</p>
+                          <p className="text-sm">Average: <span className="font-semibold text-blue-600">{data.averageScore}%</span></p>
+                          <p className="text-sm">Students: {data.totalStudents}</p>
+                          <p className="text-sm text-green-600">Pass: {data.passCount}</p>
+                          <p className="text-sm text-red-600">Fail: {data.failCount}</p>
+                        </div>
+                      )
+                    }
+                    return null
                   }}
                 />
                 <Legend wrapperStyle={{ paddingTop: "20px" }} />
