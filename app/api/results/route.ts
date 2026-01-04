@@ -161,8 +161,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // For teachers on "Enter Results" page, only show DRAFT results
-    // Submitted results should only appear on "Class Results" page
+    // Build where clause for filtering results
     const whereClause: any = {
       ...(studentId ? { studentId } : {}),
       ...(termId ? { termId } : {}),
@@ -171,9 +170,10 @@ export async function GET(request: NextRequest) {
       ...(teacherClassSubjectIds ? { classSubjectId: { in: teacherClassSubjectIds } } : {}),
     }
 
-    // If teacher and no specific status filter, only show DRAFT results
+    // For teachers, show all their results that they can still edit (not yet approved by principal)
+    // This includes: DRAFT, PENDING_CLASS_TEACHER, PENDING_APPROVAL, REJECTED
     if (session.user.role === "TEACHER" && !status) {
-      whereClause.status = "DRAFT"
+      whereClause.status = { in: ["DRAFT", "PENDING_CLASS_TEACHER", "PENDING_APPROVAL", "REJECTED"] }
     }
 
     const results = await prisma.result.findMany({

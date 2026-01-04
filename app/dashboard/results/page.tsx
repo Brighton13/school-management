@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Download, CheckCircle, XCircle, Clock, Upload } from "lucide-react"
+import { Plus, Download, CheckCircle, XCircle, Clock, Upload, Pencil } from "lucide-react"
 import jsPDF from "jspdf"
 import { useSession } from "next-auth/react"
 import { BulkResultsUpload } from "@/components/bulk-results-upload"
@@ -102,6 +102,14 @@ export default function ResultsPage() {
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  
+  // Edit dialog state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingResult, setEditingResult] = useState<Result | null>(null)
+  const [editMarksObtained, setEditMarksObtained] = useState<string>("")
+  const [editMaxMarks, setEditMaxMarks] = useState<string>("")
+  const [editGrade, setEditGrade] = useState<string>("")
+  const [editRemarks, setEditRemarks] = useState<string>("")
 
   // Function to calculate grade based on percentage
   const calculateGrade = (marks: number, max: number): string => {
@@ -265,6 +273,75 @@ export default function ResultsPage() {
       console.error("Failed to create result:", error)
       alert("Failed to create result")
     }
+  }
+
+  // Open edit dialog with result data
+  const openEditDialog = (result: Result) => {
+    setEditingResult(result)
+    setEditMarksObtained(result.marksObtained.toString())
+    setEditMaxMarks(result.maxMarks.toString())
+    setEditGrade(result.grade || "")
+    setEditRemarks("")
+    setIsEditDialogOpen(true)
+  }
+
+  // Update grade when edit marks change
+  useEffect(() => {
+    const marks = parseFloat(editMarksObtained)
+    const max = parseFloat(editMaxMarks)
+    if (!isNaN(marks) && !isNaN(max) && max > 0) {
+      setEditGrade(calculateGrade(marks, max))
+    }
+  }, [editMarksObtained, editMaxMarks])
+
+  // Handle edit form submission
+  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingResult) return
+
+    try {
+      const res = await fetch(`/api/results/${editingResult.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          marksObtained: editMarksObtained,
+          maxMarks: editMaxMarks,
+          grade: editGrade,
+          remarks: editRemarks,
+        }),
+      })
+
+      if (res.ok) {
+        setIsEditDialogOpen(false)
+        setEditingResult(null)
+        setEditMarksObtained("")
+        setEditMaxMarks("")
+        setEditGrade("")
+        setEditRemarks("")
+        fetchData()
+        alert("Result updated successfully")
+      } else {
+        const error = await res.json()
+        alert(error.error || "Failed to update result")
+      }
+    } catch (error) {
+      console.error("Failed to update result:", error)
+      alert("Failed to update result")
+    }
+  }
+
+  // Check if result can be edited by current user
+  const canEditResult = (result: Result) => {
+    if (session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL") {
+      // Admin/Principal can edit any result that's not published
+      return result.status !== "PUBLISHED" && result.status !== "APPROVED"
+    }
+    if (session?.user.role === "TEACHER") {
+      // Teachers can edit until principal approves
+      const editableStatuses = ["DRAFT", "PENDING_CLASS_TEACHER", "PENDING_APPROVAL", "REJECTED"]
+      return editableStatuses.includes(result.status)
+    }
+    return false
   }
 
   const getStatusBadge = (status: string) => {
@@ -570,11 +647,11 @@ export default function ResultsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {session?.user.role === "TEACHER" ? "Draft Results" : "All Results"}
+            {session?.user.role === "TEACHER" ? "My Subject Results" : "All Results"}
           </CardTitle>
           <CardDescription>
             {session?.user.role === "TEACHER" 
-              ? "Only draft results are shown here. Submitted results can be viewed on the Class Results page."
+              ? "Results you can view and edit (until principal approves). Once approved, results cannot be modified."
               : `${results.length} result(s) found`}
           </CardDescription>
         </CardHeader>
@@ -601,7 +678,7 @@ export default function ResultsPage() {
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {session?.user.role === "TEACHER" 
-                        ? "No draft results. Create a new result to get started."
+                        ? "No results found. Create a new result to get started."
                         : "No results found."}
                     </TableCell>
                   </TableRow>
@@ -625,14 +702,26 @@ export default function ResultsPage() {
                       {getStatusBadge(result.status)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => generateReport(result)}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Report
-                      </Button>
+                      <div className="flex gap-2">
+                        {canEditResult(result) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(result)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateReport(result)}
+                        >
+                          <Download className="h-4 w-4 mr-1" />
+                          Report
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                   ))
@@ -642,6 +731,106 @@ export default function ResultsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Result Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Result</DialogTitle>
+            <DialogDescription>
+              {editingResult && (
+                <>
+                  Update marks for {editingResult.student.user.name} - {editingResult.classSubject.subject.name}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    Current Status: {editingResult.status.replace(/_/g, " ")}
+                  </div>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit}>
+            <div className="grid gap-4 py-4">
+              {editingResult && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Student</Label>
+                      <p className="font-medium">{editingResult.student.user.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Subject</Label>
+                      <p className="font-medium">{editingResult.classSubject.subject.name}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Term</Label>
+                      <p className="font-medium">{editingResult.term.name}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Exam</Label>
+                      <p className="font-medium">{editingResult.exam?.name || "N/A"}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editMarksObtained">Marks Obtained</Label>
+                  <Input
+                    id="editMarksObtained"
+                    type="number"
+                    step="0.01"
+                    value={editMarksObtained}
+                    onChange={(e) => setEditMarksObtained(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editMaxMarks">Max Marks</Label>
+                  <Input
+                    id="editMaxMarks"
+                    type="number"
+                    step="0.01"
+                    value={editMaxMarks}
+                    onChange={(e) => setEditMaxMarks(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editGrade">Grade</Label>
+                  <Input
+                    id="editGrade"
+                    value={editGrade}
+                    readOnly
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editRemarks">Remarks (Optional)</Label>
+                <Input
+                  id="editRemarks"
+                  value={editRemarks}
+                  onChange={(e) => setEditRemarks(e.target.value)}
+                  placeholder="Add remarks about the edit..."
+                />
+              </div>
+              {session?.user.role === "TEACHER" && editingResult?.status !== "DRAFT" && (
+                <div className="text-sm text-amber-600 p-2 bg-amber-50 rounded">
+                  Note: Editing this result will reset it to pending review status.
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

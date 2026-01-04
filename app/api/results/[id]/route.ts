@@ -84,7 +84,7 @@ export async function PUT(
       return NextResponse.json({ error: "Result not found" }, { status: 404 })
     }
 
-    // For teachers, verify assignment and only allow editing if status is DRAFT or PENDING_APPROVAL
+    // For teachers, verify assignment and only allow editing until principal approves
     if (session.user.role === "TEACHER") {
       const staff = await prisma.staff.findUnique({
         where: { userId: session.user.id },
@@ -102,7 +102,9 @@ export async function PUT(
         )
       }
 
-      if (!["DRAFT", "PENDING_APPROVAL", "REJECTED"].includes(existingResult.status)) {
+      // Allow editing until principal approves (DRAFT, PENDING_CLASS_TEACHER, PENDING_APPROVAL, REJECTED)
+      const editableStatuses = ["DRAFT", "PENDING_CLASS_TEACHER", "PENDING_APPROVAL", "REJECTED"]
+      if (!editableStatuses.includes(existingResult.status)) {
         return NextResponse.json(
           { error: "Cannot edit approved or published results" },
           { status: 403 }
