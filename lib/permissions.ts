@@ -349,5 +349,34 @@ export const Permissions = {
   APPLICATIONS_READ: "applications.read",
   APPLICATIONS_UPDATE: "applications.update",
   APPLICATIONS_DELETE: "applications.delete",
+  APPLICATIONS_APPROVE: "applications.approve",
+
+  // Attendance
+  ATTENDANCE_CREATE: "attendance.create",
+  ATTENDANCE_READ: "attendance.read",
+  ATTENDANCE_UPDATE: "attendance.update",
+  ATTENDANCE_DELETE: "attendance.delete",
+
+  // Timetable
+  TIMETABLE_CREATE: "timetable.create",
+  TIMETABLE_READ: "timetable.read",
+  TIMETABLE_UPDATE: "timetable.update",
+  TIMETABLE_DELETE: "timetable.delete",
+
+  // Dashboard
+  DASHBOARD_VIEW: "dashboard.view",
+  DASHBOARD_ANALYTICS: "dashboard.analytics",
+
+  // Parents
+  PARENTS_CREATE: "parents.create",
+  PARENTS_READ: "parents.read",
+  PARENTS_UPDATE: "parents.update",
+  PARENTS_DELETE: "parents.delete",
+
+  // Students (additional)
+  STUDENTS_BULK_UPLOAD: "students.bulk_upload",
+
+  // Enrollment (additional)
+  ENROLLMENT_BULK_UPLOAD: "enrollment.bulk_upload",
 }
 

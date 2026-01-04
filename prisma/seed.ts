@@ -5,38 +5,7 @@ const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
-
-  // Clear existing data (in reverse order of dependencies)
-  console.log('Clearing existing data...')
-  await prisma.result.deleteMany()
-  await prisma.exam.deleteMany()
-  await prisma.studentAssignment.deleteMany()
-  await prisma.assignment.deleteMany()
-  await prisma.timetable.deleteMany()
-  await prisma.classEnrollment.deleteMany()
-  await prisma.studentParent.deleteMany()
-  await prisma.attendance.deleteMany()
-  await prisma.fee.deleteMany()
-  await prisma.inventoryTransaction.deleteMany()
-  await prisma.inventoryItem.deleteMany()
-  await prisma.announcement.deleteMany()
-  await prisma.classSubject.deleteMany()
-  await prisma.section.deleteMany()
-  await prisma.class.deleteMany()
-  await prisma.subject.deleteMany()
-  await prisma.term.deleteMany()
-  await prisma.staff.deleteMany()
-  await prisma.application.deleteMany()
-  await prisma.student.deleteMany()
-  await prisma.parent.deleteMany()
-  await prisma.userPermission.deleteMany()
-  await prisma.userRole.deleteMany()
-  await prisma.rolePermission.deleteMany()
-  await prisma.permission.deleteMany()
-  await prisma.role.deleteMany()
-  await prisma.signature.deleteMany()
-  await prisma.user.deleteMany()
-  await prisma.academicYear.deleteMany()
+  console.log('ℹ️  Using upsert operations - existing data will be preserved')
 
   // ============================================
   // SEED PERMISSIONS
@@ -74,6 +43,12 @@ async function main() {
     { name: "subjects.update", module: "subjects", action: "update", description: "Update subject information" },
     { name: "subjects.delete", module: "subjects", action: "delete", description: "Delete subjects" },
 
+    // Terms
+    { name: "terms.create", module: "terms", action: "create", description: "Create new terms" },
+    { name: "terms.read", module: "terms", action: "read", description: "View terms" },
+    { name: "terms.update", module: "terms", action: "update", description: "Update term information" },
+    { name: "terms.delete", module: "terms", action: "delete", description: "Delete terms" },
+
     // Results
     { name: "results.create", module: "results", action: "create", description: "Create new results" },
     { name: "results.read", module: "results", action: "read", description: "View results" },
@@ -81,6 +56,18 @@ async function main() {
     { name: "results.delete", module: "results", action: "delete", description: "Delete results" },
     { name: "results.approve", module: "results", action: "approve", description: "Approve results" },
     { name: "results.review", module: "results", action: "review", description: "Review results" },
+    { name: "results.class_teacher_submit", module: "results", action: "class_teacher_submit", description: "Class teacher submit results" },
+    { name: "results.principal_approve", module: "results", action: "principal_approve", description: "Principal approve results" },
+
+    // Reports
+    { name: "reports.generate", module: "reports", action: "generate", description: "Generate reports" },
+    { name: "reports.view", module: "reports", action: "view", description: "View reports" },
+    { name: "reports.download", module: "reports", action: "download", description: "Download reports" },
+    { name: "reports.bulk_generate", module: "reports", action: "bulk_generate", description: "Bulk generate reports" },
+    { name: "reports.comments.create", module: "reports", action: "comments.create", description: "Create report comments" },
+    { name: "reports.comments.read", module: "reports", action: "comments.read", description: "View report comments" },
+    { name: "reports.comments.update", module: "reports", action: "comments.update", description: "Update report comments" },
+    { name: "reports.comments.delete", module: "reports", action: "comments.delete", description: "Delete report comments" },
 
     // Fees
     { name: "fees.create", module: "fees", action: "create", description: "Create new fees" },
@@ -155,86 +142,143 @@ async function main() {
     { name: "attendance.read", module: "attendance", action: "read", description: "View attendance" },
     { name: "attendance.update", module: "attendance", action: "update", description: "Update attendance" },
     { name: "attendance.delete", module: "attendance", action: "delete", description: "Delete attendance records" },
+
+    // Signatures
+    { name: "signatures.create", module: "signatures", action: "create", description: "Create signatures" },
+    { name: "signatures.read", module: "signatures", action: "read", description: "View signatures" },
+    { name: "signatures.update", module: "signatures", action: "update", description: "Update signatures" },
+    { name: "signatures.delete", module: "signatures", action: "delete", description: "Delete signatures" },
+
+    // Teacher Assignments
+    { name: "teacher_assignments.create", module: "teacher_assignments", action: "create", description: "Create teacher assignments" },
+    { name: "teacher_assignments.read", module: "teacher_assignments", action: "read", description: "View teacher assignments" },
+    { name: "teacher_assignments.update", module: "teacher_assignments", action: "update", description: "Update teacher assignments" },
+    { name: "teacher_assignments.delete", module: "teacher_assignments", action: "delete", description: "Delete teacher assignments" },
+
+    // Promotions
+    { name: "promotions.create", module: "promotions", action: "create", description: "Create student promotions" },
+    { name: "promotions.read", module: "promotions", action: "read", description: "View promotions" },
+    { name: "promotions.update", module: "promotions", action: "update", description: "Update promotions" },
+    { name: "promotions.delete", module: "promotions", action: "delete", description: "Delete promotions" },
+
+    // Timetable
+    { name: "timetable.create", module: "timetable", action: "create", description: "Create timetable entries" },
+    { name: "timetable.read", module: "timetable", action: "read", description: "View timetable" },
+    { name: "timetable.update", module: "timetable", action: "update", description: "Update timetable" },
+    { name: "timetable.delete", module: "timetable", action: "delete", description: "Delete timetable entries" },
+
+    // Dashboard
+    { name: "dashboard.view", module: "dashboard", action: "view", description: "View dashboard" },
+    { name: "dashboard.analytics", module: "dashboard", action: "analytics", description: "View analytics on dashboard" },
+
+    // Parents
+    { name: "parents.create", module: "parents", action: "create", description: "Create parent records" },
+    { name: "parents.read", module: "parents", action: "read", description: "View parents" },
+    { name: "parents.update", module: "parents", action: "update", description: "Update parent information" },
+    { name: "parents.delete", module: "parents", action: "delete", description: "Delete parent records" },
   ]
 
   const createdPermissions = await Promise.all(
-    permissions.map(perm => prisma.permission.create({ data: perm }))
+    permissions.map(perm => prisma.permission.upsert({
+      where: { name: perm.name },
+      update: { module: perm.module, action: perm.action, description: perm.description },
+      create: perm,
+    }))
   )
-  console.log(`✅ Created ${createdPermissions.length} permissions`)
+  console.log(`✅ Upserted ${createdPermissions.length} permissions`)
 
   // ============================================
   // SEED ROLES
   // ============================================
   console.log('Creating roles...')
-  const adminRole = await prisma.role.create({
-    data: {
+  const adminRole = await prisma.role.upsert({
+    where: { name: "ADMIN" },
+    update: { description: "System Administrator with full access", isSystem: true },
+    create: {
       name: "ADMIN",
       description: "System Administrator with full access",
       isSystem: true,
     },
   })
 
-  const principalRole = await prisma.role.create({
-    data: {
+  const principalRole = await prisma.role.upsert({
+    where: { name: "PRINCIPAL" },
+    update: { description: "School Principal with administrative access", isSystem: true },
+    create: {
       name: "PRINCIPAL",
       description: "School Principal with administrative access",
       isSystem: true,
     },
   })
 
-  const teacherRole = await prisma.role.create({
-    data: {
+  const teacherRole = await prisma.role.upsert({
+    where: { name: "TEACHER" },
+    update: { description: "Teacher with access to classes and results", isSystem: true },
+    create: {
       name: "TEACHER",
       description: "Teacher with access to classes and results",
       isSystem: true,
     },
   })
 
-  const accountantRole = await prisma.role.create({
-    data: {
+  const accountantRole = await prisma.role.upsert({
+    where: { name: "ACCOUNTANT" },
+    update: { description: "Accountant with access to fees and financial data", isSystem: true },
+    create: {
       name: "ACCOUNTANT",
       description: "Accountant with access to fees and financial data",
       isSystem: true,
     },
   })
 
-  const librarianRole = await prisma.role.create({
-    data: {
+  const librarianRole = await prisma.role.upsert({
+    where: { name: "LIBRARIAN" },
+    update: { description: "Librarian with access to inventory", isSystem: true },
+    create: {
       name: "LIBRARIAN",
       description: "Librarian with access to inventory",
       isSystem: true,
     },
   })
 
-  const studentRole = await prisma.role.create({
-    data: {
+  const studentRole = await prisma.role.upsert({
+    where: { name: "STUDENT" },
+    update: { description: "Student with limited read access", isSystem: true },
+    create: {
       name: "STUDENT",
       description: "Student with limited read access",
       isSystem: true,
     },
   })
 
-  const parentRole = await prisma.role.create({
-    data: {
+  const parentRole = await prisma.role.upsert({
+    where: { name: "PARENT" },
+    update: { description: "Parent with access to their children's data", isSystem: true },
+    create: {
       name: "PARENT",
       description: "Parent with access to their children's data",
       isSystem: true,
     },
   })
-  console.log('✅ Created roles')
+  console.log('✅ Upserted roles')
 
   // ============================================
   // ASSIGN PERMISSIONS TO ROLES
   // ============================================
   console.log('Assigning permissions to roles...')
 
+  // Helper function to upsert role permissions
+  const upsertRolePermission = async (roleId: string, permissionId: string) => {
+    return prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId, permissionId } },
+      update: { granted: true },
+      create: { roleId, permissionId, granted: true },
+    })
+  }
+
   // ADMIN gets all permissions
   await Promise.all(
-    createdPermissions.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: adminRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    createdPermissions.map(p => upsertRolePermission(adminRole.id, p.id))
   )
 
   // PRINCIPAL gets all except roles/permissions management
@@ -242,11 +286,7 @@ async function main() {
     p => !p.name.startsWith("roles.") && !p.name.startsWith("permissions.")
   )
   await Promise.all(
-    principalPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: principalRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    principalPerms.map(p => upsertRolePermission(principalRole.id, p.id))
   )
 
   // TEACHER gets specific permissions
@@ -256,38 +296,41 @@ async function main() {
     p.name === "classes.read" ||
     p.name === "sections.read" ||
     p.name === "subjects.read" ||
+    p.name === "terms.read" ||
+    p.name === "academic_years.read" ||
     p.name === "exams.read" ||
     p.name.includes("announcements.") ||
-    p.name.includes("attendance.")
+    p.name.includes("attendance.") ||
+    p.name.includes("signatures.") ||
+    p.name.includes("reports.") ||
+    p.name === "timetable.read" ||
+    p.name === "dashboard.view" ||
+    p.name === "teacher_assignments.read"
   )
   await Promise.all(
-    teacherPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: teacherRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    teacherPerms.map(p => upsertRolePermission(teacherRole.id, p.id))
   )
 
   // ACCOUNTANT gets fees-related permissions
   const accountantPerms = createdPermissions.filter(p =>
-    p.name.includes("fees.") || p.name === "students.read"
+    p.name.includes("fees.") || 
+    p.name === "students.read" ||
+    p.name === "dashboard.view" ||
+    p.name === "reports.view" ||
+    p.name === "reports.generate"
   )
   await Promise.all(
-    accountantPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: accountantRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    accountantPerms.map(p => upsertRolePermission(accountantRole.id, p.id))
   )
 
   // LIBRARIAN gets inventory permissions
-  const librarianPerms = createdPermissions.filter(p => p.name.includes("inventory."))
+  const librarianPerms = createdPermissions.filter(p => 
+    p.name.includes("inventory.") ||
+    p.name === "dashboard.view" ||
+    p.name === "announcements.read"
+  )
   await Promise.all(
-    librarianPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: librarianRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    librarianPerms.map(p => upsertRolePermission(librarianRole.id, p.id))
   )
 
   // STUDENT gets read-only permissions
@@ -295,225 +338,168 @@ async function main() {
     p.name === "results.read" ||
     p.name === "fees.read" ||
     p.name === "announcements.read" ||
-    p.name === "exams.read"
+    p.name === "exams.read" ||
+    p.name === "timetable.read" ||
+    p.name === "reports.view" ||
+    p.name === "dashboard.view"
   )
   await Promise.all(
-    studentPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: studentRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    studentPerms.map(p => upsertRolePermission(studentRole.id, p.id))
   )
 
   // PARENT gets read-only permissions
   const parentPerms = createdPermissions.filter(p =>
     p.name === "results.read" ||
     p.name === "fees.read" ||
-    p.name === "announcements.read"
+    p.name === "announcements.read" ||
+    p.name === "reports.view" ||
+    p.name === "dashboard.view" ||
+    p.name === "attendance.read"
   )
   await Promise.all(
-    parentPerms.map(p =>
-      prisma.rolePermission.create({
-        data: { roleId: parentRole.id, permissionId: p.id, granted: true },
-      })
-    )
+    parentPerms.map(p => upsertRolePermission(parentRole.id, p.id))
   )
-  console.log('✅ Assigned permissions to roles')
+  console.log('✅ Upserted role permissions')
 
   // ============================================
-  // CREATE USERS
+  // CREATE USERS (only if they don't exist)
   // ============================================
-  // Create admin user
-  const adminPassword = await bcrypt.hash('admin123', 10)
-  const admin = await prisma.user.create({
-    data: {
-      email: 'admin@school.com',
-      password: adminPassword,
-      name: 'Admin User',
-      role: 'ADMIN',
-      isActive: true,
-      staff: {
-        create: {
-          employeeId: 'EMP001',
-          designation: 'ADMIN',
-          status: 'ACTIVE',
+  console.log('Creating default users (if not exist)...')
+  
+  // Helper to create user with staff and role if not exists
+  const createUserIfNotExists = async (
+    email: string,
+    password: string,
+    name: string,
+    role: string,
+    employeeId: string,
+    designation: string,
+    roleId: string,
+    department?: string
+  ) => {
+    const existingUser = await prisma.user.findUnique({ where: { email } })
+    if (existingUser) {
+      console.log(`  ℹ️  User ${email} already exists, skipping...`)
+      return existingUser
+    }
+    
+    const hashedPassword = await bcrypt.hash(password, 10)
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        role,
+        isActive: true,
+        staff: {
+          create: {
+            employeeId,
+            designation,
+            department,
+            status: 'ACTIVE',
+          },
+        },
+        roles: {
+          create: { roleId },
         },
       },
-      roles: {
-        create: {
-          roleId: adminRole.id,
-        },
-      },
-    },
-  })
-  console.log('✅ Created admin user')
-
-  // Create principal
-  const principalPassword = await bcrypt.hash('principal123', 10)
-  const principal = await prisma.user.create({
-    data: {
-      email: 'principal@school.com',
-      password: principalPassword,
-      name: 'Principal',
-      role: 'PRINCIPAL',
-      isActive: true,
-      staff: {
-        create: {
-          employeeId: 'EMP002',
-          designation: 'PRINCIPAL',
-          status: 'ACTIVE',
-        },
-      },
-      roles: {
-        create: {
-          roleId: principalRole.id,
-        },
-      },
-    },
-  })
-  console.log('✅ Created principal user')
-
-  // Create sample teacher
-  const teacherPassword = await bcrypt.hash('teacher123', 10)
-  const teacher = await prisma.user.create({
-    data: {
-      email: 'teacher@school.com',
-      password: teacherPassword,
-      name: 'John Teacher',
-      role: 'TEACHER',
-      isActive: true,
-      staff: {
-        create: {
-          employeeId: 'EMP003',
-          designation: 'TEACHER',
-          department: 'Mathematics',
-          status: 'ACTIVE',
-        },
-      },
-      roles: {
-        create: {
-          roleId: teacherRole.id,
-        },
-      },
-    },
-  })
-  console.log('✅ Created teacher user')
-
-  // Create sample classes
-  const class1 = await prisma.class.create({
-    data: {
-      name: 'Grade 1',
-      level: 1,
-      capacity: 30,
-    },
-  })
-
-  const class2 = await prisma.class.create({
-    data: {
-      name: 'Grade 2',
-      level: 2,
-      capacity: 30,
-    },
-  })
-
-  const class3 = await prisma.class.create({
-    data: {
-      name: 'Grade 10',
-      level: 10,
-      capacity: 40,
-    },
-  })
-  console.log('✅ Created classes')
-
-  // Create sections
-  const section1 = await prisma.section.create({
-    data: {
-      name: 'A',
-      classId: class1.id,
-      capacity: 30,
-    },
-  })
-
-  const section2 = await prisma.section.create({
-    data: {
-      name: 'B',
-      classId: class1.id,
-      capacity: 30,
-    },
-  })
-
-  // Get teacher staff record
-  const teacherStaff = await prisma.staff.findUnique({
-    where: { userId: teacher.id },
-  })
-
-  if (!teacherStaff) {
-    throw new Error('Failed to create teacher staff record')
+    })
+    console.log(`  ✅ Created ${role.toLowerCase()} user: ${email}`)
+    return user
   }
 
-  const section3 = await prisma.section.create({
-    data: {
-      name: 'A',
-      classId: class3.id,
-      capacity: 40,
-      classTeacherId: teacherStaff.id,
-    },
+  const admin = await createUserIfNotExists(
+    'admin@school.com', 'admin123', 'Admin User', 'ADMIN', 'EMP001', 'ADMIN', adminRole.id
+  )
+
+  const principal = await createUserIfNotExists(
+    'principal@school.com', 'principal123', 'Principal', 'PRINCIPAL', 'EMP002', 'PRINCIPAL', principalRole.id
+  )
+
+  const teacher = await createUserIfNotExists(
+    'teacher@school.com', 'teacher123', 'John Teacher', 'TEACHER', 'EMP003', 'TEACHER', teacherRole.id, 'Mathematics'
+  )
+
+  // ============================================
+  // CREATE SAMPLE DATA (only if not exist)
+  // ============================================
+  console.log('Creating sample data (if not exist)...')
+
+  // Helper function to create class if not exists
+  const createClassIfNotExists = async (name: string, level: number, capacity: number) => {
+    const existing = await prisma.class.findFirst({ where: { name } })
+    if (existing) return existing
+    return prisma.class.create({ data: { name, level, capacity } })
+  }
+
+  // Create sample classes
+  const class1 = await createClassIfNotExists('Grade 1', 1, 30)
+  const class2 = await createClassIfNotExists('Grade 2', 2, 30)
+  const class3 = await createClassIfNotExists('Grade 10', 10, 40)
+  console.log('  ✅ Upserted classes')
+
+  // Get teacher staff record (for sections and class-subject assignments)
+  const teacherStaff = await prisma.staff.findFirst({
+    where: { designation: 'TEACHER' },
   })
 
-  const section4 = await prisma.section.create({
-    data: {
-      name: 'B',
-      classId: class3.id,
-      capacity: 40,
-    },
+  // Create sections (check if exist first)
+  const existingSections = await prisma.section.findMany({ 
+    where: { classId: { in: [class1.id, class3.id] } } 
   })
-  console.log('✅ Created sections')
+  
+  if (existingSections.length === 0) {
+    await prisma.section.createMany({
+      data: [
+        { name: 'A', classId: class1.id, capacity: 30 },
+        { name: 'B', classId: class1.id, capacity: 30 },
+        { name: 'A', classId: class3.id, capacity: 40, classTeacherId: teacherStaff?.id },
+        { name: 'B', classId: class3.id, capacity: 40 },
+      ],
+      skipDuplicates: true,
+    })
+    console.log('  ✅ Created sections')
+  } else {
+    console.log('  ℹ️  Sections already exist, skipping...')
+  }
 
   // Create sample subjects
-  const math = await prisma.subject.create({
-    data: {
-      name: 'Mathematics',
-      code: 'MATH',
-      type: 'CORE',
-    },
+  const math = await prisma.subject.upsert({
+    where: { code: 'MATH' },
+    update: {},
+    create: { name: 'Mathematics', code: 'MATH', type: 'CORE' },
   })
 
-  const english = await prisma.subject.create({
-    data: {
-      name: 'English',
-      code: 'ENG',
-      type: 'CORE',
-    },
+  const english = await prisma.subject.upsert({
+    where: { code: 'ENG' },
+    update: {},
+    create: { name: 'English', code: 'ENG', type: 'CORE' },
   })
 
-  const science = await prisma.subject.create({
-    data: {
-      name: 'Science',
-      code: 'SCI',
-      type: 'CORE',
-    },
+  const science = await prisma.subject.upsert({
+    where: { code: 'SCI' },
+    update: {},
+    create: { name: 'Science', code: 'SCI', type: 'CORE' },
   })
 
-  const physics = await prisma.subject.create({
-    data: {
-      name: 'Physics',
-      code: 'PHY',
-      type: 'CORE',
-    },
+  const physics = await prisma.subject.upsert({
+    where: { code: 'PHY' },
+    update: {},
+    create: { name: 'Physics', code: 'PHY', type: 'CORE' },
   })
 
-  const chemistry = await prisma.subject.create({
-    data: {
-      name: 'Chemistry',
-      code: 'CHEM',
-      type: 'CORE',
-    },
+  const chemistry = await prisma.subject.upsert({
+    where: { code: 'CHEM' },
+    update: {},
+    create: { name: 'Chemistry', code: 'CHEM', type: 'CORE' },
   })
-  console.log('✅ Created subjects')
+  console.log('  ✅ Upserted subjects')
 
-  // Create academic year first
-  const academicYear = await prisma.academicYear.create({
-    data: {
+  // Create academic year
+  const academicYear = await prisma.academicYear.upsert({
+    where: { year: '2024-2025' },
+    update: {},
+    create: {
       year: '2024-2025',
       startDate: new Date('2024-09-01'),
       endDate: new Date('2025-06-30'),
@@ -521,10 +507,14 @@ async function main() {
       status: 'ACTIVE',
     },
   })
-  console.log('✅ Created academic year')
+  console.log('  ✅ Upserted academic year')
 
-  // Create academic term
-  const term = await prisma.term.create({
+  // Create academic term (check if exists)
+  const existingTerm = await prisma.term.findFirst({
+    where: { academicYearId: academicYear.id, termNumber: 1 },
+  })
+  
+  const term = existingTerm || await prisma.term.create({
     data: {
       name: 'First Term',
       termNumber: 1,
@@ -534,66 +524,52 @@ async function main() {
       isCurrent: true,
     },
   })
-  console.log('✅ Created academic term')
+  console.log(existingTerm ? '  ℹ️  Term already exists, skipping...' : '  ✅ Created academic term')
 
-  // Create class-subject assignments
-  await prisma.classSubject.create({
-    data: {
-      classId: class1.id,
-      subjectId: math.id,
-      teacherId: teacherStaff.id,
-      maxMarks: 100,
-      passMarks: 40,
-    },
-  })
+  // Create class-subject assignments (only if not exist)
+  if (teacherStaff) {
+    const existingAssignments = await prisma.classSubject.count()
+    if (existingAssignments === 0) {
+      await prisma.classSubject.createMany({
+        data: [
+          { classId: class1.id, subjectId: math.id, teacherId: teacherStaff.id, maxMarks: 100, passMarks: 40 },
+          { classId: class1.id, subjectId: english.id, maxMarks: 100, passMarks: 40 },
+          { classId: class3.id, subjectId: math.id, teacherId: teacherStaff.id, maxMarks: 100, passMarks: 40 },
+          { classId: class3.id, subjectId: physics.id, teacherId: teacherStaff.id, maxMarks: 100, passMarks: 40 },
+        ],
+        skipDuplicates: true,
+      })
+      console.log('  ✅ Created class-subject assignments')
+    } else {
+      console.log('  ℹ️  Class-subject assignments already exist, skipping...')
+    }
+  }
 
-  await prisma.classSubject.create({
-    data: {
-      classId: class1.id,
-      subjectId: english.id,
-      maxMarks: 100,
-      passMarks: 40,
-    },
+  // Create sample exam (only if not exist)
+  const existingExam = await prisma.exam.findFirst({
+    where: { name: 'Mid Term Examination', academicYearId: academicYear.id },
   })
-
-  await prisma.classSubject.create({
-    data: {
-      classId: class3.id,
-      subjectId: math.id,
-      teacherId: teacherStaff.id,
-      maxMarks: 100,
-      passMarks: 40,
-    },
-  })
-
-  await prisma.classSubject.create({
-    data: {
-      classId: class3.id,
-      subjectId: physics.id,
-      teacherId: teacherStaff.id,
-      maxMarks: 100,
-      passMarks: 40,
-    },
-  })
-  console.log('✅ Created class-subject assignments')
-
-  // Create sample exam
-  const exam = await prisma.exam.create({
-    data: {
-      name: 'Mid Term Examination',
-      description: 'First term mid-term examination',
-      examType: 'MID_TERM',
-      academicYearId: term.academicYearId, // Use the correct property and value
-      termId: term.id,
-      startDate: new Date('2024-10-15'),
-      endDate: new Date('2024-10-25'),
-      isFinal: false,
-      requiresApproval: true,
-      status: 'ACTIVE',
-      createdBy: admin.id,
-    },
-  })
-  console.log('✅ Created exam')
+  
+  if (!existingExam) {
+    await prisma.exam.create({
+      data: {
+        name: 'Mid Term Examination',
+        description: 'First term mid-term examination',
+        examType: 'MID_TERM',
+        academicYearId: academicYear.id,
+        termId: term.id,
+        startDate: new Date('2024-10-15'),
+        endDate: new Date('2024-10-25'),
+        isFinal: false,
+        requiresApproval: true,
+        status: 'ACTIVE',
+        createdBy: admin.id,
+      },
+    })
+    console.log('  ✅ Created exam')
+  } else {
+    console.log('  ℹ️  Exam already exists, skipping...')
+  }
 
   console.log('\n🎉 Seeding completed successfully!')
   console.log('\n📋 Login Credentials:')
