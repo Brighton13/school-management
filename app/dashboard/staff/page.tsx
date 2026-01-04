@@ -78,6 +78,9 @@ export default function StaffPage() {
         experience: formData.get("experience"),
         salary: formData.get("salary"),
         joiningDate: formData.get("joiningDate"),
+        gender: formData.get("gender"),
+        dateOfBirth: formData.get("dateOfBirth"),
+        address: formData.get("address"),
       }
       
       // Only include employeeId for updates (editing existing staff)
@@ -297,6 +300,29 @@ export default function StaffPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="gender">Gender</Label>
+                    <Select name="gender">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                    <Input id="dateOfBirth" name="dateOfBirth" type="date" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Input id="address" name="address" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="experience">Experience (Years)</Label>
                     <Input id="experience" name="experience" type="number" />
                   </div>
@@ -375,6 +401,34 @@ export default function StaffPage() {
                     <Label htmlFor="edit-qualification">Qualification</Label>
                     <Input id="edit-qualification" name="qualification" />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-gender">Gender</Label>
+                    <Select name="gender" defaultValue={(editingStaff as any).gender || ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-dateOfBirth">Date of Birth</Label>
+                    <Input 
+                      id="edit-dateOfBirth" 
+                      name="dateOfBirth" 
+                      type="date" 
+                      defaultValue={(editingStaff as any).dateOfBirth ? new Date((editingStaff as any).dateOfBirth).toISOString().split('T')[0] : ""} 
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" name="address" defaultValue={(editingStaff as any).address || ""} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

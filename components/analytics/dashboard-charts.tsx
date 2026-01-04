@@ -19,7 +19,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 interface DashboardStats {
   studentStatus: Array<{ name: string; value: number }>
+  studentGender: Array<{ name: string; value: number }>
   staffStatus: Array<{ name: string; value: number }>
+  staffGender: Array<{ name: string; value: number }>
   staffByDesignation: Array<{ name: string; value: number }>
   feeStatus: Array<{ name: string; value: number; amount: number; paidAmount: number }>
   attendanceStatus: Array<{ name: string; value: number }>
@@ -81,7 +83,25 @@ export function DashboardCharts() {
 
   return (
     <div className="space-y-8">
-      {/* Row 1: Student and Staff Status */}
+      {/* Row 1: Gender Distribution */}
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+        {data.studentGender && data.studentGender.length > 0 && (
+          <DonutChart
+            data={data.studentGender}
+            title="Student Gender Distribution"
+            description="Breakdown of active students by gender"
+          />
+        )}
+        {data.staffGender && data.staffGender.length > 0 && (
+          <DonutChart
+            data={data.staffGender}
+            title="Staff Gender Distribution"
+            description="Breakdown of active staff by gender"
+          />
+        )}
+      </div>
+
+      {/* Row 2: Student and Staff Status */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {data.studentStatus.length > 0 && (
           <PieChartComponent
@@ -106,7 +126,7 @@ export function DashboardCharts() {
         )}
       </div>
 
-      {/* Row 2: Fee and Attendance Status */}
+      {/* Row 3: Fee and Attendance Status */}
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {data.feeStatus.length > 0 && (
           <DonutChart

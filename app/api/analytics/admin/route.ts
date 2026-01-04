@@ -51,6 +51,23 @@ export async function GET(request: NextRequest) {
       prisma.section.count(),
     ])
 
+    // Gender Distribution for Students
+    const studentGenderStats = await prisma.student.groupBy({
+      by: ["gender"],
+      where: { status: "ACTIVE" },
+      _count: { gender: true },
+    })
+
+    // Gender Distribution for Staff
+    const staffGenderStats = await prisma.staff.groupBy({
+      by: ["gender"],
+      where: { 
+        status: "ACTIVE",
+        gender: { not: null },
+      },
+      _count: { gender: true },
+    })
+
     // Fee Analytics
     const feeStats = await prisma.fee.groupBy({
       by: ["status"],
@@ -356,6 +373,16 @@ export async function GET(request: NextRequest) {
         activeStaff,
         totalClasses,
         totalSections,
+      },
+      genderDistribution: {
+        students: studentGenderStats.map((s) => ({
+          gender: s.gender || "Not Specified",
+          count: s._count.gender,
+        })),
+        staff: staffGenderStats.map((s) => ({
+          gender: s.gender || "Not Specified",
+          count: s._count.gender,
+        })),
       },
       fees: {
         totalAmount: totalFeeAmount,

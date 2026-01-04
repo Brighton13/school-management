@@ -38,6 +38,10 @@ interface AdminAnalyticsData {
     totalClasses: number
     totalSections: number
   }
+  genderDistribution?: {
+    students: Array<{ gender: string; count: number }>
+    staff: Array<{ gender: string; count: number }>
+  }
   fees: {
     totalAmount: number
     paidAmount: number
@@ -180,6 +184,80 @@ export function AdminAnalytics() {
           icon={DollarSign}
         />
       </div>
+
+      {/* Gender Distribution */}
+      {data.genderDistribution && (
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+          {data.genderDistribution.students.length > 0 && (
+            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-bold">Student Gender Distribution</CardTitle>
+                <CardDescription className="text-sm">Breakdown of active students by gender</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={data.genderDistribution.students}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                    <XAxis 
+                      dataKey="gender" 
+                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                    />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }} 
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#3b82f6" 
+                      name="Students"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+          {data.genderDistribution.staff.length > 0 && (
+            <Card className="border-2 shadow-lg hover:shadow-xl transition-shadow">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-bold">Staff Gender Distribution</CardTitle>
+                <CardDescription className="text-sm">Breakdown of active staff by gender</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={data.genderDistribution.staff}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                    <XAxis 
+                      dataKey="gender" 
+                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                    />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }} 
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#10b981" 
+                      name="Staff"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Fee Statistics */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">

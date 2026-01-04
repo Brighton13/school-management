@@ -16,10 +16,27 @@ export async function GET(request: NextRequest) {
       _count: { status: true },
     })
 
+    // Student Gender Distribution
+    const studentGender = await prisma.student.groupBy({
+      by: ["gender"],
+      where: { status: "ACTIVE" },
+      _count: { gender: true },
+    })
+
     // Staff Status Distribution
     const staffStatus = await prisma.staff.groupBy({
       by: ["status"],
       _count: { status: true },
+    })
+
+    // Staff Gender Distribution
+    const staffGender = await prisma.staff.groupBy({
+      by: ["gender"],
+      where: { 
+        status: "ACTIVE",
+        gender: { not: null },
+      },
+      _count: { gender: true },
     })
 
     // Staff by Designation
@@ -128,9 +145,17 @@ export async function GET(request: NextRequest) {
         name: s.status,
         value: s._count.status,
       })),
+      studentGender: studentGender.map((s) => ({
+        name: s.gender || "Not Specified",
+        value: s._count.gender,
+      })),
       staffStatus: staffStatus.map((s) => ({
         name: s.status,
         value: s._count.status,
+      })),
+      staffGender: staffGender.map((s) => ({
+        name: s.gender || "Not Specified",
+        value: s._count.gender,
       })),
       staffByDesignation: staffByDesignation.map((s) => ({
         name: s.designation,

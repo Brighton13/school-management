@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
       experience,
       salary,
       joiningDate,
+      gender,
+      dateOfBirth,
+      address,
     } = body
 
     // Auto-generate employee ID based on designation
@@ -90,6 +93,9 @@ export async function POST(request: NextRequest) {
               experience: experience ? parseInt(experience) : null,
               salary: salary ? parseFloat(salary) : null,
               joiningDate: joiningDate ? new Date(joiningDate) : null,
+              gender: gender || null,
+              dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+              address: address || null,
             },
           },
         },

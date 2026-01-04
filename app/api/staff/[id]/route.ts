@@ -59,6 +59,9 @@ export async function PUT(
       experience,
       salary,
       joiningDate,
+      gender,
+      dateOfBirth,
+      address,
     } = body
 
     const staff = await prisma.staff.findUnique({
@@ -100,6 +103,9 @@ export async function PUT(
     if (experience !== undefined) staffUpdateData.experience = experience ? parseInt(experience) : null
     if (salary !== undefined) staffUpdateData.salary = salary ? parseFloat(salary) : null
     if (joiningDate !== undefined) staffUpdateData.joiningDate = joiningDate ? new Date(joiningDate) : null
+    if (gender !== undefined) staffUpdateData.gender = gender || null
+    if (dateOfBirth !== undefined) staffUpdateData.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null
+    if (address !== undefined) staffUpdateData.address = address || null
 
     // Use a transaction to update user, staff, and role assignment
     const updatedStaff = await prisma.$transaction(async (tx) => {

@@ -54,6 +54,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     roles: ["ALL"],
     items: [
       { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ALL"] },
+      { name: "My Profile", href: "/dashboard/profile", icon: User, roles: ["ALL"] },
     ],
   },
   {

@@ -327,6 +327,9 @@ model Staff {
   experience    Int?
   salary        Float?
   joiningDate   DateTime?
+  gender        String?   // MALE, FEMALE, OTHER
+  dateOfBirth   DateTime?
+  address       String?
   status        String    @default("ACTIVE") // ACTIVE, RESIGNED, RETIRED
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
