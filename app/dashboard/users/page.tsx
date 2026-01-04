@@ -360,12 +360,12 @@ export default function UsersPage() {
             if (!open) resetForm()
           }}
         >
-          <DialogTrigger asChild>
+          {/* <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Add User
             </Button>
-          </DialogTrigger>
+          </DialogTrigger> */}
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
