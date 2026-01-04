@@ -109,6 +109,7 @@ export async function getUserSignature(userId: string) {
 /**
  * Calculate student position in class based on total marks
  * Returns the position and total students
+ * Uses standard competition ranking (1,1,3,4,5,5,7)
  */
 export async function calculateStudentPosition(
   studentId: string,
@@ -139,11 +140,26 @@ export async function calculateStudentPosition(
   const sortedStudents = Array.from(studentTotals.entries())
     .sort((a, b) => b[1] - a[1])
 
-  // Find position of the target student
-  const position = sortedStudents.findIndex(([id]) => id === studentId) + 1
   const totalStudents = sortedStudents.length
+  
+  // Find the target student's total marks
+  const targetMarks = studentTotals.get(studentId)
+  if (targetMarks === undefined) {
+    return { position: totalStudents, totalStudents }
+  }
+  
+  // Standard competition ranking: position is 1 + count of students with higher marks
+  // This gives 1,1,3,4,5,5,7 pattern
+  let position = 1
+  for (const [_, marks] of sortedStudents) {
+    if (marks > targetMarks) {
+      position++
+    } else {
+      break // Since sorted descending, no more higher marks
+    }
+  }
 
-  return { position: position || totalStudents, totalStudents }
+  return { position, totalStudents }
 }
 
 /**
