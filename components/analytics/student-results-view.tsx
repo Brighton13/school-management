@@ -99,8 +99,8 @@ export function StudentResultsView() {
         if (response.ok) {
           const resultsData = await response.json()
           setData(resultsData)
-          // Set the most recent year as default
-          if (resultsData.academicYears.length > 0) {
+          // Set the most recent year as default (only if not blocked and has results)
+          if (resultsData.academicYears && resultsData.academicYears.length > 0 && !resultsData.blocked) {
             setSelectedYear(resultsData.academicYears[0].academicYear)
           }
         } else {

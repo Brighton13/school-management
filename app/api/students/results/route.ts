@@ -123,10 +123,11 @@ export async function GET(request: NextRequest) {
         message: "You have pending fees that must be paid before accessing current term results.",
         pendingFees: pendingFeesDetails,
         totalPendingAmount: pendingFeesDetails.reduce((sum, fee) => sum + fee.remainingAmount, 0),
+        overallAverage: 0,
+        totalResults: 0,
         academicYears: [], // Return empty results
         summary: {
-          totalContinuousAssessments: 0,
-          totalEndOfTermExams: 0,
+          examTypeCounts: {},
           yearsWithResults: 0,
         },
       })
