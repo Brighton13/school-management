@@ -131,37 +131,27 @@ export async function POST(request: NextRequest) {
       enrolledStudents.map((enrollment) => [enrollment.student.admissionNumber, enrollment.student])
     )
 
-    // Determine status based on role
+    // Determine status - all results must go through proper approval workflow
     let status = "DRAFT"
-    let submittedBy = null
-    let submittedAt = null
-    let publishedValue = false
-    let publishedAtValue = null
+    let submittedBy: string | null = session.user.id
+    let submittedAt: Date | null = new Date()
+    const publishedValue = false
+    const publishedAtValue = null
 
-    // Check if user can directly approve results
-    const canApprove = await hasPermission(session.user.id, Permissions.RESULTS_APPROVE)
-    
-    if (!canApprove) {
-      // Users without approval permission - check if any section in this class has a class teacher
-      const sections = await prisma.section.findMany({
-        where: { classId: classSubject.classId },
-        include: { classTeacher: true },
-      })
+    // Check if any section in this class has a class teacher
+    const sections = await prisma.section.findMany({
+      where: { classId: classSubject.classId },
+      include: { classTeacher: true },
+    })
 
-      const hasClassTeacher = sections.some((s) => s.classTeacher !== null)
+    const hasClassTeacher = sections.some((s) => s.classTeacher !== null)
 
-      if (hasClassTeacher) {
-        status = "PENDING_CLASS_TEACHER"
-      } else {
-        status = "PENDING_APPROVAL"
-      }
-      submittedBy = session.user.id
-      submittedAt = new Date()
+    if (hasClassTeacher) {
+      // Submit to class teacher first
+      status = "PENDING_CLASS_TEACHER"
     } else {
-      // Users with approval permission can directly approve and publish
-      status = "APPROVED"
-      publishedValue = true
-      publishedAtValue = new Date()
+      // No class teacher, submit directly to principal
+      status = "PENDING_APPROVAL"
     }
 
     for (let i = 1; i < lines.length; i++) {

@@ -287,7 +287,6 @@ export async function POST(request: NextRequest) {
     const canApprove = await hasPermission(session.user.id, Permissions.RESULTS_APPROVE)
     
     if (!canApprove) {
-      // Users without approval permission submit results - they go to class teacher automatically
       // Check if student's section has a class teacher
       const studentEnrollment = await prisma.classEnrollment.findFirst({
         where: { studentId },
@@ -310,10 +309,26 @@ export async function POST(request: NextRequest) {
       submittedBy = session.user.id
       submittedAt = new Date()
     } else {
-      // Users with approval permission can directly approve and publish
-      status = "APPROVED"
-      publishedValue = true
-      publishedAtValue = new Date()
+      // Even users with approval permission must follow the workflow
+      // All results go through class teacher -> principal approval
+      const studentEnrollment = await prisma.classEnrollment.findFirst({
+        where: { studentId },
+        include: {
+          section: {
+            include: {
+              classTeacher: true,
+            },
+          },
+        },
+      })
+
+      if (studentEnrollment?.section?.classTeacher) {
+        status = "PENDING_CLASS_TEACHER"
+      } else {
+        status = "PENDING_APPROVAL"
+      }
+      submittedBy = session.user.id
+      submittedAt = new Date()
     }
 
     const result = await prisma.result.create({
