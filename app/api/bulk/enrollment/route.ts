@@ -32,21 +32,36 @@ export async function POST(request: NextRequest) {
     const results = {
       success: 0,
       failed: 0,
+      skipped: 0,
       errors: [] as string[],
     }
 
-    // Get headers from first row
-    const headers: string[] = []
-    const headerRow = worksheet.getRow(1)
-    headerRow.eachCell((cell, colNumber) => {
-      headers[colNumber - 1] = String(cell.value || "").trim().toLowerCase()
+    // Find the header row (look for "AdmissionNumber" in first column)
+    let headerRowNumber = 1
+    let headers: string[] = []
+    
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      const firstCell = String(row.getCell(1).value || "").trim().toLowerCase()
+      if (firstCell === "admissionnumber") {
+        headerRowNumber = rowNumber
+        row.eachCell((cell, colNumber) => {
+          headers[colNumber - 1] = String(cell.value || "").trim().toLowerCase()
+        })
+      }
     })
 
-    // Process each data row (skip header row)
+    if (headers.length === 0) {
+      return NextResponse.json(
+        { error: "Invalid template: Could not find header row with 'AdmissionNumber'" },
+        { status: 400 }
+      )
+    }
+
+    // Process each data row (skip rows before and including header row)
     const promises: Promise<void>[] = []
 
     worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-      if (rowNumber === 1) return // Skip header row
+      if (rowNumber <= headerRowNumber) return // Skip instructions and header rows
 
       const processRow = async () => {
         try {
@@ -67,7 +82,7 @@ export async function POST(request: NextRequest) {
 
           if (!admissionnumber || !classname || !sectionname || !academicyear) {
             results.failed++
-            results.errors.push(`Row ${rowNumber}: Missing required fields`)
+            results.errors.push(`Row ${rowNumber}: Missing required fields (need AdmissionNumber, ClassName, SectionName, AcademicYear)`)
             return
           }
 
@@ -159,7 +174,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch all students with their latest enrollment and pending applications
+    // Get the target academic year (current or upcoming)
+    const targetAcademicYear = await prisma.academicYear.findFirst({
+      where: {
+        OR: [{ isCurrent: true }, { isUpcoming: true }]
+      },
+      orderBy: { startDate: "desc" },
+    })
+
+    if (!targetAcademicYear) {
+      return NextResponse.json(
+        { error: "No current or upcoming academic year found" },
+        { status: 400 }
+      )
+    }
+
+    // Fetch all students with their enrollments
+    // Show their LAST enrollment as reference for where to enroll them next
     const students = await prisma.student.findMany({
       include: {
         user: true,
@@ -172,26 +203,14 @@ export async function GET(request: NextRequest) {
             academicYear: true,
           },
         },
-        applications: {
-          where: {
-            applicationStatus: "PENDING",
-          },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          include: {
-            appliedClass: true,
-            appliedSection: true,
-            academicYear: true,
-          },
-        },
       },
       orderBy: { admissionNumber: "asc" },
     })
 
     // Fetch classes and sections for dropdowns
     const classes = await prisma.class.findMany({
-      orderBy: { name: "asc" },
-      select: { name: true },
+      orderBy: { level: "asc" },
+      select: { id: true, name: true, level: true },
     })
     const sections = await prisma.section.findMany({
       orderBy: { name: "asc" },
@@ -200,10 +219,7 @@ export async function GET(request: NextRequest) {
 
     const academicYears = await prisma.academicYear.findMany({
       where: {
-        OR: [
-          { isCurrent: true },
-          { isUpcoming: true }
-        ]
+        OR: [{ isCurrent: true }, { isUpcoming: true }]
       },
       orderBy: { year: "asc" },
       select: {
@@ -218,10 +234,12 @@ export async function GET(request: NextRequest) {
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet("Enrollment")
 
-    // Define columns
+    // Define columns - show previous enrollment as reference
     worksheet.columns = [
       { header: "AdmissionNumber", key: "admissionNumber", width: 18 },
       { header: "StudentName", key: "studentName", width: 25 },
+      { header: "PreviousClass", key: "previousClass", width: 15 },
+      { header: "PreviousSection", key: "previousSection", width: 15 },
       { header: "ClassName", key: "className", width: 18 },
       { header: "SectionName", key: "sectionName", width: 18 },
       { header: "AcademicYear", key: "academicYear", width: 15 },
@@ -235,28 +253,43 @@ export async function GET(request: NextRequest) {
       fgColor: { argb: "FFD3D3D3" },
     }
 
+    // Add instructions row
+    worksheet.insertRow(1, [
+      "Instructions: Fill ClassName, SectionName, and AcademicYear columns. PreviousClass/Section are for reference only.",
+    ])
+    worksheet.mergeCells("A1:G1")
+    worksheet.getRow(1).font = { italic: true, color: { argb: "FF666666" } }
+
     // Add student data rows
     students.forEach(student => {
-      const latestEnrollment = student.classEnrollment[0]
-      const pendingApplication = student.applications[0]
-
-      const currentClass = latestEnrollment?.class.name || (pendingApplication?.appliedClass.name || "")
-      const currentSection = latestEnrollment?.section.name || (pendingApplication?.appliedSection?.name || "")
-      // Use the actual year value, not the ID
-      const academicYear = latestEnrollment?.academicYear?.year || pendingApplication?.academicYear?.year || ""
+      const lastEnrollment = student.classEnrollment[0]
+      
+      // Suggest next class level if they have a previous enrollment
+      let suggestedClass = ""
+      if (lastEnrollment) {
+        // Find next class by level
+        const currentClassLevel = classes.find(c => c.name === lastEnrollment.class.name)?.level || 0
+        const nextClass = classes.find(c => c.level === currentClassLevel + 1)
+        suggestedClass = nextClass?.name || lastEnrollment.class.name
+      }
 
       worksheet.addRow({
         admissionNumber: student.admissionNumber,
         studentName: student.user.name,
-        className: currentClass,
-        sectionName: currentSection,
-        academicYear: academicYear,
+        previousClass: lastEnrollment?.class.name || "NEW STUDENT",
+        previousSection: lastEnrollment?.section.name || "-",
+        className: suggestedClass, // Pre-fill with suggested next class
+        sectionName: lastEnrollment?.section.name || "", // Keep same section as suggestion
+        academicYear: targetAcademicYear.year, // Pre-fill with target academic year
       })
     })
 
-    // Add data validation for ClassName (starting from row 2)
+    // Add data validation for ClassName (starting from row 3 due to instructions row)
+    const dataStartRow = 3
+    const dataEndRow = students.length + 2
+    
     if (classes.length > 0) {
-      (worksheet as any).dataValidations.add(`C2:C${students.length + 1}`, {
+      (worksheet as any).dataValidations.add(`E${dataStartRow}:E${dataEndRow}`, {
         type: "list",
         allowBlank: false,
         formulae: [`"${classes.map(c => c.name).join(",")}"`],
@@ -268,7 +301,7 @@ export async function GET(request: NextRequest) {
 
     // Add data validation for SectionName
     if (sections.length > 0) {
-      (worksheet as any).dataValidations.add(`D2:D${students.length + 1}`, {
+      (worksheet as any).dataValidations.add(`F${dataStartRow}:F${dataEndRow}`, {
         type: "list",
         allowBlank: false,
         formulae: [`"${Array.from(new Set(sections.map(s => s.name))).join(",")}"`],
@@ -281,7 +314,7 @@ export async function GET(request: NextRequest) {
     // Add data validation for AcademicYear
     if (academicYears.length > 0) {
       const academicYearNames = academicYears.map(y => y.year).join(",")
-      ;(worksheet as any).dataValidations.add(`E2:E${students.length + 1}`, {
+      ;(worksheet as any).dataValidations.add(`G${dataStartRow}:G${dataEndRow}`, {
         type: "list",
         allowBlank: false,
         formulae: [`"${academicYearNames}"`],
@@ -289,6 +322,20 @@ export async function GET(request: NextRequest) {
         errorTitle: "Invalid Academic Year",
         error: "Please select from the dropdown list",
       })
+    }
+
+    // Style the previous class/section columns as read-only (gray background)
+    for (let i = dataStartRow; i <= dataEndRow; i++) {
+      worksheet.getCell(`C${i}`).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF0F0F0" },
+      }
+      worksheet.getCell(`D${i}`).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF0F0F0" },
+      }
     }
 
     // Generate buffer
