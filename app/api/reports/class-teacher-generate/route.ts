@@ -32,6 +32,7 @@ interface ReportData {
   exam: {
     name: string
     type: string
+    isFinal: boolean
   }
   results: Array<{
     subject: string
@@ -40,9 +41,11 @@ interface ReportData {
     percentage: number
     grade: string
     remark: string
+    points?: number // Points for final exams
   }>
   totalMarks: number
   maxTotalMarks: number
+  totalPoints?: number // Total points for final exams
   position: number
   classSize: number
   nextTermDate: string
@@ -405,13 +408,38 @@ async function generateStudentReportData(
 
   if (!allCoreSubjectsHaveResults) return null
 
+  // Get points configuration for final exams
+  const isFinalExam = exam.examType === "FINAL" || exam.isFinal === true
+  let pointsConfig: Array<{ minPercentage: number; maxPercentage: number; points: number }> = []
+  
+  if (isFinalExam) {
+    pointsConfig = await prisma.pointsConfig.findMany({
+      where: { isActive: true },
+      orderBy: { maxPercentage: "desc" },
+    })
+  }
+
   // Calculate totals
   let totalMarks = 0
   let maxTotalMarks = 0
+  let totalPoints = 0
+  
   const reportResults = results.map(r => {
     const percentage = (r.marksObtained / r.maxMarks) * 100
     totalMarks += r.marksObtained
     maxTotalMarks += r.maxMarks
+
+    // Calculate points for this subject if final exam
+    let subjectPoints: number | undefined
+    if (isFinalExam && pointsConfig.length > 0) {
+      const matchingConfig = pointsConfig.find(
+        pc => percentage >= pc.minPercentage && percentage <= pc.maxPercentage
+      )
+      subjectPoints = matchingConfig?.points
+      if (subjectPoints) {
+        totalPoints += subjectPoints
+      }
+    }
 
     return {
       subject: r.classSubject.subject.name.toUpperCase(),
@@ -420,6 +448,7 @@ async function generateStudentReportData(
       percentage: Math.round(percentage),
       grade: r.grade || getGrade(percentage),
       remark: getRemark(percentage),
+      points: subjectPoints,
     }
   })
 
@@ -458,10 +487,12 @@ async function generateStudentReportData(
     exam: {
       name: exam.name,
       type: exam.examType,
+      isFinal: isFinalExam,
     },
     results: reportResults,
     totalMarks,
     maxTotalMarks,
+    totalPoints: isFinalExam ? totalPoints : undefined,
     position,
     classSize: sortedTotals.length,
     nextTermDate: nextTerm ? formatDate(nextTerm.startDate) : "TBA",
@@ -596,18 +627,38 @@ async function generatePdfReport(data: ReportData): Promise<string> {
   doc.text(data.nextTermDate, rightCol + 30, infoY + 8)
   doc.text(String(data.position), rightCol + 30, infoY + 16)
 
+  // Show total points for final exams
+  if (data.exam.isFinal && data.totalPoints !== undefined) {
+    doc.setFont("helvetica", "bold")
+    doc.text("TOTAL POINTS:", margin, infoY + 24)
+    doc.setFont("helvetica", "normal")
+    doc.text(String(data.totalPoints), margin + 40, infoY + 24)
+  }
+
   // Results Table
-  const tableY = 78
+  const tableY = data.exam.isFinal ? 86 : 78
+  const hasPoints = data.exam.isFinal && data.results.some(r => r.points !== undefined)
+  
   doc.setFillColor(0, 51, 102)
   doc.rect(margin, tableY, pageWidth - 2 * margin, 8, "F")
 
   doc.setTextColor(255, 255, 255)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(8)
-  doc.text("SUBJECT", margin + 5, tableY + 5)
-  doc.text("SCORE", margin + 60, tableY + 5)
-  doc.text("%", margin + 85, tableY + 5)
-  doc.text("REMARK", margin + 110, tableY + 5)
+  
+  // Table headers - adjust columns if showing points
+  if (hasPoints) {
+    doc.text("SUBJECT", margin + 3, tableY + 5)
+    doc.text("SCORE", margin + 48, tableY + 5)
+    doc.text("%", margin + 68, tableY + 5)
+    doc.text("PTS", margin + 82, tableY + 5)
+    doc.text("REMARK", margin + 98, tableY + 5)
+  } else {
+    doc.text("SUBJECT", margin + 5, tableY + 5)
+    doc.text("SCORE", margin + 60, tableY + 5)
+    doc.text("%", margin + 85, tableY + 5)
+    doc.text("REMARK", margin + 110, tableY + 5)
+  }
 
   // Table rows
   doc.setTextColor(0, 0, 0)
@@ -619,10 +670,18 @@ async function generatePdfReport(data: ReportData): Promise<string> {
     doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
     doc.rect(margin, rowY, pageWidth - 2 * margin, 8, "F")
 
-    doc.text(result.subject, margin + 5, rowY + 5)
-    doc.text(String(result.score), margin + 60, rowY + 5)
-    doc.text(`${result.percentage}%`, margin + 85, rowY + 5)
-    doc.text(result.remark, margin + 110, rowY + 5)
+    if (hasPoints) {
+      doc.text(result.subject, margin + 3, rowY + 5)
+      doc.text(String(result.score), margin + 48, rowY + 5)
+      doc.text(`${result.percentage}%`, margin + 68, rowY + 5)
+      doc.text(result.points !== undefined ? String(result.points) : "-", margin + 82, rowY + 5)
+      doc.text(result.remark, margin + 98, rowY + 5)
+    } else {
+      doc.text(result.subject, margin + 5, rowY + 5)
+      doc.text(String(result.score), margin + 60, rowY + 5)
+      doc.text(`${result.percentage}%`, margin + 85, rowY + 5)
+      doc.text(result.remark, margin + 110, rowY + 5)
+    }
 
     rowY += 8
   })

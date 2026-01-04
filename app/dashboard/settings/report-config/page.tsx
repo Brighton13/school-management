@@ -22,7 +22,8 @@ import {
   MessageSquare,
   AlertCircle,
   CheckCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Hash
 } from "lucide-react"
 
 interface SchoolConfig {
@@ -54,6 +55,14 @@ interface CommentTemplate {
   maxPercentage: number
   comment: string
   commentType: string
+}
+
+interface PointsConfig {
+  id?: string
+  minPercentage: number
+  maxPercentage: number
+  points: number
+  description: string
 }
 
 interface Signature {
@@ -128,6 +137,17 @@ export default function ReportConfigPage() {
     { minPercentage: 0, maxPercentage: 39, comment: "Unsatisfactory. Parent consultation recommended.", commentType: "PRINCIPAL" },
   ])
 
+  // Points configuration state (for final exams)
+  const [pointsConfig, setPointsConfig] = useState<PointsConfig[]>([
+    { minPercentage: 75, maxPercentage: 100, points: 1, description: "Distinction" },
+    { minPercentage: 65, maxPercentage: 74, points: 2, description: "Merit" },
+    { minPercentage: 50, maxPercentage: 64, points: 3, description: "Credit" },
+    { minPercentage: 40, maxPercentage: 49, points: 4, description: "Pass" },
+    { minPercentage: 30, maxPercentage: 39, points: 5, description: "Satisfactory" },
+    { minPercentage: 1, maxPercentage: 29, points: 6, description: "Poor" },
+    { minPercentage: 0, maxPercentage: 0, points: 7, description: "Fail" },
+  ])
+
   const logoInputRef = useRef<HTMLInputElement>(null)
   const signatureInputRef = useRef<HTMLInputElement>(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
@@ -178,6 +198,15 @@ export default function ReportConfigPage() {
       if (sigRes.ok) {
         const data = await sigRes.json()
         setMySignature(data)
+      }
+
+      // Fetch points configuration
+      const pointsRes = await fetch("/api/settings/points-config")
+      if (pointsRes.ok) {
+        const data = await pointsRes.json()
+        if (data.length > 0) {
+          setPointsConfig(data)
+        }
       }
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -344,6 +373,48 @@ export default function ReportConfigPage() {
     }
   }
 
+  // Points configuration functions
+  const updatePointsConfig = (index: number, field: keyof PointsConfig, value: any) => {
+    const updated = [...pointsConfig]
+    updated[index] = { ...updated[index], [field]: value }
+    setPointsConfig(updated)
+  }
+
+  const addPointsConfig = () => {
+    setPointsConfig([
+      ...pointsConfig,
+      { minPercentage: 0, maxPercentage: 0, points: 1, description: "" },
+    ])
+  }
+
+  const removePointsConfig = (index: number) => {
+    setPointsConfig(pointsConfig.filter((_, i) => i !== index))
+  }
+
+  const savePointsConfig = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/settings/points-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configs: pointsConfig }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setPointsConfig(data)
+        setMessage({ type: "success", text: "Points configuration saved successfully" })
+      } else {
+        const error = await res.json()
+        setMessage({ type: "error", text: error.error || "Failed to save points configuration" })
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: "Failed to save points configuration" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Signature canvas functions
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = signatureCanvasRef.current
@@ -458,6 +529,10 @@ export default function ReportConfigPage() {
               <TabsTrigger value="comments">
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Comment Templates
+              </TabsTrigger>
+              <TabsTrigger value="points">
+                <Hash className="h-4 w-4 mr-2" />
+                Points Config
               </TabsTrigger>
             </>
           )}
@@ -952,6 +1027,104 @@ export default function ReportConfigPage() {
                 <Button onClick={() => saveCommentTemplates("PRINCIPAL")} disabled={saving}>
                   <Save className="h-4 w-4 mr-2" />
                   {saving ? "Saving..." : "Save Principal Comments"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Points Configuration Tab */}
+        <TabsContent value="points" className="space-y-6 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Points Configuration (Final Exams)</CardTitle>
+              <CardDescription>
+                Configure the points system for final/end-of-term exams. Points are calculated based on 
+                percentage ranges and displayed on reports. Lower points indicate better performance.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Note</AlertTitle>
+                <AlertDescription>
+                  Points are only shown on reports for exams marked as "Final" or "End of Term". 
+                  Each subject's percentage is converted to points based on these ranges.
+                  Example: A student scoring 85% gets 1 point (if 75-100% = 1 point).
+                </AlertDescription>
+              </Alert>
+              
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-28">Min %</TableHead>
+                    <TableHead className="w-28">Max %</TableHead>
+                    <TableHead className="w-24">Points</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pointsConfig.map((config, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={config.minPercentage}
+                          onChange={(e) => updatePointsConfig(index, "minPercentage", Number(e.target.value))}
+                          className="w-20"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={config.maxPercentage}
+                          onChange={(e) => updatePointsConfig(index, "maxPercentage", Number(e.target.value))}
+                          className="w-20"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={config.points}
+                          onChange={(e) => updatePointsConfig(index, "points", Number(e.target.value))}
+                          className="w-16"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={config.description}
+                          onChange={(e) => updatePointsConfig(index, "description", e.target.value)}
+                          placeholder="e.g., Distinction, Merit, Credit"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removePointsConfig(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" onClick={addPointsConfig}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Row
+                </Button>
+                <Button onClick={savePointsConfig} disabled={saving}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? "Saving..." : "Save Points Configuration"}
                 </Button>
               </div>
             </CardContent>

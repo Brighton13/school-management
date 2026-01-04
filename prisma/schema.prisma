@@ -983,3 +983,17 @@ model CommentTemplate {
 
   @@unique([minPercentage, maxPercentage, commentType])
 }
+
+// Points Configuration - Maps percentage ranges to points (for final exams)
+model PointsConfig {
+  id            String   @id @default(cuid())
+  minPercentage Float    // Minimum percentage (inclusive)
+  maxPercentage Float    // Maximum percentage (inclusive)
+  points        Int      // Points awarded for this range (e.g., 1, 2, 3...)
+  description   String?  // Optional description (e.g., "Distinction", "Merit")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([minPercentage, maxPercentage])
+}
