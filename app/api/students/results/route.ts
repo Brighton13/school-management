@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
         name: string
         academicYear: string
       }
-      continuousAssessments: Array<{
+      resultsByExamType: Map<string, Array<{
         id: string
         subjectName: string
         subjectCode: string
@@ -151,20 +151,7 @@ export async function GET(request: NextRequest) {
         grade: string | null
         submittedAt: string | null
         approvedAt: string | null
-      }>
-      endOfTermResults: Array<{
-        id: string
-        subjectName: string
-        subjectCode: string
-        examName: string | null
-        examType: string
-        marksObtained: number
-        maxMarks: number
-        percentage: number
-        grade: string | null
-        submittedAt: string | null
-        approvedAt: string | null
-      }>
+      }>>
       termAverage: number
       termGrade: string | null
     }>>()
@@ -173,6 +160,7 @@ export async function GET(request: NextRequest) {
       const year = result.academicYear.year
       const termName = result.term.name
       const percentage = (result.marksObtained / result.maxMarks) * 100
+      const examType = result.exam?.examType || "OTHER"
 
       if (!resultsByYear.has(year)) {
         resultsByYear.set(year, new Map())
@@ -186,8 +174,7 @@ export async function GET(request: NextRequest) {
             name: result.term.name,
             academicYear: result.academicYear.year,
           },
-          continuousAssessments: [],
-          endOfTermResults: [],
+          resultsByExamType: new Map(),
           termAverage: 0,
           termGrade: null,
         })
@@ -199,7 +186,7 @@ export async function GET(request: NextRequest) {
         subjectName: result.classSubject.subject.name,
         subjectCode: result.classSubject.subject.code || "",
         examName: result.exam?.name || null,
-        examType: result.exam?.examType || "UNKNOWN",
+        examType: examType,
         marksObtained: result.marksObtained,
         maxMarks: result.maxMarks,
         percentage,
@@ -208,25 +195,21 @@ export async function GET(request: NextRequest) {
         approvedAt: result.approvedAt?.toISOString() || null,
       }
 
-      // Categorize by exam type
-      if (result.exam?.examType === "CONTINUOUS_ASSESSMENT" ||
-        result.exam?.examType === "QUIZ" ||
-        result.exam?.examType === "ASSIGNMENT") {
-        termData.continuousAssessments.push(resultData)
-      } else if (result.exam?.examType === "FINAL" ||
-        result.exam?.examType === "MID_TERM" ||
-        result.exam?.isFinal) {
-        termData.endOfTermResults.push(resultData)
-      } else {
-        // Default to continuous assessments for unknown types
-        termData.continuousAssessments.push(resultData)
+      // Group by exam type
+      if (!termData.resultsByExamType.has(examType)) {
+        termData.resultsByExamType.set(examType, [])
       }
+      termData.resultsByExamType.get(examType)!.push(resultData)
     })
 
     // Calculate term averages
     resultsByYear.forEach((yearMap) => {
       yearMap.forEach((termData) => {
-        const allResults = [...termData.continuousAssessments, ...termData.endOfTermResults]
+        const allResults: Array<{ percentage: number }> = []
+        termData.resultsByExamType.forEach((results) => {
+          allResults.push(...results)
+        })
+        
         if (allResults.length > 0) {
           termData.termAverage = allResults.reduce((sum, r) => sum + r.percentage, 0) / allResults.length
 
@@ -241,18 +224,47 @@ export async function GET(request: NextRequest) {
       })
     })
 
+    // Define exam type display order and labels
+    const examTypeOrder = [
+      "CONTINUOUS_ASSESSMENT",
+      "QUIZ", 
+      "ASSIGNMENT",
+      "MID_TERM",
+      "FINAL",
+      "OTHER"
+    ]
+
     // Convert Map structure to array format for JSON response
     const resultsData = Array.from(resultsByYear.entries()).map(([year, yearMap]) => ({
       academicYear: year,
-      terms: Array.from(yearMap.entries()).map(([termName, termData]) => ({
-        termName,
-        termInfo: termData.termInfo,
-        continuousAssessments: termData.continuousAssessments,
-        endOfTermResults: termData.endOfTermResults,
-        termAverage: termData.termAverage,
-        termGrade: termData.termGrade,
-        totalAssessments: termData.continuousAssessments.length + termData.endOfTermResults.length,
-      })),
+      terms: Array.from(yearMap.entries()).map(([termName, termData]) => {
+        // Convert resultsByExamType Map to array sorted by exam type order
+        const examTypeSections = Array.from(termData.resultsByExamType.entries())
+          .sort((a, b) => {
+            const orderA = examTypeOrder.indexOf(a[0])
+            const orderB = examTypeOrder.indexOf(b[0])
+            return (orderA === -1 ? 999 : orderA) - (orderB === -1 ? 999 : orderB)
+          })
+          .map(([examType, results]) => ({
+            examType,
+            results,
+            average: results.length > 0 
+              ? results.reduce((sum, r) => sum + r.percentage, 0) / results.length 
+              : 0,
+            totalResults: results.length,
+          }))
+
+        const totalAssessments = examTypeSections.reduce((sum, section) => sum + section.totalResults, 0)
+
+        return {
+          termName,
+          termInfo: termData.termInfo,
+          examTypeSections,
+          termAverage: termData.termAverage,
+          termGrade: termData.termGrade,
+          totalAssessments,
+        }
+      }),
     })).sort((a, b) => b.academicYear.localeCompare(a.academicYear))
 
     // Calculate overall statistics
@@ -260,6 +272,13 @@ export async function GET(request: NextRequest) {
     const overallAverage = allResults.length > 0
       ? allResults.reduce((sum, percentage) => sum + percentage, 0) / allResults.length
       : 0
+
+    // Count results by exam type for summary
+    const examTypeCounts: Record<string, number> = {}
+    student.results.forEach(r => {
+      const examType = r.exam?.examType || "OTHER"
+      examTypeCounts[examType] = (examTypeCounts[examType] || 0) + 1
+    })
 
     return NextResponse.json({
       student: {
@@ -271,16 +290,7 @@ export async function GET(request: NextRequest) {
       totalResults: student.results.length,
       academicYears: resultsData,
       summary: {
-        totalContinuousAssessments: student.results.filter(r =>
-          r.exam?.examType === "CONTINUOUS_ASSESSMENT" ||
-          r.exam?.examType === "QUIZ" ||
-          r.exam?.examType === "ASSIGNMENT"
-        ).length,
-        totalEndOfTermExams: student.results.filter(r =>
-          r.exam?.examType === "FINAL" ||
-          r.exam?.examType === "MID_TERM" ||
-          r.exam?.isFinal
-        ).length,
+        examTypeCounts,
         yearsWithResults: resultsByYear.size,
       },
     })

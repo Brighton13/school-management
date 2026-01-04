@@ -33,6 +33,13 @@ interface StudentResult {
   approvedAt: string | null
 }
 
+interface ExamTypeSection {
+  examType: string
+  results: StudentResult[]
+  average: number
+  totalResults: number
+}
+
 interface TermData {
   termName: string
   termInfo: {
@@ -40,8 +47,7 @@ interface TermData {
     name: string
     academicYear: string
   }
-  continuousAssessments: StudentResult[]
-  endOfTermResults: StudentResult[]
+  examTypeSections: ExamTypeSection[]
   termAverage: number
   termGrade: string | null
   totalAssessments: number
@@ -75,8 +81,7 @@ interface StudentResultsData {
   totalResults: number
   academicYears: AcademicYearData[]
   summary: {
-    totalContinuousAssessments: number
-    totalEndOfTermExams: number
+    examTypeCounts: Record<string, number>
     yearsWithResults: number
   }
 }
@@ -249,6 +254,40 @@ export function StudentResultsView() {
     }
   }
 
+  const getExamTypeColorHex = (examType: string) => {
+    switch (examType) {
+      case "CONTINUOUS_ASSESSMENT":
+        return "#3b82f6" // blue
+      case "QUIZ":
+        return "#a855f7" // purple
+      case "ASSIGNMENT":
+        return "#6366f1" // indigo
+      case "FINAL":
+        return "#ef4444" // red
+      case "MID_TERM":
+        return "#f97316" // orange
+      default:
+        return "#6b7280" // gray
+    }
+  }
+
+  const getExamTypeIcon = (examType: string) => {
+    switch (examType) {
+      case "CONTINUOUS_ASSESSMENT":
+        return <Clock className="h-4 w-4 text-blue-600" />
+      case "QUIZ":
+        return <BookOpen className="h-4 w-4 text-purple-600" />
+      case "ASSIGNMENT":
+        return <FileText className="h-4 w-4 text-indigo-600" />
+      case "FINAL":
+        return <CheckCircle className="h-4 w-4 text-red-600" />
+      case "MID_TERM":
+        return <TrendingUp className="h-4 w-4 text-orange-600" />
+      default:
+        return <BarChart3 className="h-4 w-4 text-gray-600" />
+    }
+  }
+
   const formatExamType = (examType: string) => {
     switch (examType) {
       case "CONTINUOUS_ASSESSMENT":
@@ -306,30 +345,44 @@ export function StudentResultsView() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Continuous Assessments</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Academic Years</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.summary.totalContinuousAssessments}</div>
+            <div className="text-2xl font-bold">{data.summary.yearsWithResults}</div>
             <p className="text-xs text-muted-foreground">
-              Tests & assignments
+              Years with results
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">End of Term Exams</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Exam Types</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.summary.totalEndOfTermExams}</div>
+            <div className="text-2xl font-bold">{Object.keys(data.summary.examTypeCounts).length}</div>
             <p className="text-xs text-muted-foreground">
-              Final examinations
+              Different assessment types
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Exam Type Summary Cards */}
+      {Object.keys(data.summary.examTypeCounts).length > 0 && (
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+          {Object.entries(data.summary.examTypeCounts).map(([examType, count]) => (
+            <Card key={examType} className="border-l-4" style={{ borderLeftColor: getExamTypeColorHex(examType) }}>
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-muted-foreground">{formatExamType(examType)}</p>
+                <p className="text-2xl font-bold">{count}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Academic Years Tabs */}
       <Card>
@@ -374,28 +427,37 @@ export function StudentResultsView() {
                             </div>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-6">
-                          {/* Continuous Assessments */}
-                          {term.continuousAssessments.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-blue-600" />
-                                Continuous Assessments
-                              </h4>
+                        <AccordionContent className="space-y-6 pt-4">
+                          {/* Results grouped by Exam Type */}
+                          {term.examTypeSections.map((section) => (
+                            <div key={section.examType} className="border rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-semibold flex items-center gap-2">
+                                  {getExamTypeIcon(section.examType)}
+                                  {formatExamType(section.examType)}
+                                </h4>
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="outline" className={getGradeColor(null, section.average)}>
+                                    Avg: {section.average.toFixed(1)}%
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {section.totalResults} result{section.totalResults !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </div>
                               <div className="overflow-x-auto">
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead>Subject</TableHead>
                                       <TableHead>Assessment</TableHead>
-                                      <TableHead>Type</TableHead>
                                       <TableHead>Marks</TableHead>
                                       <TableHead>Score</TableHead>
                                       <TableHead>Grade</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {term.continuousAssessments.map((result) => (
+                                    {section.results.map((result) => (
                                       <TableRow key={result.id}>
                                         <TableCell className="font-medium">
                                           {result.subjectName}
@@ -406,12 +468,7 @@ export function StudentResultsView() {
                                           )}
                                         </TableCell>
                                         <TableCell>
-                                          {result.examName || "Assessment"}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant="secondary" className={getExamTypeColor(result.examType)}>
-                                            {formatExamType(result.examType)}
-                                          </Badge>
+                                          {result.examName || formatExamType(result.examType)}
                                         </TableCell>
                                         <TableCell>
                                           {result.marksObtained.toFixed(0)} / {result.maxMarks.toFixed(0)}
@@ -442,74 +499,11 @@ export function StudentResultsView() {
                                 </Table>
                               </div>
                             </div>
-                          )}
+                          ))}
 
-                          {/* End of Term Results */}
-                          {term.endOfTermResults.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4 text-red-600" />
-                                End of Term Examinations
-                              </h4>
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Subject</TableHead>
-                                      <TableHead>Exam</TableHead>
-                                      <TableHead>Type</TableHead>
-                                      <TableHead>Marks</TableHead>
-                                      <TableHead>Score</TableHead>
-                                      <TableHead>Grade</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {term.endOfTermResults.map((result) => (
-                                      <TableRow key={result.id}>
-                                        <TableCell className="font-medium">
-                                          {result.subjectName}
-                                          {result.subjectCode && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {result.subjectCode}
-                                            </div>
-                                          )}
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.examName || "Final Exam"}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant="secondary" className={getExamTypeColor(result.examType)}>
-                                            {formatExamType(result.examType)}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.marksObtained.toFixed(0)} / {result.maxMarks.toFixed(0)}
-                                        </TableCell>
-                                        <TableCell>
-                                          <span className={`font-bold ${
-                                            result.percentage >= 80
-                                              ? "text-green-600"
-                                              : result.percentage >= 60
-                                              ? "text-blue-600"
-                                              : result.percentage >= 50
-                                              ? "text-orange-600"
-                                              : "text-red-600"
-                                          }`}>
-                                            {result.percentage.toFixed(1)}%
-                                          </span>
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.grade && (
-                                            <Badge variant="outline" className={getGradeColor(result.grade, result.percentage)}>
-                                              {result.grade}
-                                            </Badge>
-                                          )}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                          {term.examTypeSections.length === 0 && (
+                            <div className="text-center py-8 text-muted-foreground">
+                              No results available for this term
                             </div>
                           )}
                         </AccordionContent>
