@@ -410,13 +410,27 @@ async function generateStudentReportData(
 
   // Get points configuration for final exams
   const isFinalExam = exam.examType === "FINAL" || exam.isFinal === true
+  
+  // Default points configuration if none exists in database
+  const defaultPointsConfig = [
+    { minPercentage: 75, maxPercentage: 100, points: 1 },
+    { minPercentage: 65, maxPercentage: 74, points: 2 },
+    { minPercentage: 50, maxPercentage: 64, points: 3 },
+    { minPercentage: 40, maxPercentage: 49, points: 4 },
+    { minPercentage: 30, maxPercentage: 39, points: 5 },
+    { minPercentage: 1, maxPercentage: 29, points: 6 },
+    { minPercentage: 0, maxPercentage: 0, points: 7 },
+  ]
+  
   let pointsConfig: Array<{ minPercentage: number; maxPercentage: number; points: number }> = []
   
   if (isFinalExam) {
-    pointsConfig = await prisma.pointsConfig.findMany({
+    const dbConfig = await prisma.pointsConfig.findMany({
       where: { isActive: true },
       orderBy: { maxPercentage: "desc" },
     })
+    // Use database config if exists, otherwise use defaults
+    pointsConfig = dbConfig.length > 0 ? dbConfig : defaultPointsConfig
   }
 
   // Calculate totals
