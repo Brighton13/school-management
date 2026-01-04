@@ -60,14 +60,25 @@ interface Term {
   startDate: string
   endDate: string
   isCurrent: boolean
+}
 
+interface AcademicYear {
+  id: string
+  year: string
+  isCurrent: boolean
+  terms: Term[]
 }
 
 export default function StudentSubjectsPage() {
   const { data: session } = useSession()
   const [students, setStudents] = useState<Student[]>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [terms, setTerms] = useState<Term[]>([])
+  const [filteredTerms, setFilteredTerms] = useState<Term[]>([])
   const [selectedStudentId, setSelectedStudentId] = useState<string>("")
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>("")
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("")
+  const [selectedTermId, setSelectedTermId] = useState<string>("")
   const [selectedTerm, setSelectedTerm] = useState<string>("")
   const [availableSubjects, setAvailableSubjects] = useState<ClassSubject[]>([])
   const [selectedSubjects, setSelectedSubjects] = useState<StudentSubjectSelection[]>([])
@@ -83,6 +94,21 @@ export default function StudentSubjectsPage() {
       fetchData()
     }
   }, [session])
+
+  // Filter terms when academic year changes
+  useEffect(() => {
+    if (selectedAcademicYearId && terms.length > 0) {
+      const filtered = terms.filter(t => t.academicYear.id === selectedAcademicYearId)
+      setFilteredTerms(filtered)
+      // Reset term selection when academic year changes
+      if (filtered.length > 0 && !filtered.find(t => t.id === selectedTermId)) {
+        setSelectedTermId("")
+        setSelectedTerm("")
+      }
+    } else {
+      setFilteredTerms([])
+    }
+  }, [selectedAcademicYearId, terms])
 
   useEffect(() => {
     if (selectedStudentId && selectedAcademicYear && selectedTerm) {
@@ -104,12 +130,23 @@ export default function StudentSubjectsPage() {
         setStudents([currentStudent])
       }
 
-      // Get current term
-      const termsRes = await fetch("/api/terms")
+      // Get academic years and terms
+      const [academicYearsRes, termsRes] = await Promise.all([
+        fetch("/api/academic-years"),
+        fetch("/api/terms"),
+      ])
+      const academicYearsData = await academicYearsRes.json()
       const termsData = await termsRes.json()
+      
+      setAcademicYears(Array.isArray(academicYearsData) ? academicYearsData : [])
+      setTerms(Array.isArray(termsData) ? termsData : [])
+
+      // Find current term and set defaults
       const currentTerm = termsData.find((t: Term) => t.isCurrent)
       if (currentTerm) {
+        setSelectedAcademicYearId(currentTerm.academicYear.id)
         setSelectedAcademicYear(currentTerm.academicYear.year)
+        setSelectedTermId(currentTerm.id)
         setSelectedTerm(currentTerm.name)
       }
     } catch (error) {
@@ -121,15 +158,25 @@ export default function StudentSubjectsPage() {
 
   const fetchData = async () => {
     try {
-      const [studentsRes, termsRes] = await Promise.all([
+      const [studentsRes, academicYearsRes, termsRes] = await Promise.all([
         fetch("/api/students"),
+        fetch("/api/academic-years"),
         fetch("/api/terms"),
       ])
       setStudents(await studentsRes.json())
-      const terms = await termsRes.json()
-      const currentTerm = terms.find((t: Term) => t.isCurrent)
+      
+      const academicYearsData = await academicYearsRes.json()
+      const termsData = await termsRes.json()
+      
+      setAcademicYears(Array.isArray(academicYearsData) ? academicYearsData : [])
+      setTerms(Array.isArray(termsData) ? termsData : [])
+
+      // Find current term and set defaults
+      const currentTerm = termsData.find((t: Term) => t.isCurrent)
       if (currentTerm) {
+        setSelectedAcademicYearId(currentTerm.academicYear.id)
         setSelectedAcademicYear(currentTerm.academicYear.year)
+        setSelectedTermId(currentTerm.id)
         setSelectedTerm(currentTerm.name)
       }
     } catch (error) {
@@ -308,29 +355,48 @@ export default function StudentSubjectsPage() {
               <div className="space-y-2">
                 <Label htmlFor="academicYear">Academic Year</Label>
                 <Select
-                  value={selectedAcademicYear}
-                  onValueChange={setSelectedAcademicYear}
+                  value={selectedAcademicYearId}
+                  onValueChange={(value) => {
+                    const academicYear = academicYears.find(ay => ay.id === value)
+                    setSelectedAcademicYearId(value)
+                    setSelectedAcademicYear(academicYear?.year || "")
+                    // Reset term when academic year changes
+                    setSelectedTermId("")
+                    setSelectedTerm("")
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select academic year" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="2024-2025">2024-2025</SelectItem>
-                    <SelectItem value="2023-2024">2023-2024</SelectItem>
-                    <SelectItem value="2025-2026">2025-2026</SelectItem>
+                    {academicYears.map((ay) => (
+                      <SelectItem key={ay.id} value={ay.id}>
+                        {ay.year} {ay.isCurrent && "(Current)"}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="term">Term</Label>
-                <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                <Select 
+                  value={selectedTermId} 
+                  onValueChange={(value) => {
+                    const term = filteredTerms.find(t => t.id === value)
+                    setSelectedTermId(value)
+                    setSelectedTerm(term?.name || "")
+                  }}
+                  disabled={!selectedAcademicYearId}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select term" />
+                    <SelectValue placeholder={selectedAcademicYearId ? "Select term" : "Select academic year first"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="First Term">First Term</SelectItem>
-                    <SelectItem value="Second Term">Second Term</SelectItem>
-                    <SelectItem value="Third Term">Third Term</SelectItem>
+                    {filteredTerms.map((term) => (
+                      <SelectItem key={term.id} value={term.id}>
+                        {term.name} {term.isCurrent && "(Current)"}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
