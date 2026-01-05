@@ -85,7 +85,7 @@ interface Exam {
 }
 
 export default function ResultsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [results, setResults] = useState<Result[]>([])
   const [students, setStudents] = useState<Student[]>([])
   const [terms, setTerms] = useState<Term[]>([])
@@ -218,12 +218,24 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
-    // Only fetch data if not a student
-    if (session?.user.role !== "STUDENT") {
+    // Only fetch data if not a student and session is loaded
+    if (status === "authenticated" && session?.user.role !== "STUDENT") {
       fetchData()
     }
-  }, [session])
+  }, [session, status])
   
+  // Show loading while session is being fetched
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   // If user is a student, show the student-specific results view
   if (session?.user.role === "STUDENT") {
     return <StudentResultsView />

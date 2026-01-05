@@ -269,7 +269,7 @@ export function StudentDashboard() {
                 <p className="text-sm text-muted-foreground">Check your academic performance</p>
               </div>
             </a>
-            <a
+            {/* <a
               href="/dashboard/attendance"
               className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
             >
@@ -278,7 +278,7 @@ export function StudentDashboard() {
                 <h3 className="font-medium">Attendance</h3>
                 <p className="text-sm text-muted-foreground">View attendance records</p>
               </div>
-            </a>
+            </a> */}
             <a
               href="/dashboard/fees"
               className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted transition-colors"
