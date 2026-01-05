@@ -58,11 +58,17 @@ export default function StudentsPage() {
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [teacherSections, setTeacherSections] = useState<Array<{ id: string; name: string; class: { name: string } }>>([])
+  const [downloadSectionId, setDownloadSectionId] = useState<string>("")
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
   useEffect(() => {
     fetchStudents()
     fetchClasses()
-  }, [])
+    if (session?.user?.role === "TEACHER") {
+      fetchTeacherSections()
+    }
+  }, [session])
 
   const fetchStudents = async () => {
     try {
@@ -86,7 +92,19 @@ export default function StudentsPage() {
       const res = await fetch("/api/classes")
       const data = await res.json()
       setClasses(data)
+   
+
+  const fetchTeacherSections = async () => {
+    try {
+      const res = await fetch("/api/teacher-sections")
+      if (res.ok) {
+        const data = await res.json()
+        setTeacherSections(data)
+      }
     } catch (error) {
+      console.error("Failed to fetch teacher sections:", error)
+    }
+  } } catch (error) {
       console.error("Failed to fetch classes:", error)
     }
   }
@@ -176,25 +194,14 @@ export default function StudentsPage() {
   const handleDelete = async (studentId: string) => {
     if (!confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
       return
-    }
-
-    try {
-      const res = await fetch(`/api/students/${studentId}`, {
-        method: "DELETE",
-      })
-
-      if (res.ok) {
-        fetchStudents()
-      }
-    } catch (error) {
-      console.error("Failed to delete student:", error)
-    }
-  }
-
-  const handleDownloadClassStudents = async () => {
+    }sectionId?: string) => {
     setDownloading(true)
     try {
-      const res = await fetch("/api/class-students/download")
+      const url = sectionId 
+        ? `/api/class-students/download?sectionId=${sectionId}`
+        : "/api/class-students/download"
+      
+      const res = await fetch(url)
       
       if (!res.ok) {
         const error = await res.json()
@@ -206,15 +213,45 @@ export default function StudentsPage() {
       const blob = await res.blob()
       
       // Create a download link
-      const url = window.URL.createObjectURL(blob)
+      const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
-      a.href = url
+      a.href = downloadUrl
       
       // Get filename from Content-Disposition header if available
       const contentDisposition = res.headers.get("Content-Disposition")
       let filename = "class_students.csv"
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename=(.+)/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(downloadUrl)
+      
+      setShowDownloadDialog(false)
+      setDownloadSectionId("")
+    } catch (error) {
+      console.error("Failed to download class students:", error)
+      alert("Failed to download student list")
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleOpenDownloadDialog = () => {
+    if (teacherSections.length === 1) {
+      // If only one section, download directly
+      handleDownloadClassStudents(teacherSections[0].id)
+    } else if (teacherSections.length > 1) {
+      // If multiple sections, show dialog to choose
+      setShowDownloadDialog(true)
+    } else {
+      alert("You are not assigned as a class teacher to any section"h = contentDisposition.match(/filename=(.+)/)
         if (filenameMatch) {
           filename = filenameMatch[1]
         }
@@ -294,7 +331,7 @@ export default function StudentsPage() {
           {session?.user?.role === "TEACHER" && (
             <Button 
               variant="outline" 
-              onClick={handleDownloadClassStudents}
+              onClick={handleOpenDownloadDialog}
               disabled={downloading}
             >
               <Download className="mr-2 h-4 w-4" />
@@ -679,6 +716,55 @@ export default function StudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Download Section Dialog */}
+      <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Download Class Students</DialogTitle>
+            <DialogDescription>
+              Select a section to download the student list
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="download-section">Section</Label>
+              <Select 
+                value={downloadSectionId} 
+                onValueChange={setDownloadSectionId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a section" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All My Sections</SelectItem>
+                  {teacherSections.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.class.name} - {section.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDownloadDialog(false)}
+              disabled={downloading}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => handleDownloadClassStudents(downloadSectionId === "all" ? undefined : downloadSectionId)}
+              disabled={!downloadSectionId || downloading}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {downloading ? "Downloading..." : "Download"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

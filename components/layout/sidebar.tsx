@@ -48,6 +48,7 @@ const menuItems = [
   { name: "Teacher Assignments", href: "/dashboard/teacher-assignments", icon: UserCog, roles: ["ADMIN"] },
   { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN"] },
   // Teacher results entry (subject teachers)
+  { name: "My Students", href: "/dashboard/students", icon: Users, roles: ["TEACHER"] },
   { name: "Enter Results", href: "/dashboard/results", icon: BarChart3, roles: ["TEACHER"] },
   // Class teacher dashboard
   { name: "Class Results", href: "/dashboard/class-results", icon: BarChart3, roles: ["TEACHER"] },
