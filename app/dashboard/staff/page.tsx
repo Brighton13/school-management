@@ -72,6 +72,7 @@ export default function StaffPage() {
         email: staffEmail,
         name: formData.get("name"),
         phone: formData.get("phone"),
+        role: formData.get("role"),
         designation: formData.get("designation"),
         department: formData.get("department"),
         qualification: formData.get("qualification"),
@@ -272,21 +273,38 @@ export default function StaffPage() {
                     <span>A verification email will be sent to the staff member to set their password.</span>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="designation">Designation</Label>
-                  <Select name="designation" required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select designation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TEACHER">Teacher</SelectItem>
-                      <SelectItem value="PRINCIPAL">Principal</SelectItem>
-                      <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
-                      <SelectItem value="LIBRARIAN">Librarian</SelectItem>
-                      <SelectItem value="ADMIN">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Employee ID will be auto-generated based on designation</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select name="role" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TEACHER">Teacher</SelectItem>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                        <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                        <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="designation">Designation</Label>
+                    <Select name="designation" required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select designation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TEACHER">Teacher</SelectItem>
+                        <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                        <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                        <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Employee ID will be auto-generated based on designation</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -377,20 +395,35 @@ export default function StaffPage() {
                     <Input id="edit-employeeId" name="employeeId" defaultValue={editingStaff.employeeId} readOnly className="bg-muted" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="edit-designation">Designation</Label>
-                    <Select name="designation" defaultValue={editingStaff.designation} required>
+                    <Label htmlFor="edit-role">Role</Label>
+                    <Select name="role" defaultValue={(editingStaff as any).user?.role || "TEACHER"} required>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="TEACHER">Teacher</SelectItem>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
                         <SelectItem value="PRINCIPAL">Principal</SelectItem>
                         <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
                         <SelectItem value="LIBRARIAN">Librarian</SelectItem>
-                        <SelectItem value="ADMIN">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-designation">Designation</Label>
+                  <Select name="designation" defaultValue={editingStaff.designation} required>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="TEACHER">Teacher</SelectItem>
+                      <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                      <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                      <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

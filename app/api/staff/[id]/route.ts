@@ -52,6 +52,7 @@ export async function PUT(
       password,
       name,
       phone,
+      role: roleName,
       employeeId,
       designation,
       department,
@@ -85,12 +86,10 @@ export async function PUT(
       updateData.password = await bcrypt.hash(password, 10)
     }
 
-    // Only update role if designation is changing
+    // Only update role if provided and different from current role
     let newRoleName: string | null = null
-    if (designation && designation !== staff.designation) {
-      newRoleName = designation === "PRINCIPAL" ? "PRINCIPAL" :
-                    designation === "ACCOUNTANT" ? "ACCOUNTANT" :
-                    designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER"
+    if (roleName && roleName !== staff.user.role) {
+      newRoleName = roleName
       updateData.role = newRoleName
     }
 

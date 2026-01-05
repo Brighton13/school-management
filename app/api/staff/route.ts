@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       email,
       name,
       phone,
+      role: roleName,
       designation,
       department,
       qualification,
@@ -50,6 +51,14 @@ export async function POST(request: NextRequest) {
       address,
     } = body
 
+    // Validate that role is provided
+    if (!roleName) {
+      return NextResponse.json(
+        { error: "Role is required" },
+        { status: 400 }
+      )
+    }
+
     // Auto-generate employee ID based on designation
     const employeeId = await generateEmployeeId(designation)
 
@@ -57,11 +66,6 @@ export async function POST(request: NextRequest) {
     // Staff will set their own password via the email verification link
     const placeholderPassword = crypto.randomBytes(32).toString("hex")
     const hashedPassword = await bcrypt.hash(placeholderPassword, 10)
-
-    // Determine the role based on designation
-    const roleName = designation === "PRINCIPAL" ? "PRINCIPAL" : 
-                     designation === "ACCOUNTANT" ? "ACCOUNTANT" :
-                     designation === "LIBRARIAN" ? "LIBRARIAN" : "TEACHER"
 
     // Find the role in the database
     const role = await prisma.role.findUnique({
