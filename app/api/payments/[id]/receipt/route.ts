@@ -16,31 +16,67 @@ export async function GET(
     }
 
     const { id } = await params
+    
+    console.log("Fetching payment with ID:", id)
 
-    const payment = await (prisma as any).payment.findUnique({
-      where: { id },
-      include: {
-        student: {
-          include: {
-            user: true,
-            class: true,
-            section: true,
-          },
+    const payment = await prisma.$queryRaw`
+      SELECT p.*, 
+             s.id as "studentId", s."admissionNumber",
+             u.name as "studentName", u.email as "studentEmail",
+             c.name as "className",
+             sec.name as "sectionName",
+             f.id as "feeId", f."feeType", f.amount as "feeAmount", f."paidAmount" as "feePaidAmount",
+             t.name as "termName",
+             ay.year as "academicYear",
+             ru.name as "receiverName"
+      FROM "Payment" p
+      LEFT JOIN "Student" s ON p."studentId" = s.id
+      LEFT JOIN "User" u ON s."userId" = u.id
+      LEFT JOIN "Class" c ON s."classId" = c.id
+      LEFT JOIN "Section" sec ON s."sectionId" = sec.id
+      LEFT JOIN "Fee" f ON p."feeId" = f.id
+      LEFT JOIN "Term" t ON f."termId" = t.id
+      LEFT JOIN "AcademicYear" ay ON f."academicYearId" = ay.id
+      LEFT JOIN "User" ru ON p."receivedBy" = ru.id
+      WHERE p.id = ${id}
+      LIMIT 1
+    ` as any[]
+    
+    console.log("Payment query result:", payment)
+
+    if (!payment || payment.length === 0) {
+      return NextResponse.json({ error: "Payment not found", id }, { status: 404 })
+    }
+    
+    const paymentRow = payment[0]
+    
+    // Transform to expected format
+    const paymentData = {
+      id: paymentRow.id,
+      amount: paymentRow.amount,
+      paymentMethod: paymentRow.paymentMethod,
+      transactionId: paymentRow.transactionId,
+      receiptNumber: paymentRow.receiptNumber,
+      remarks: paymentRow.remarks,
+      createdAt: paymentRow.createdAt,
+      studentId: paymentRow.studentId,
+      student: {
+        user: { 
+          name: paymentRow.studentName,
+          email: paymentRow.studentEmail,
         },
-        fee: {
-          include: {
-            term: true,
-            academicYear: true,
-          },
-        },
-        receiver: {
-          select: { id: true, name: true },
-        },
+        admissionNumber: paymentRow.admissionNumber,
+        class: paymentRow.className ? { name: paymentRow.className } : null,
+        section: paymentRow.sectionName ? { name: paymentRow.sectionName } : null,
       },
-    })
-
-    if (!payment) {
-      return NextResponse.json({ error: "Payment not found" }, { status: 404 })
+      fee: {
+        feeType: paymentRow.feeType,
+        amount: paymentRow.feeAmount,
+        paidAmount: paymentRow.feePaidAmount,
+        term: { name: paymentRow.termName },
+        academicYear: { year: paymentRow.academicYear },
+      },
+      receiver: paymentRow.receiverName ? { name: paymentRow.receiverName } : null,
     }
 
     // Check access - students/parents can only see their own
@@ -48,7 +84,7 @@ export async function GET(
       const student = await prisma.student.findUnique({
         where: { userId: session.user.id },
       })
-      if (!student || student.id !== payment.studentId) {
+      if (!student || student.id !== paymentData.studentId) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 })
       }
     }
@@ -58,7 +94,7 @@ export async function GET(
         where: { userId: session.user.id },
         include: { students: { select: { id: true } } },
       })
-      if (!parent || !parent.students.some(s => s.id === payment.studentId)) {
+      if (!parent || !parent.students.some(s => s.id === paymentData.studentId)) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 })
       }
     }
@@ -68,13 +104,14 @@ export async function GET(
     const schoolName = schoolConfig?.schoolName || "School Management System"
 
     return NextResponse.json({
-      payment,
+      payment: paymentData,
       schoolName,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching payment:", error)
+    console.error("Error details:", error.message, error.stack)
     return NextResponse.json(
-      { error: "Failed to fetch payment details" },
+      { error: "Failed to fetch payment details", details: error.message },
       { status: 500 }
     )
   }
@@ -95,30 +132,61 @@ export async function POST(
     const body = await request.json()
     const { email } = body
 
-    const payment = await (prisma as any).payment.findUnique({
-      where: { id },
-      include: {
-        student: {
-          include: {
-            user: true,
-            class: true,
-            section: true,
-          },
-        },
-        fee: {
-          include: {
-            term: true,
-            academicYear: true,
-          },
-        },
-        receiver: {
-          select: { id: true, name: true },
-        },
-      },
-    })
+    const paymentResult = await prisma.$queryRaw`
+      SELECT p.*, 
+             s.id as "studentId", s."admissionNumber",
+             u.name as "studentName", u.email as "studentEmail",
+             c.name as "className",
+             sec.name as "sectionName",
+             f.id as "feeId", f."feeType", f.amount as "feeAmount", f."paidAmount" as "feePaidAmount",
+             t.name as "termName",
+             ay.year as "academicYear",
+             ru.name as "receiverName"
+      FROM "Payment" p
+      LEFT JOIN "Student" s ON p."studentId" = s.id
+      LEFT JOIN "User" u ON s."userId" = u.id
+      LEFT JOIN "Class" c ON s."classId" = c.id
+      LEFT JOIN "Section" sec ON s."sectionId" = sec.id
+      LEFT JOIN "Fee" f ON p."feeId" = f.id
+      LEFT JOIN "Term" t ON f."termId" = t.id
+      LEFT JOIN "AcademicYear" ay ON f."academicYearId" = ay.id
+      LEFT JOIN "User" ru ON p."receivedBy" = ru.id
+      WHERE p.id = ${id}
+      LIMIT 1
+    ` as any[]
 
-    if (!payment) {
+    if (!paymentResult || paymentResult.length === 0) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 })
+    }
+
+    const paymentRow = paymentResult[0]
+    
+    // Transform to expected format
+    const payment = {
+      id: paymentRow.id,
+      amount: paymentRow.amount,
+      paymentMethod: paymentRow.paymentMethod,
+      transactionId: paymentRow.transactionId,
+      receiptNumber: paymentRow.receiptNumber,
+      remarks: paymentRow.remarks,
+      createdAt: paymentRow.createdAt,
+      student: {
+        user: { 
+          name: paymentRow.studentName,
+          email: paymentRow.studentEmail,
+        },
+        admissionNumber: paymentRow.admissionNumber,
+        class: paymentRow.className ? { name: paymentRow.className } : null,
+        section: paymentRow.sectionName ? { name: paymentRow.sectionName } : null,
+      },
+      fee: {
+        feeType: paymentRow.feeType,
+        amount: paymentRow.feeAmount,
+        paidAmount: paymentRow.feePaidAmount,
+        term: { name: paymentRow.termName },
+        academicYear: { year: paymentRow.academicYear },
+      },
+      receiver: paymentRow.receiverName ? { name: paymentRow.receiverName } : null,
     }
 
     // Get school config

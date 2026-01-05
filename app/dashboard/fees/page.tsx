@@ -248,9 +248,18 @@ export default function FeesPage() {
   const handlePrintReceipt = async (payment: Payment) => {
     try {
       const res = await fetch(`/api/payments/${payment.id}/receipt`)
-      if (!res.ok) throw new Error("Failed to fetch receipt data")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        console.error("Receipt fetch error:", res.status, errorData)
+        throw new Error(errorData.error || `Failed to fetch receipt data (${res.status})`)
+      }
       
-      const { payment: paymentData, schoolName } = await res.json()
+      const data = await res.json()
+      const { payment: paymentData, schoolName } = data
+      
+      if (!paymentData) {
+        throw new Error("No payment data returned")
+      }
       
       // Open print window
       const printWindow = window.open('', '_blank')
