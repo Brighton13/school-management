@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Search, Upload, Edit, Trash2, CheckCircle, Clock, XCircle } from "lucide-react"
+import { Plus, Search, Upload, Edit, Trash2, CheckCircle, Clock, XCircle, Download } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
@@ -44,6 +45,7 @@ interface Student {
 }
 
 export default function StudentsPage() {
+  const { data: session } = useSession()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -55,6 +57,7 @@ export default function StudentsPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     fetchStudents()
@@ -188,6 +191,48 @@ export default function StudentsPage() {
     }
   }
 
+  const handleDownloadClassStudents = async () => {
+    setDownloading(true)
+    try {
+      const res = await fetch("/api/class-students/download")
+      
+      if (!res.ok) {
+        const error = await res.json()
+        alert(error.error || "Failed to download student list")
+        return
+      }
+
+      // Get the blob from response
+      const blob = await res.blob()
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      
+      // Get filename from Content-Disposition header if available
+      const contentDisposition = res.headers.get("Content-Disposition")
+      let filename = "class_students.csv"
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename=(.+)/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+      
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to download class students:", error)
+      alert("Failed to download student list")
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const filteredStudents = students.filter(
     (student) =>
       student.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -246,6 +291,16 @@ export default function StudentsPage() {
           <p className="text-muted-foreground">Manage student records</p>
         </div>
         <div className="flex gap-2">
+          {session?.user?.role === "TEACHER" && (
+            <Button 
+              variant="outline" 
+              onClick={handleDownloadClassStudents}
+              disabled={downloading}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {downloading ? "Downloading..." : "Download My Class Students"}
+            </Button>
+          )}
           <Link href="/dashboard/bulk-upload">
             <Button variant="outline">
               <Upload className="mr-2 h-4 w-4" />
