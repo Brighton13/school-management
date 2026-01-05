@@ -5,6 +5,37 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
 
+// Default points configuration (fallback if no config in DB)
+const defaultPointsConfig = [
+  { minPercentage: 75, maxPercentage: 100, points: 1 },
+  { minPercentage: 65, maxPercentage: 74.99, points: 2 },
+  { minPercentage: 50, maxPercentage: 64.99, points: 3 },
+  { minPercentage: 40, maxPercentage: 49.99, points: 4 },
+  { minPercentage: 30, maxPercentage: 39.99, points: 5 },
+  { minPercentage: 1, maxPercentage: 29.99, points: 6 },
+  { minPercentage: 0, maxPercentage: 0.99, points: 7 },
+]
+
+// Helper function to calculate points based on percentage
+async function calculatePoints(marksObtained: number, maxMarks: number): Promise<number> {
+  if (maxMarks <= 0) return 7
+  const percentage = Math.round((marksObtained / maxMarks) * 100)
+  
+  // Try to get points config from database
+  const pointsConfig = await prisma.pointsConfig.findMany({
+    where: { isActive: true },
+    orderBy: { minPercentage: 'desc' },
+  })
+  
+  const config = pointsConfig.length > 0 ? pointsConfig : defaultPointsConfig
+  
+  const matchingConfig = config.find(
+    (pc) => percentage >= pc.minPercentage && percentage <= pc.maxPercentage
+  )
+  
+  return matchingConfig?.points || 7
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -118,6 +149,9 @@ export async function PUT(
       grade,
       remarks,
     }
+    
+    // Recalculate points based on new marks
+    updateData.points = await calculatePoints(parseFloat(marksObtained), parseFloat(maxMarks))
     
     if (examType) {
       updateData.examType = examType

@@ -444,6 +444,7 @@ model Result {
   marksObtained  Float
   maxMarks       Float
   grade          String?
+  points         Int?      // Points based on percentage at time of result creation
   remarks        String?
   status         String    @default("DRAFT") // DRAFT, PENDING_CLASS_TEACHER, PENDING_APPROVAL, APPROVED, REJECTED, PUBLISHED
   submittedBy    String? // User ID who submitted

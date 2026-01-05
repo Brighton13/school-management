@@ -151,8 +151,13 @@ export function StudentResultsView() {
     fetchData()
   }, [])
 
-  // Get points for a percentage
-  const getPoints = (percentage: number): number => {
+  // Get points for a result - use stored points if available, otherwise calculate
+  const getPoints = (percentage: number, storedPoints?: number | null): number => {
+    // Use stored points if available (preserves historical points configuration)
+    if (storedPoints !== undefined && storedPoints !== null) {
+      return storedPoints
+    }
+    // Fallback to calculation for old results without stored points
     const rounded = Math.round(percentage)
     const config = pointsConfig.find(
       (pc) => rounded >= pc.minPercentage && rounded <= pc.maxPercentage
@@ -313,7 +318,7 @@ export function StudentResultsView() {
   const totalMarks = filteredResults.reduce((sum, r) => sum + r.marksObtained, 0)
   const maxMarks = filteredResults.reduce((sum, r) => sum + r.maxMarks, 0)
   const overallPercentage = maxMarks > 0 ? (totalMarks / maxMarks) * 100 : 0
-  const totalPoints = filteredResults.reduce((sum, r) => sum + getPoints(r.percentage), 0)
+  const totalPoints = filteredResults.reduce((sum, r) => sum + getPoints(r.percentage, r.points), 0)
 
   // Calculate position (mock - would need API support for real position)
   const getGrade = (percentage: number): string => {
@@ -511,7 +516,7 @@ export function StudentResultsView() {
                   </TableHeader>
                   <TableBody>
                     {filteredResults.map((result, index) => {
-                      const points = getPoints(result.percentage)
+                      const points = getPoints(result.percentage, result.points)
                       const remark = result.percentage >= 75 ? "Excellent" :
                                      result.percentage >= 65 ? "Very Good" :
                                      result.percentage >= 50 ? "Good" :

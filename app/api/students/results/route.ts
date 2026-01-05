@@ -192,6 +192,7 @@ export async function GET(request: NextRequest) {
         maxMarks: result.maxMarks,
         percentage,
         grade: result.grade,
+        points: result.points, // Include stored points
         submittedAt: result.submittedAt?.toISOString() || null,
         approvedAt: result.approvedAt?.toISOString() || null,
       }
