@@ -144,7 +144,16 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-      }, - current academic year
+      },
+    })
+
+    const classMap = new Map(classDetails.map((c) => [c.id, c.name]))
+    const studentsByClassName = studentsByClass.map((s) => ({
+      className: classMap.get(s.classId) || "Unknown",
+      count: s._count.classId,
+    }))
+
+    // Fee Collection by Type - current academic year
     const feesByType = currentAcademicYear
       ? await prisma.fee.groupBy({
           by: ["feeType"],
@@ -181,16 +190,7 @@ export async function GET(request: NextRequest) {
           select: {
             enrolledAt: true,
           },
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
-    const enrollments = await prisma.classEnrollment.findMany({
-      where: {
-        enrolledAt: { gte: sixMonthsAgo },
-      },
-      select: {
-        enrolledAt: true,
-      },
-    })
+        })
 
     const enrollmentByMonth = new Map<string, number>()
     enrollments.forEach((enrollment) => {

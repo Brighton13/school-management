@@ -92,7 +92,10 @@ export default function StudentsPage() {
       const res = await fetch("/api/classes")
       const data = await res.json()
       setClasses(data)
-   
+    } catch (error) {
+      console.error("Failed to fetch classes:", error)
+    }
+  }
 
   const fetchTeacherSections = async () => {
     try {
@@ -103,9 +106,6 @@ export default function StudentsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch teacher sections:", error)
-    }
-  } } catch (error) {
-      console.error("Failed to fetch classes:", error)
     }
   }
 
@@ -194,7 +194,22 @@ export default function StudentsPage() {
   const handleDelete = async (studentId: string) => {
     if (!confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
       return
-    }sectionId?: string) => {
+    }
+
+    try {
+      const res = await fetch(`/api/students/${studentId}`, {
+        method: "DELETE",
+      })
+
+      if (res.ok) {
+        fetchStudents()
+      }
+    } catch (error) {
+      console.error("Failed to delete student:", error)
+    }
+  }
+
+  const handleDownloadClassStudents = async (sectionId?: string) => {
     setDownloading(true)
     try {
       const url = sectionId 
@@ -251,22 +266,7 @@ export default function StudentsPage() {
       // If multiple sections, show dialog to choose
       setShowDownloadDialog(true)
     } else {
-      alert("You are not assigned as a class teacher to any section"h = contentDisposition.match(/filename=(.+)/)
-        if (filenameMatch) {
-          filename = filenameMatch[1]
-        }
-      }
-      
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error("Failed to download class students:", error)
-      alert("Failed to download student list")
-    } finally {
-      setDownloading(false)
+      alert("You are not assigned as a class teacher to any section")
     }
   }
 

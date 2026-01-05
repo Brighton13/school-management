@@ -106,7 +106,10 @@ export async function GET(request: NextRequest) {
         })
       : await prisma.fee.groupBy({
           by: ["status"],
-          _count: { status: true }, - current academic year
+          _count: { status: true },
+          _sum: { amount: true, paidAmount: true },
+        })
+
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
@@ -127,16 +130,7 @@ export async function GET(request: NextRequest) {
             date: { gte: thirtyDaysAgo },
           },
           _count: { status: true },
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-    const attendanceStats = await prisma.attendance.groupBy({
-      by: ["status"],
-      where: {
-        studentId: { not: null },
-        date: { gte: thirtyDaysAgo },
-      },
-      _count: { status: true },
-    })
+        })
 
     const totalAttendanceRecords = attendanceStats.reduce(
       (sum, a) => sum + a._count.status,
@@ -222,7 +216,26 @@ export async function GET(request: NextRequest) {
       const month = new Date(result.createdAt).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
-      }) - current academic year
+      })
+      const percentage = (result.marksObtained / result.maxMarks) * 100
+
+      if (!monthlyPerformance.has(month)) {
+        monthlyPerformance.set(month, { sum: 0, count: 0 })
+      }
+
+      const stats = monthlyPerformance.get(month)!
+      stats.sum += percentage
+      stats.count += 1
+    })
+
+    const performanceTrend = Array.from(monthlyPerformance.entries())
+      .map(([month, stats]) => ({
+        month,
+        averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
+      }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+
+    // Attendance Trends (Last 6 months) - current academic year
     const monthlyAttendance = currentAcademicYear
       ? await prisma.attendance.findMany({
           where: {
@@ -246,25 +259,6 @@ export async function GET(request: NextRequest) {
           },
         })
 
-    const performanceTrend = Array.from(monthlyPerformance.entries())
-      .map(([month, stats]) => ({
-        month,
-        averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
-      }))
-      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
-
-    // Attendance Trends (Last 6 months)
-    const monthlyAttendance = await prisma.attendance.findMany({
-      where: {
-        studentId: { not: null },
-        date: { gte: sixMonthsAgo },
-      },
-      select: {
-        status: true,
-        date: true,
-      },
-    })
-
     const attendanceByMonth = new Map<
       string,
       { present: number; absent: number; late: number; total: number }
@@ -275,7 +269,29 @@ export async function GET(request: NextRequest) {
         year: "numeric",
         month: "short",
       })
- - current academic year
+
+      if (!attendanceByMonth.has(month)) {
+        attendanceByMonth.set(month, { present: 0, absent: 0, late: 0, total: 0 })
+      }
+
+      const stats = attendanceByMonth.get(month)!
+      stats.total += 1
+      if (attendance.status === "PRESENT") stats.present += 1
+      if (attendance.status === "ABSENT") stats.absent += 1
+      if (attendance.status === "LATE") stats.late += 1
+    })
+
+    const attendanceTrend = Array.from(attendanceByMonth.entries())
+      .map(([month, stats]) => ({
+        month,
+        present: stats.present,
+        absent: stats.absent,
+        late: stats.late,
+        rate: stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : "0",
+      }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+
+    // Fee Collection Trends - current academic year
     const monthlyFees = currentAcademicYear
       ? await prisma.fee.findMany({
           where: {
@@ -299,29 +315,7 @@ export async function GET(request: NextRequest) {
             status: true,
             createdAt: true,
           },
-    
-    const attendanceTrend = Array.from(attendanceByMonth.entries())
-      .map(([month, stats]) => ({
-        month,
-        present: stats.present,
-        absent: stats.absent,
-        late: stats.late,
-        rate: stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : "0",
-      }))
-      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
-
-    // Fee Collection Trends
-    const monthlyFees = await prisma.fee.findMany({
-      where: {
-        createdAt: { gte: sixMonthsAgo },
-      },
-      select: {
-        amount: true,
-        paidAmount: true,
-        status: true,
-        createdAt: true,
-      },
-    })
+        })
 
     const feeCollectionByMonth = new Map<
       string,
@@ -364,6 +358,11 @@ export async function GET(request: NextRequest) {
       },
       _count: { qualification: true },
     })
+
+    const totalFeeAmount = feeStats.reduce((sum, f) => sum + (f._sum.amount || 0), 0)
+    const totalPaidAmount = feeStats.reduce((sum, f) => sum + (f._sum.paidAmount || 0), 0)
+    const pendingFees = feeStats.find((f) => f.status === "PENDING")?._count.status || 0
+    const overdueFees = feeStats.find((f) => f.status === "OVERDUE")?._count.status || 0
 
     const staffQualificationData = staffByQualification.map((s) => ({
       qualification: s.qualification || "Not Specified",
@@ -408,12 +407,6 @@ export async function GET(request: NextRequest) {
           subjectName: stats.name,
           averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
           studentCount: stats.count,
-        currentAcademicYear: currentAcademicYear ? {
-          id: currentAcademicYear.id,
-          year: currentAcademicYear.year,
-          startDate: currentAcademicYear.startDate,
-          endDate: currentAcademicYear.endDate,
-        } : null,
         }))
         .sort((a, b) => parseFloat(b.averageScore) - parseFloat(a.averageScore))
         .slice(0, 10) // Top 10
@@ -449,6 +442,12 @@ export async function GET(request: NextRequest) {
         activeStaff,
         totalClasses,
         totalSections,
+        currentAcademicYear: currentAcademicYear ? {
+          id: currentAcademicYear.id,
+          year: currentAcademicYear.year,
+          startDate: currentAcademicYear.startDate,
+          endDate: currentAcademicYear.endDate,
+        } : null,
       },
       genderDistribution: {
         students: studentGenderStats.map((s) => ({
