@@ -32,8 +32,9 @@ export async function GET(
       FROM "Payment" p
       LEFT JOIN "Student" s ON p."studentId" = s.id
       LEFT JOIN "User" u ON s."userId" = u.id
-      LEFT JOIN "Class" c ON s."classId" = c.id
-      LEFT JOIN "Section" sec ON s."sectionId" = sec.id
+      LEFT JOIN "ClassEnrollment" ce ON s.id = ce."studentId" AND ce.status = 'ACTIVE'
+      LEFT JOIN "Class" c ON ce."classId" = c.id
+      LEFT JOIN "Section" sec ON ce."sectionId" = sec.id
       LEFT JOIN "Fee" f ON p."feeId" = f.id
       LEFT JOIN "Term" t ON f."termId" = t.id
       LEFT JOIN "AcademicYear" ay ON f."academicYearId" = ay.id
@@ -145,8 +146,9 @@ export async function POST(
       FROM "Payment" p
       LEFT JOIN "Student" s ON p."studentId" = s.id
       LEFT JOIN "User" u ON s."userId" = u.id
-      LEFT JOIN "Class" c ON s."classId" = c.id
-      LEFT JOIN "Section" sec ON s."sectionId" = sec.id
+      LEFT JOIN "ClassEnrollment" ce ON s.id = ce."studentId" AND ce.status = 'ACTIVE'
+      LEFT JOIN "Class" c ON ce."classId" = c.id
+      LEFT JOIN "Section" sec ON ce."sectionId" = sec.id
       LEFT JOIN "Fee" f ON p."feeId" = f.id
       LEFT JOIN "Term" t ON f."termId" = t.id
       LEFT JOIN "AcademicYear" ay ON f."academicYearId" = ay.id
