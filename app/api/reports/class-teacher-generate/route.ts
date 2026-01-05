@@ -408,7 +408,7 @@ async function generateStudentReportData(
 
   if (!allCoreSubjectsHaveResults) return null
 
-  // Get points configuration for final exams
+  // Get points configuration - show points for ALL exams (not just final)
   const isFinalExam = exam.examType === "FINAL" || exam.isFinal === true
   
   // Default points configuration if none exists in database
@@ -422,16 +422,13 @@ async function generateStudentReportData(
     { minPercentage: 0, maxPercentage: 0, points: 7 },
   ]
   
-  let pointsConfig: Array<{ minPercentage: number; maxPercentage: number; points: number }> = []
-  
-  if (isFinalExam) {
-    const dbConfig = await prisma.pointsConfig.findMany({
-      where: { isActive: true },
-      orderBy: { maxPercentage: "desc" },
-    })
-    // Use database config if exists, otherwise use defaults
-    pointsConfig = dbConfig.length > 0 ? dbConfig : defaultPointsConfig
-  }
+  // Always load points configuration for all exams
+  const dbConfig = await prisma.pointsConfig.findMany({
+    where: { isActive: true },
+    orderBy: { maxPercentage: "desc" },
+  })
+  // Use database config if exists, otherwise use defaults
+  const pointsConfig = dbConfig.length > 0 ? dbConfig : defaultPointsConfig
 
   // Calculate totals
   let totalMarks = 0
@@ -443,9 +440,9 @@ async function generateStudentReportData(
     totalMarks += r.marksObtained
     maxTotalMarks += r.maxMarks
 
-    // Calculate points for this subject if final exam
+    // Calculate points for this subject (for all exams)
     let subjectPoints: number | undefined
-    if (isFinalExam && pointsConfig.length > 0) {
+    if (pointsConfig.length > 0) {
       const matchingConfig = pointsConfig.find(
         pc => percentage >= pc.minPercentage && percentage <= pc.maxPercentage
       )
@@ -506,7 +503,7 @@ async function generateStudentReportData(
     results: reportResults,
     totalMarks,
     maxTotalMarks,
-    totalPoints: isFinalExam ? totalPoints : undefined,
+    totalPoints, // Always include total points
     position,
     classSize: sortedTotals.length,
     nextTermDate: nextTerm ? formatDate(nextTerm.startDate) : "TBA",
@@ -641,8 +638,8 @@ async function generatePdfReport(data: ReportData): Promise<string> {
   doc.text(data.nextTermDate, rightCol + 30, infoY + 8)
   doc.text(String(data.position), rightCol + 30, infoY + 16)
 
-  // Show total points for final exams
-  if (data.exam.isFinal && data.totalPoints !== undefined) {
+  // Show total points for all exams
+  if (data.totalPoints !== undefined && data.totalPoints > 0) {
     doc.setFont("helvetica", "bold")
     doc.text("TOTAL POINTS:", margin, infoY + 24)
     doc.setFont("helvetica", "normal")
@@ -650,8 +647,8 @@ async function generatePdfReport(data: ReportData): Promise<string> {
   }
 
   // Results Table
-  const tableY = data.exam.isFinal ? 86 : 78
-  const hasPoints = data.exam.isFinal && data.results.some(r => r.points !== undefined)
+  const hasPoints = data.results.some(r => r.points !== undefined)
+  const tableY = hasPoints ? 86 : 78
   
   doc.setFillColor(0, 51, 102)
   doc.rect(margin, tableY, pageWidth - 2 * margin, 8, "F")
