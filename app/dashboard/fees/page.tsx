@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, DollarSign, Users, School, User, History, Receipt } from "lucide-react"
+import { Plus, Edit, DollarSign, Users, School, User, History, Receipt, Printer, Mail, Download } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 
@@ -87,7 +87,10 @@ export default function FeesPage() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false)
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [emailSending, setEmailSending] = useState(false)
   const [bulkTarget, setBulkTarget] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
 
@@ -241,6 +244,194 @@ export default function FeesPage() {
     }
   }
 
+  // Print receipt function
+  const handlePrintReceipt = async (payment: Payment) => {
+    try {
+      const res = await fetch(`/api/payments/${payment.id}/receipt`)
+      if (!res.ok) throw new Error("Failed to fetch receipt data")
+      
+      const { payment: paymentData, schoolName } = await res.json()
+      
+      // Open print window
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        alert("Please allow popups to print receipts")
+        return
+      }
+      
+      const totalPaid = paymentData.fee.paidAmount
+      const remainingBalance = paymentData.fee.amount - paymentData.fee.paidAmount
+      
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Receipt - ${payment.receiptNumber}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 20px; }
+              .no-print { display: none !important; }
+            }
+            body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; color: #333; }
+            .header { text-align: center; border-bottom: 3px double #4F46E5; padding-bottom: 20px; margin-bottom: 20px; }
+            .header h1 { color: #4F46E5; margin: 0; font-size: 28px; }
+            .header p { color: #666; margin: 5px 0; }
+            .receipt-title { background: #4F46E5; color: white; text-align: center; padding: 10px; margin: 20px 0; font-size: 18px; }
+            .receipt-number { text-align: center; font-size: 14px; color: #666; margin-bottom: 20px; }
+            .amount-box { background: #F0FDF4; border: 2px solid #10B981; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; }
+            .amount-box .label { color: #666; font-size: 12px; text-transform: uppercase; }
+            .amount-box .amount { font-size: 36px; font-weight: bold; color: #10B981; }
+            .section { margin: 20px 0; }
+            .section-title { font-weight: bold; color: #4F46E5; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; margin-bottom: 10px; }
+            .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #e5e7eb; }
+            .detail-row:last-child { border-bottom: none; }
+            .detail-label { color: #666; }
+            .detail-value { font-weight: 600; }
+            .summary-box { background: #EFF6FF; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            .summary-row { display: flex; justify-content: space-between; padding: 5px 0; }
+            .balance-due { color: ${remainingBalance > 0 ? '#EF4444' : '#10B981'}; font-weight: bold; font-size: 18px; }
+            .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #666; font-size: 12px; }
+            .signature-line { margin-top: 50px; display: flex; justify-content: space-between; }
+            .signature-box { width: 200px; text-align: center; }
+            .signature-box .line { border-top: 1px solid #333; margin-bottom: 5px; }
+            .print-btn { background: #4F46E5; color: white; border: none; padding: 10px 30px; font-size: 16px; cursor: pointer; border-radius: 5px; margin: 10px; }
+            .print-btn:hover { background: #4338CA; }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+            <button class="print-btn" onclick="window.print()">🖨️ Print Receipt</button>
+            <button class="print-btn" onclick="window.close()">✕ Close</button>
+          </div>
+          
+          <div class="header">
+            <h1>${schoolName}</h1>
+            <p>Official Payment Receipt</p>
+          </div>
+          
+          <div class="receipt-title">PAYMENT RECEIPT</div>
+          <div class="receipt-number">Receipt No: <strong>${payment.receiptNumber}</strong> | Date: ${formatDate(paymentData.createdAt)}</div>
+          
+          <div class="amount-box">
+            <div class="label">Amount Paid</div>
+            <div class="amount">${formatCurrency(paymentData.amount)}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Student Information</div>
+            <div class="detail-row">
+              <span class="detail-label">Student Name</span>
+              <span class="detail-value">${paymentData.student.user.name}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Admission Number</span>
+              <span class="detail-value">${paymentData.student.admissionNumber}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Class</span>
+              <span class="detail-value">${paymentData.student.class?.name || 'N/A'} ${paymentData.student.section?.name || ''}</span>
+            </div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Payment Details</div>
+            <div class="detail-row">
+              <span class="detail-label">Fee Type</span>
+              <span class="detail-value">${paymentData.fee.feeType}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Term</span>
+              <span class="detail-value">${paymentData.fee.term.name} - ${paymentData.fee.academicYear.year}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Payment Method</span>
+              <span class="detail-value">${paymentData.paymentMethod.replace('_', ' ')}</span>
+            </div>
+            ${paymentData.transactionId ? `
+            <div class="detail-row">
+              <span class="detail-label">Transaction ID</span>
+              <span class="detail-value">${paymentData.transactionId}</span>
+            </div>
+            ` : ''}
+            <div class="detail-row">
+              <span class="detail-label">Received By</span>
+              <span class="detail-value">${paymentData.receiver?.name || 'System'}</span>
+            </div>
+          </div>
+          
+          <div class="summary-box">
+            <div class="section-title" style="border-bottom: none; margin-bottom: 10px;">Fee Summary</div>
+            <div class="summary-row">
+              <span>Total Fee Amount</span>
+              <span>${formatCurrency(paymentData.fee.amount)}</span>
+            </div>
+            <div class="summary-row">
+              <span>Total Paid to Date</span>
+              <span style="color: #10B981;">${formatCurrency(totalPaid)}</span>
+            </div>
+            <div class="summary-row" style="border-top: 1px solid #BFDBFE; padding-top: 10px; margin-top: 5px;">
+              <span><strong>Balance Due</strong></span>
+              <span class="balance-due">${formatCurrency(remainingBalance)}</span>
+            </div>
+          </div>
+          
+          ${paymentData.remarks ? `
+          <div style="background: #FEF3C7; padding: 10px; border-radius: 5px; margin: 15px 0;">
+            <strong>Remarks:</strong> ${paymentData.remarks}
+          </div>
+          ` : ''}
+          
+          <div class="signature-line">
+            <div class="signature-box">
+              <div class="line"></div>
+              <div>Parent/Guardian Signature</div>
+            </div>
+            <div class="signature-box">
+              <div class="line"></div>
+              <div>Accountant Signature</div>
+            </div>
+          </div>
+          
+          <div class="footer">
+            <p><strong>Thank you for your payment!</strong></p>
+            <p>This is a computer-generated receipt.</p>
+            <p>For any queries, please contact the school accounts office.</p>
+          </div>
+        </body>
+        </html>
+      `)
+      printWindow.document.close()
+    } catch (error) {
+      console.error("Error printing receipt:", error)
+      alert("Failed to generate receipt")
+    }
+  }
+
+  // Email receipt function
+  const handleEmailReceipt = async (payment: Payment, email?: string) => {
+    setEmailSending(true)
+    try {
+      const res = await fetch(`/api/payments/${payment.id}/receipt`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        alert(data.message || "Receipt sent successfully!")
+        setIsReceiptDialogOpen(false)
+      } else {
+        alert(data.error || "Failed to send receipt")
+      }
+    } catch (error) {
+      console.error("Error sending receipt:", error)
+      alert("Failed to send receipt")
+    } finally {
+      setEmailSending(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
       PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
@@ -335,6 +526,7 @@ export default function FeesPage() {
                       <TableHead>Remaining</TableHead>
                       <TableHead>Due Date</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Receipts</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -352,6 +544,23 @@ export default function FeesPage() {
                         <TableCell className="text-orange-600">{formatCurrency(fee.amount - fee.paidAmount)}</TableCell>
                         <TableCell>{formatDate(fee.dueDate)}</TableCell>
                         <TableCell>{getStatusBadge(fee.status)}</TableCell>
+                        <TableCell>
+                          {fee.payments && fee.payments.length > 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFee(fee)
+                                setIsHistoryDialogOpen(true)
+                              }}
+                            >
+                              <Receipt className="h-4 w-4 mr-1" />
+                              {fee.payments.length}
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -360,6 +569,152 @@ export default function FeesPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Payment History Dialog for Students/Parents */}
+        <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Payment History</DialogTitle>
+              <DialogDescription>
+                Payment receipts for {selectedFee?.feeType} - {selectedFee?.term.name}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedFee && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-lg">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Total Fee</Label>
+                    <div className="font-medium">{formatCurrency(selectedFee.amount)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Total Paid</Label>
+                    <div className="font-medium text-green-600">{formatCurrency(selectedFee.paidAmount)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Balance</Label>
+                    <div className="font-medium text-red-600">{formatCurrency(selectedFee.amount - selectedFee.paidAmount)}</div>
+                  </div>
+                </div>
+
+                {selectedFee.payments && selectedFee.payments.length > 0 ? (
+                  <div className="border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Receipt #</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Method</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedFee.payments.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell>{formatDate(payment.createdAt)}</TableCell>
+                            <TableCell className="font-mono text-sm">{payment.receiptNumber}</TableCell>
+                            <TableCell className="font-medium text-green-600">{formatCurrency(payment.amount)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{payment.paymentMethod}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handlePrintReceipt(payment)}
+                                  title="Print Receipt"
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedPayment(payment)
+                                    setIsReceiptDialogOpen(true)
+                                  }}
+                                  title="Email Receipt"
+                                >
+                                  <Mail className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No payments recorded yet
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Email Receipt Dialog for Students/Parents */}
+        <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Email Receipt</DialogTitle>
+              <DialogDescription>
+                Send receipt {selectedPayment?.receiptNumber} via email
+              </DialogDescription>
+            </DialogHeader>
+            {selectedPayment && (
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                const formData = new FormData(e.currentTarget)
+                const email = formData.get("email") as string
+                handleEmailReceipt(selectedPayment, email || undefined)
+              }}>
+                <div className="grid gap-4 py-4">
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Receipt Number</Label>
+                        <div className="font-mono font-medium">{selectedPayment.receiptNumber}</div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Amount</Label>
+                        <div className="font-medium text-green-600">{formatCurrency(selectedPayment.amount)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <Input 
+                      name="email" 
+                      type="email" 
+                      placeholder="Leave empty to send to your registered email"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      If left empty, the receipt will be sent to your registered email address
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => handlePrintReceipt(selectedPayment)}
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Instead
+                  </Button>
+                  <Button type="submit" disabled={emailSending}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    {emailSending ? "Sending..." : "Send Email"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     )
   }
@@ -824,7 +1179,7 @@ export default function FeesPage() {
                         <TableHead>Receipt #</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Method</TableHead>
-                        <TableHead>Reference</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -836,8 +1191,28 @@ export default function FeesPage() {
                           <TableCell>
                             <Badge variant="outline">{payment.paymentMethod}</Badge>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {payment.transactionId || "-"}
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrintReceipt(payment)}
+                                title="Print Receipt"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedPayment(payment)
+                                  setIsReceiptDialogOpen(true)
+                                }}
+                                title="Email Receipt"
+                              >
+                                <Mail className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -850,6 +1225,67 @@ export default function FeesPage() {
                 </div>
               )}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Receipt Dialog */}
+      <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Receipt</DialogTitle>
+            <DialogDescription>
+              Send receipt {selectedPayment?.receiptNumber} via email
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPayment && (
+            <form onSubmit={(e) => {
+              e.preventDefault()
+              const formData = new FormData(e.currentTarget)
+              const email = formData.get("email") as string
+              handleEmailReceipt(selectedPayment, email || undefined)
+            }}>
+              <div className="grid gap-4 py-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Receipt Number</Label>
+                      <div className="font-mono font-medium">{selectedPayment.receiptNumber}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Amount</Label>
+                      <div className="font-medium text-green-600">{formatCurrency(selectedPayment.amount)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Email Address</Label>
+                  <Input 
+                    name="email" 
+                    type="email" 
+                    placeholder="Leave empty to send to student's registered email"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If left empty, the receipt will be sent to the student&apos;s registered email address
+                  </p>
+                </div>
+              </div>
+              <DialogFooter className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => handlePrintReceipt(selectedPayment)}
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Instead
+                </Button>
+                <Button type="submit" disabled={emailSending}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  {emailSending ? "Sending..." : "Send Email"}
+                </Button>
+              </DialogFooter>
+            </form>
           )}
         </DialogContent>
       </Dialog>

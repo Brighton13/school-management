@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Calculate summary statistics
-    const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
+    const totalPayments = payments.reduce((sum: any, p: { amount: any }) => sum + p.amount, 0)
     const paymentCount = payments.length
 
     return NextResponse.json({
