@@ -11,9 +11,22 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, DollarSign, Users, School, User } from "lucide-react"
+import { Plus, Edit, DollarSign, Users, School, User, History, Receipt } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
+
+interface Payment {
+  id: string
+  amount: number
+  paymentMethod: string
+  transactionId?: string
+  receiptNumber: string
+  remarks?: string
+  createdAt: string
+  receiver?: {
+    name: string
+  }
+}
 
 interface Fee {
   id: string
@@ -26,6 +39,7 @@ interface Fee {
   paymentMethod?: string
   transactionId?: string
   remarks?: string
+  payments?: Payment[]
   student: {
     id: string
     user: { name: string }
@@ -72,6 +86,7 @@ export default function FeesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
   const [selectedFee, setSelectedFee] = useState<Fee | null>(null)
   const [bulkTarget, setBulkTarget] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
@@ -185,13 +200,25 @@ export default function FeesPage() {
     if (!selectedFee) return
 
     const formData = new FormData(e.currentTarget)
+    const paymentAmount = parseFloat(formData.get("paymentAmount") as string)
+    
+    if (paymentAmount <= 0) {
+      alert("Payment amount must be greater than 0")
+      return
+    }
+    
+    const remaining = selectedFee.amount - selectedFee.paidAmount
+    if (paymentAmount > remaining) {
+      alert(`Payment amount cannot exceed remaining balance of ${formatCurrency(remaining)}`)
+      return
+    }
     
     try {
       const res = await fetch(`/api/fees/${selectedFee.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paidAmount: formData.get("paidAmount"),
+          paymentAmount: paymentAmount,
           paymentMethod: formData.get("paymentMethod"),
           transactionId: formData.get("transactionId"),
           remarks: formData.get("remarks"),
@@ -199,17 +226,18 @@ export default function FeesPage() {
       })
 
       if (res.ok) {
+        const result = await res.json()
         setIsPaymentDialogOpen(false)
         setSelectedFee(null)
         fetchData()
-        alert("Payment updated successfully")
+        alert(`Payment recorded successfully! Receipt: ${result.payment?.receiptNumber || 'N/A'}`)
       } else {
         const errorData = await res.json()
-        alert(errorData.error || "Failed to update payment")
+        alert(errorData.error || "Failed to record payment")
       }
     } catch (error) {
-      console.error("Failed to update payment:", error)
-      alert("Failed to update payment")
+      console.error("Failed to record payment:", error)
+      alert("Failed to record payment")
     }
   }
 
@@ -647,18 +675,30 @@ export default function FeesPage() {
                       <TableCell>{getStatusBadge(fee.status)}</TableCell>
                       {canManage && (
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedFee(fee)
-                              setIsPaymentDialogOpen(true)
-                            }}
-                            className="mr-2"
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Update
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFee(fee)
+                                setIsPaymentDialogOpen(true)
+                              }}
+                              disabled={fee.status === "PAID"}
+                            >
+                              <DollarSign className="h-4 w-4 mr-1" />
+                              Pay
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFee(fee)
+                                setIsHistoryDialogOpen(true)
+                              }}
+                            >
+                              <History className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       )}
                     </TableRow>
@@ -670,44 +710,50 @@ export default function FeesPage() {
         </CardContent>
       </Card>
 
-      {/* Payment Update Dialog */}
+{/* Record Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Payment</DialogTitle>
+            <DialogTitle>Record Payment</DialogTitle>
             <DialogDescription>
-              Update payment information for {selectedFee?.student.user.name}
+              Record a new payment for {selectedFee?.student.user.name}
             </DialogDescription>
           </DialogHeader>
           {selectedFee && (
             <form onSubmit={handlePaymentUpdate}>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-lg">
                   <div>
-                    <Label>Fee Amount</Label>
+                    <Label className="text-xs text-muted-foreground">Total Fee</Label>
                     <div className="font-medium">{formatCurrency(selectedFee.amount)}</div>
                   </div>
                   <div>
-                    <Label>Current Paid</Label>
-                    <div className="font-medium">{formatCurrency(selectedFee.paidAmount)}</div>
+                    <Label className="text-xs text-muted-foreground">Paid So Far</Label>
+                    <div className="font-medium text-green-600">{formatCurrency(selectedFee.paidAmount)}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Balance</Label>
+                    <div className="font-medium text-red-600">{formatCurrency(selectedFee.amount - selectedFee.paidAmount)}</div>
                   </div>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Paid Amount</Label>
+                  <Label>Payment Amount *</Label>
                   <Input 
-                    name="paidAmount" 
+                    name="paymentAmount" 
                     type="number" 
                     step="0.01" 
-                    defaultValue={selectedFee.paidAmount}
-                    max={selectedFee.amount}
+                    min="0.01"
+                    max={selectedFee.amount - selectedFee.paidAmount}
+                    placeholder={`Max: ${formatCurrency(selectedFee.amount - selectedFee.paidAmount)}`}
                     required 
                   />
+                  <p className="text-xs text-muted-foreground">Enter the amount being paid now</p>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select name="paymentMethod" defaultValue={selectedFee.paymentMethod || ""}>
+                  <Label>Payment Method *</Label>
+                  <Select name="paymentMethod" required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
@@ -716,28 +762,94 @@ export default function FeesPage() {
                       <SelectItem value="CARD">Card</SelectItem>
                       <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                       <SelectItem value="CHEQUE">Cheque</SelectItem>
+                      <SelectItem value="MOBILE_MONEY">Mobile Money</SelectItem>
                       <SelectItem value="ONLINE">Online Payment</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Transaction ID</Label>
-                  <Input name="transactionId" defaultValue={selectedFee.transactionId || ""} />
+                  <Label>Transaction/Reference ID</Label>
+                  <Input name="transactionId" placeholder="Optional - for card/bank/mobile payments" />
                 </div>
                 
                 <div className="space-y-2">
                   <Label>Remarks</Label>
-                  <Input name="remarks" defaultValue={selectedFee.remarks || ""} />
+                  <Input name="remarks" placeholder="Optional notes about this payment" />
                 </div>
               </div>
               <DialogFooter>
                 <Button type="submit">
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Update Payment
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Record Payment
                 </Button>
               </DialogFooter>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment History</DialogTitle>
+            <DialogDescription>
+              All payments for {selectedFee?.student.user.name} - {selectedFee?.feeType}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedFee && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-lg">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Total Fee</Label>
+                  <div className="font-medium">{formatCurrency(selectedFee.amount)}</div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Total Paid</Label>
+                  <div className="font-medium text-green-600">{formatCurrency(selectedFee.paidAmount)}</div>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Balance</Label>
+                  <div className="font-medium text-red-600">{formatCurrency(selectedFee.amount - selectedFee.paidAmount)}</div>
+                </div>
+              </div>
+
+              {selectedFee.payments && selectedFee.payments.length > 0 ? (
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Receipt #</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Reference</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedFee.payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{formatDate(payment.createdAt)}</TableCell>
+                          <TableCell className="font-mono text-sm">{payment.receiptNumber}</TableCell>
+                          <TableCell className="font-medium text-green-600">{formatCurrency(payment.amount)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{payment.paymentMethod}</Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {payment.transactionId || "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No payments recorded yet
+                </div>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>

@@ -58,6 +58,14 @@ export async function GET(request: NextRequest) {
         },
         term: true,
         academicYear: true,
+        payments: {
+          include: {
+            receiver: {
+              select: { id: true, name: true },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: { dueDate: "desc" },
     })

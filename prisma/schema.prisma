@@ -43,6 +43,7 @@ model User {
   generatedReports    StudentReport[]        @relation("ReportGenerator")
   submittedReports    StudentReport[]        @relation("ReportSubmitter")
   approvedReports     StudentReport[]        @relation("ReportApprover")
+  receivedPayments    Payment[]              @relation("PaymentReceiver")
   auditTrails         AuditTrail[]
   sessionLogs         SessionLog[]
   passwordResetTokens PasswordResetToken[]
@@ -143,6 +144,7 @@ model Student {
   attendance         Attendance[]
   results            Result[]
   fees               Fee[]
+  payments           Payment[]
   studentAssignments StudentAssignment[]       @relation("StudentAssignments")
   subjectSelections  StudentSubjectSelection[]
   reports            StudentReport[]
@@ -527,11 +529,36 @@ model Fee {
   term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [createdBy], references: [id])
+  payments     Payment[]    // Track individual payments
 
   @@index([studentId])
   @@index([termId])
   @@index([academicYearId])
   @@index([status])
+}
+
+// Payment History - tracks each individual payment made towards a fee
+model Payment {
+  id            String   @id @default(cuid())
+  feeId         String
+  studentId     String
+  amount        Float    // Amount paid in this transaction
+  paymentMethod String   // CASH, BANK_TRANSFER, MOBILE_MONEY, CHEQUE, CARD
+  transactionId String?  // External reference number
+  receiptNumber String?  // Generated receipt number
+  remarks       String?
+  receivedBy    String   // User ID who received the payment
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  fee      Fee     @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  receiver User    @relation("PaymentReceiver", fields: [receivedBy], references: [id])
+
+  @@index([feeId])
+  @@index([studentId])
+  @@index([receiptNumber])
+  @@index([createdAt])
 }
 
 // Inventory Management
