@@ -20,6 +20,11 @@ export async function GET(request: NextRequest) {
     // Get current academic context
     const context = await getAcademicContext()
     
+    // Get the current academic year
+    const currentAcademicYear = await prisma.academicYear.findFirst({
+      where: { isCurrent: true },
+    })
+    
     // Use specified term or default to current
     let currentTerm = null
     if (termId) {
@@ -34,7 +39,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Overall Statistics
+    // Overall Statistics - filtered by current academic year where applicable
     const [
       totalStudents,
       activeStudents,
@@ -44,19 +49,40 @@ export async function GET(request: NextRequest) {
       totalSections,
     ] = await Promise.all([
       prisma.student.count(),
-      prisma.student.count({ where: { status: "ACTIVE" } }),
+      // Count active enrollments in current academic year
+      currentAcademicYear 
+        ? prisma.classEnrollment.count({ 
+            where: { 
+              status: "ACTIVE",
+              academicYearId: currentAcademicYear.id
+            } 
+          })
+        : prisma.student.count({ where: { status: "ACTIVE" } }),
       prisma.staff.count(),
       prisma.staff.count({ where: { status: "ACTIVE" } }),
       prisma.class.count(),
       prisma.section.count(),
     ])
 
-    // Gender Distribution for Students
-    const studentGenderStats = await prisma.student.groupBy({
-      by: ["gender"],
-      where: { status: "ACTIVE" },
-      _count: { gender: true },
-    })
+    // Gender Distribution for Students - current academic year enrollments
+    const studentGenderStats = currentAcademicYear
+      ? await prisma.student.groupBy({
+          by: ["gender"],
+          where: { 
+            classEnrollment: {
+              some: {
+                status: "ACTIVE",
+                academicYearId: currentAcademicYear.id
+              }
+            }
+          },
+          _count: { gender: true },
+        })
+      : await prisma.student.groupBy({
+          by: ["gender"],
+          where: { status: "ACTIVE" },
+          _count: { gender: true },
+        })
 
     // Gender Distribution for Staff
     const staffGenderStats = await prisma.staff.groupBy({
@@ -68,21 +94,40 @@ export async function GET(request: NextRequest) {
       _count: { gender: true },
     })
 
-    // Fee Analytics
-    const feeStats = await prisma.fee.groupBy({
-      by: ["status"],
-      _count: { status: true },
-      _sum: { amount: true, paidAmount: true },
-    })
-
-    const totalFeeAmount = feeStats.reduce((sum, f) => sum + (f._sum.amount || 0), 0)
-    const totalPaidAmount = feeStats.reduce((sum, f) => sum + (f._sum.paidAmount || 0), 0)
-    const pendingFees = feeStats.find((f) => f.status === "PENDING")?._count.status || 0
-    const overdueFees = feeStats.find((f) => f.status === "OVERDUE")?._count.status || 0
-
-    // Attendance Analytics (Last 30 days)
+    // Fee Analytics - filtered by current academic year
+    const feeStats = currentAcademicYear
+      ? await prisma.fee.groupBy({
+          by: ["status"],
+          where: {
+            academicYearId: currentAcademicYear.id
+          },
+          _count: { status: true },
+          _sum: { amount: true, paidAmount: true },
+        })
+      : await prisma.fee.groupBy({
+          by: ["status"],
+          _count: { status: true }, - current academic year
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    const attendanceStats = currentAcademicYear
+      ? await prisma.attendance.groupBy({
+          by: ["status"],
+          where: {
+            studentId: { not: null },
+            date: { gte: thirtyDaysAgo },
+            academicYearId: currentAcademicYear.id,
+          },
+          _count: { status: true },
+        })
+      : await prisma.attendance.groupBy({
+          by: ["status"],
+          where: {
+            studentId: { not: null },
+            date: { gte: thirtyDaysAgo },
+          },
+          _count: { status: true },
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
     const attendanceStats = await prisma.attendance.groupBy({
       by: ["status"],
@@ -177,17 +222,29 @@ export async function GET(request: NextRequest) {
       const month = new Date(result.createdAt).toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
-      })
-      const percentage = (result.marksObtained / result.maxMarks) * 100
-
-      if (!monthlyPerformance.has(month)) {
-        monthlyPerformance.set(month, { sum: 0, count: 0 })
-      }
-
-      const stats = monthlyPerformance.get(month)!
-      stats.sum += percentage
-      stats.count += 1
-    })
+      }) - current academic year
+    const monthlyAttendance = currentAcademicYear
+      ? await prisma.attendance.findMany({
+          where: {
+            studentId: { not: null },
+            date: { gte: sixMonthsAgo },
+            academicYearId: currentAcademicYear.id,
+          },
+          select: {
+            status: true,
+            date: true,
+          },
+        })
+      : await prisma.attendance.findMany({
+          where: {
+            studentId: { not: null },
+            date: { gte: sixMonthsAgo },
+          },
+          select: {
+            status: true,
+            date: true,
+          },
+        })
 
     const performanceTrend = Array.from(monthlyPerformance.entries())
       .map(([month, stats]) => ({
@@ -218,18 +275,31 @@ export async function GET(request: NextRequest) {
         year: "numeric",
         month: "short",
       })
-
-      if (!attendanceByMonth.has(month)) {
-        attendanceByMonth.set(month, { present: 0, absent: 0, late: 0, total: 0 })
-      }
-
-      const stats = attendanceByMonth.get(month)!
-      stats.total += 1
-      if (attendance.status === "PRESENT") stats.present += 1
-      if (attendance.status === "ABSENT") stats.absent += 1
-      if (attendance.status === "LATE") stats.late += 1
-    })
-
+ - current academic year
+    const monthlyFees = currentAcademicYear
+      ? await prisma.fee.findMany({
+          where: {
+            createdAt: { gte: sixMonthsAgo },
+            academicYearId: currentAcademicYear.id,
+          },
+          select: {
+            amount: true,
+            paidAmount: true,
+            status: true,
+            createdAt: true,
+          },
+        })
+      : await prisma.fee.findMany({
+          where: {
+            createdAt: { gte: sixMonthsAgo },
+          },
+          select: {
+            amount: true,
+            paidAmount: true,
+            status: true,
+            createdAt: true,
+          },
+    
     const attendanceTrend = Array.from(attendanceByMonth.entries())
       .map(([month, stats]) => ({
         month,
@@ -338,6 +408,12 @@ export async function GET(request: NextRequest) {
           subjectName: stats.name,
           averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
           studentCount: stats.count,
+        currentAcademicYear: currentAcademicYear ? {
+          id: currentAcademicYear.id,
+          year: currentAcademicYear.year,
+          startDate: currentAcademicYear.startDate,
+          endDate: currentAcademicYear.endDate,
+        } : null,
         }))
         .sort((a, b) => parseFloat(b.averageScore) - parseFloat(a.averageScore))
         .slice(0, 10) // Top 10

@@ -14,7 +14,12 @@ import { DashboardCharts } from "@/components/analytics/dashboard-charts"
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   
-  // Fetch stats with error handling
+  // Get current academic year
+  const currentAcademicYear = await prisma.academicYear.findFirst({
+    where: { isCurrent: true },
+  })
+  
+  // Fetch stats with error handling - filtered by current academic year
   let studentCount = 0
   let staffCount = 0
   let classCount = 0
@@ -23,10 +28,26 @@ export default async function DashboardPage() {
 
   try {
     const stats = await Promise.all([
-      prisma.student.count({ where: { status: "ACTIVE" } }),
+      // Active students enrolled in current academic year
+      currentAcademicYear 
+        ? prisma.classEnrollment.count({ 
+            where: { 
+              status: "ACTIVE",
+              academicYearId: currentAcademicYear.id
+            } 
+          })
+        : prisma.student.count({ where: { status: "ACTIVE" } }),
       prisma.staff.count({ where: { status: "ACTIVE" } }),
       prisma.class.count(),
-      prisma.fee.count({ where: { status: "PENDING" } }),
+      // Pending fees for current academic year
+      currentAcademicYear
+        ? prisma.fee.count({ 
+            where: { 
+              status: "PENDING",
+              academicYearId: currentAcademicYear.id
+            } 
+          })
+        : prisma.fee.count({ where: { status: "PENDING" } }),
     ])
 
     ;[studentCount, staffCount, classCount, pendingFees] = stats

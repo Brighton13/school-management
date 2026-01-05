@@ -10,18 +10,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get current academic year
+    const currentAcademicYear = await prisma.academicYear.findFirst({
+      where: { isCurrent: true },
+    })
+
     // Student Status Distribution
     const studentStatus = await prisma.student.groupBy({
       by: ["status"],
       _count: { status: true },
     })
 
-    // Student Gender Distribution
-    const studentGender = await prisma.student.groupBy({
-      by: ["gender"],
-      where: { status: "ACTIVE" },
-      _count: { gender: true },
-    })
+    // Student Gender Distribution - current academic year enrollments
+    const studentGender = currentAcademicYear
+      ? await prisma.student.groupBy({
+          by: ["gender"],
+          where: { 
+            classEnrollment: {
+              some: {
+                status: "ACTIVE",
+                academicYearId: currentAcademicYear.id
+              }
+            }
+          },
+          _count: { gender: true },
+        })
+      : await prisma.student.groupBy({
+          by: ["gender"],
+          where: { status: "ACTIVE" },
+          _count: { gender: true },
+        })
 
     // Staff Status Distribution
     const staffStatus = await prisma.staff.groupBy({
@@ -45,25 +63,44 @@ export async function GET(request: NextRequest) {
       _count: { designation: true },
     })
 
-    // Fee Status Distribution
-    const feeStatus = await prisma.fee.groupBy({
-      by: ["status"],
-      _count: { status: true },
-      _sum: { amount: true, paidAmount: true },
-    })
+    // Fee Status Distribution - current academic year
+    const feeStatus = currentAcademicYear
+      ? await prisma.fee.groupBy({
+          by: ["status"],
+          where: {
+            academicYearId: currentAcademicYear.id
+          },
+          _count: { status: true },
+          _sum: { amount: true, paidAmount: true },
+        })
+      : await prisma.fee.groupBy({
+          by: ["status"],
+          _count: { status: true },
+          _sum: { amount: true, paidAmount: true },
+        })
 
-    // Attendance Status (Last 30 days)
+    // Attendance Status (Last 30 days) - current academic year
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const attendanceStatus = await prisma.attendance.groupBy({
-      by: ["status"],
-      where: {
-        studentId: { not: null },
-        date: { gte: thirtyDaysAgo },
-      },
-      _count: { status: true },
-    })
+    const attendanceStatus = currentAcademicYear
+      ? await prisma.attendance.groupBy({
+          by: ["status"],
+          where: {
+            studentId: { not: null },
+            date: { gte: thirtyDaysAgo },
+            academicYearId: currentAcademicYear.id,
+          },
+          _count: { status: true },
+        })
+      : await prisma.attendance.groupBy({
+          by: ["status"],
+          where: {
+            studentId: { not: null },
+            date: { gte: thirtyDaysAgo },
+          },
+          _count: { status: true },
+        })
 
     // Results Status Distribution
     const currentTerm = await prisma.term.findFirst({
@@ -82,14 +119,23 @@ export async function GET(request: NextRequest) {
       resultsStatus = results
     }
 
-    // Students by Class
-    const studentsByClass = await prisma.classEnrollment.groupBy({
-      by: ["classId"],
-      where: {
-        status: "ACTIVE",
-      },
-      _count: { classId: true },
-    })
+    // Students by Class - current academic year
+    const studentsByClass = currentAcademicYear
+      ? await prisma.classEnrollment.groupBy({
+          by: ["classId"],
+          where: {
+            status: "ACTIVE",
+            academicYearId: currentAcademicYear.id,
+          },
+          _count: { classId: true },
+        })
+      : await prisma.classEnrollment.groupBy({
+          by: ["classId"],
+          where: {
+            status: "ACTIVE",
+          },
+          _count: { classId: true },
+        })
 
     const classDetails = await prisma.class.findMany({
       where: {
@@ -98,25 +144,44 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-      },
-    })
+      }, - current academic year
+    const feesByType = currentAcademicYear
+      ? await prisma.fee.groupBy({
+          by: ["feeType"],
+          where: {
+            academicYearId: currentAcademicYear.id
+          },
+          _sum: { amount: true, paidAmount: true },
+          _count: { feeType: true },
+        })
+      : await prisma.fee.groupBy({
+          by: ["feeType"],
+          _sum: { amount: true, paidAmount: true },
+          _count: { feeType: true },
+        })
 
-    const classMap = new Map(classDetails.map((c) => [c.id, c.name]))
-    const studentsByClassName = studentsByClass.map((s) => ({
-      className: classMap.get(s.classId) || "Unknown",
-      count: s._count.classId,
-    }))
-
-    // Fee Collection by Type
-    const feesByType = await prisma.fee.groupBy({
-      by: ["feeType"],
-      _sum: { amount: true, paidAmount: true },
-      _count: { feeType: true },
-    })
-
-    // Monthly Enrollment Trend (Last 6 months)
+    // Monthly Enrollment Trend (Last 6 months) - current academic year
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+    const enrollments = currentAcademicYear
+      ? await prisma.classEnrollment.findMany({
+          where: {
+            enrolledAt: { gte: sixMonthsAgo },
+            academicYearId: currentAcademicYear.id,
+          },
+          select: {
+            enrolledAt: true,
+          },
+        })
+      : await prisma.classEnrollment.findMany({
+          where: {
+            enrolledAt: { gte: sixMonthsAgo },
+          },
+          select: {
+            enrolledAt: true,
+          },
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
     const enrollments = await prisma.classEnrollment.findMany({
       where: {

@@ -37,6 +37,12 @@ interface AdminAnalyticsData {
     activeStaff: number
     totalClasses: number
     totalSections: number
+    currentAcademicYear?: {
+      id: string
+      year: string
+      startDate: string
+      endDate: string
+    } | null
   }
   genderDistribution?: {
     students: Array<{ gender: string; count: number }>
@@ -157,6 +163,25 @@ export function AdminAnalytics() {
 
   return (
     <div className="space-y-8">
+      {/* Academic Year Badge */}
+      {data.overview.currentAcademicYear && (
+        <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                  Current Academic Year: {data.overview.currentAcademicYear.year}
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  All statistics are filtered for the current academic year
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Overview Stats */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
