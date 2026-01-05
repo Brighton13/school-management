@@ -288,8 +288,7 @@ export async function GET(request: NextRequest) {
       const template = `AdmissionNumber,MarksObtained,Remarks
 ADM001,85,Excellent work
 ADM002,72,Good performance
-ADM003,65,Needs improvement
-# Note: Grade is auto-calculated based on marks`
+ADM003,65,Needs improvement`
 
       return new Response(template, {
         headers: {
@@ -379,7 +378,7 @@ ADM003,65,Needs improvement
     const subjectName = classSubject.subject.name
 
     let template = `AdmissionNumber,StudentName,MarksObtained,Remarks\n`
-    template += `# Grade is auto-calculated based on marks\n`
+   
     
     if (enrolledStudents.length === 0) {
       // No students enrolled, provide empty template with example
