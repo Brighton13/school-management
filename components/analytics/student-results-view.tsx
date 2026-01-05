@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { 
   Award, 
   BookOpen, 
@@ -11,13 +12,15 @@ import {
   Calendar,
   BarChart3,
   FileText,
-  Clock,
-  CheckCircle,
   DollarSign,
+  Filter,
+  Trophy,
+  MessageSquare,
+  User,
+  GraduationCap,
+  Target,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@radix-ui/react-accordion"
-
 
 interface StudentResult {
   id: string
@@ -29,6 +32,7 @@ interface StudentResult {
   maxMarks: number
   percentage: number
   grade: string | null
+  points?: number
   submittedAt: string | null
   approvedAt: string | null
 }
@@ -86,26 +90,55 @@ interface StudentResultsData {
   }
 }
 
+// Default points configuration
+const defaultPointsConfig = [
+  { minPercentage: 75, maxPercentage: 100, points: 1 },
+  { minPercentage: 65, maxPercentage: 74.99, points: 2 },
+  { minPercentage: 50, maxPercentage: 64.99, points: 3 },
+  { minPercentage: 40, maxPercentage: 49.99, points: 4 },
+  { minPercentage: 30, maxPercentage: 39.99, points: 5 },
+  { minPercentage: 1, maxPercentage: 29.99, points: 6 },
+  { minPercentage: 0, maxPercentage: 0.99, points: 7 },
+]
+
 export function StudentResultsView() {
   const [data, setData] = useState<StudentResultsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedYear, setSelectedYear] = useState<string>("")
+  
+  // Filter states
+  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [selectedTerm, setSelectedTerm] = useState<string>("all")
+  const [selectedExamType, setSelectedExamType] = useState<string>("all")
+  
+  // Points configuration
+  const [pointsConfig, setPointsConfig] = useState(defaultPointsConfig)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch("/api/students/results")
-        if (response.ok) {
-          const resultsData = await response.json()
+        const [resultsRes, pointsRes] = await Promise.all([
+          fetch("/api/students/results"),
+          fetch("/api/settings/points-config")
+        ])
+        
+        if (resultsRes.ok) {
+          const resultsData = await resultsRes.json()
           setData(resultsData)
           // Set the most recent year as default (only if not blocked and has results)
           if (resultsData.academicYears && resultsData.academicYears.length > 0 && !resultsData.blocked) {
             setSelectedYear(resultsData.academicYears[0].academicYear)
           }
         } else {
-          const errorData = await response.json().catch(() => ({}))
+          const errorData = await resultsRes.json().catch(() => ({}))
           setError(errorData.error || "Failed to load results")
+        }
+        
+        if (pointsRes.ok) {
+          const pointsData = await pointsRes.json()
+          if (pointsData.length > 0) {
+            setPointsConfig(pointsData)
+          }
         }
       } catch (error) {
         console.error("Failed to fetch results:", error)
@@ -117,6 +150,26 @@ export function StudentResultsView() {
 
     fetchData()
   }, [])
+
+  // Get points for a percentage
+  const getPoints = (percentage: number): number => {
+    const rounded = Math.round(percentage)
+    const config = pointsConfig.find(
+      (pc) => rounded >= pc.minPercentage && rounded <= pc.maxPercentage
+    )
+    return config?.points || 7
+  }
+
+  // Get auto comment based on percentage
+  const getComment = (percentage: number): string => {
+    if (percentage >= 90) return "Outstanding performance! Excellent work!"
+    if (percentage >= 80) return "Excellent work! Keep it up!"
+    if (percentage >= 70) return "Very good performance. Well done!"
+    if (percentage >= 60) return "Good performance. Continue working hard."
+    if (percentage >= 50) return "Fair performance. More effort needed."
+    if (percentage >= 40) return "Below average. Seek help from teachers."
+    return "Needs significant improvement. Parent consultation recommended."
+  }
 
   if (loading) {
     return (
@@ -146,7 +199,6 @@ export function StudentResultsView() {
   if (data.blocked && data.reason === "PENDING_FEES") {
     return (
       <div className="space-y-6">
-        {/* Header Section */}
         <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-lg p-6 text-white">
           <h1 className="text-3xl font-bold mb-2">Results Access Blocked</h1>
           <p className="text-red-100">
@@ -154,7 +206,6 @@ export function StudentResultsView() {
           </p>
         </div>
 
-        {/* Fee Block Message */}
         <Card className="border-red-500 bg-red-50 dark:bg-red-900/20">
           <CardHeader>
             <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
@@ -182,9 +233,7 @@ export function StudentResultsView() {
                         <p className="font-bold text-red-900 dark:text-red-100">
                           ZMW {fee.remainingAmount.toFixed(2)}
                         </p>
-                        <p className="text-xs text-red-600 dark:text-red-400">
-                          ({fee.status})
-                        </p>
+                        <p className="text-xs text-red-600 dark:text-red-400">({fee.status})</p>
                       </div>
                     </div>
                   ))}
@@ -199,15 +248,6 @@ export function StudentResultsView() {
                 </div>
               </div>
               
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Next Steps:</h4>
-                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                  <li>• Contact the school accounts office to make payment</li>
-                  <li>• Visit the fees section to view detailed payment information</li>
-                  <li>• Your results will be available immediately after payment confirmation</li>
-                </ul>
-              </div>
-
               <div className="flex gap-3">
                 <a
                   href="/dashboard/fees"
@@ -215,12 +255,6 @@ export function StudentResultsView() {
                 >
                   View Fee Details
                 </a>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
-                >
-                  Refresh Page
-                </button>
               </div>
             </div>
           </CardContent>
@@ -229,293 +263,398 @@ export function StudentResultsView() {
     )
   }
 
+  // Get available terms for selected year
+  const availableTerms = selectedYear === "all" 
+    ? data.academicYears.flatMap(y => y.terms.map(t => ({ name: t.termName, year: y.academicYear })))
+    : data.academicYears.find(y => y.academicYear === selectedYear)?.terms.map(t => ({ name: t.termName, year: selectedYear })) || []
+
+  // Get unique term names
+  const uniqueTermNames = Array.from(new Set(availableTerms.map(t => t.name)))
+
+  // Get all unique exam types
+  const allExamTypes = Array.from(new Set(
+    data.academicYears.flatMap(y => 
+      y.terms.flatMap(t => 
+        t.examTypeSections.map(e => e.examType)
+      )
+    )
+  ))
+
+  // Filter and flatten results based on selections
+  const getFilteredResults = () => {
+    const results: Array<StudentResult & { termName: string; academicYear: string }> = []
+    
+    data.academicYears.forEach(yearData => {
+      if (selectedYear !== "all" && yearData.academicYear !== selectedYear) return
+      
+      yearData.terms.forEach(term => {
+        if (selectedTerm !== "all" && term.termName !== selectedTerm) return
+        
+        term.examTypeSections.forEach(section => {
+          if (selectedExamType !== "all" && section.examType !== selectedExamType) return
+          
+          section.results.forEach(result => {
+            results.push({
+              ...result,
+              termName: term.termName,
+              academicYear: yearData.academicYear,
+            })
+          })
+        })
+      })
+    })
+    
+    return results
+  }
+
+  const filteredResults = getFilteredResults()
+
+  // Calculate statistics for filtered results
+  const totalMarks = filteredResults.reduce((sum, r) => sum + r.marksObtained, 0)
+  const maxMarks = filteredResults.reduce((sum, r) => sum + r.maxMarks, 0)
+  const overallPercentage = maxMarks > 0 ? (totalMarks / maxMarks) * 100 : 0
+  const totalPoints = filteredResults.reduce((sum, r) => sum + getPoints(r.percentage), 0)
+
+  // Calculate position (mock - would need API support for real position)
+  const getGrade = (percentage: number): string => {
+    if (percentage >= 90) return "A+"
+    if (percentage >= 80) return "A"
+    if (percentage >= 70) return "B+"
+    if (percentage >= 60) return "B"
+    if (percentage >= 50) return "C+"
+    if (percentage >= 40) return "C"
+    if (percentage >= 30) return "D"
+    return "F"
+  }
+
   const getGradeColor = (grade: string | null, percentage: number) => {
-    if (grade === "A" || percentage >= 80) return "bg-green-100 text-green-800"
-    if (grade === "B" || percentage >= 70) return "bg-blue-100 text-blue-800"
-    if (grade === "C" || percentage >= 60) return "bg-yellow-100 text-yellow-800"
-    if (grade === "D" || percentage >= 50) return "bg-orange-100 text-orange-800"
-    return "bg-red-100 text-red-800"
-  }
-
-  const getExamTypeColor = (examType: string) => {
-    switch (examType) {
-      case "CONTINUOUS_ASSESSMENT":
-        return "bg-blue-100 text-blue-800"
-      case "QUIZ":
-        return "bg-purple-100 text-purple-800"
-      case "ASSIGNMENT":
-        return "bg-indigo-100 text-indigo-800"
-      case "FINAL":
-        return "bg-red-100 text-red-800"
-      case "MID_TERM":
-        return "bg-orange-100 text-orange-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  const getExamTypeColorHex = (examType: string) => {
-    switch (examType) {
-      case "CONTINUOUS_ASSESSMENT":
-        return "#3b82f6" // blue
-      case "QUIZ":
-        return "#a855f7" // purple
-      case "ASSIGNMENT":
-        return "#6366f1" // indigo
-      case "FINAL":
-        return "#ef4444" // red
-      case "MID_TERM":
-        return "#f97316" // orange
-      default:
-        return "#6b7280" // gray
-    }
-  }
-
-  const getExamTypeIcon = (examType: string) => {
-    switch (examType) {
-      case "CONTINUOUS_ASSESSMENT":
-        return <Clock className="h-4 w-4 text-blue-600" />
-      case "QUIZ":
-        return <BookOpen className="h-4 w-4 text-purple-600" />
-      case "ASSIGNMENT":
-        return <FileText className="h-4 w-4 text-indigo-600" />
-      case "FINAL":
-        return <CheckCircle className="h-4 w-4 text-red-600" />
-      case "MID_TERM":
-        return <TrendingUp className="h-4 w-4 text-orange-600" />
-      default:
-        return <BarChart3 className="h-4 w-4 text-gray-600" />
-    }
+    if (grade === "A+" || grade === "A" || percentage >= 80) return "bg-green-100 text-green-800 border-green-300"
+    if (grade === "B+" || grade === "B" || percentage >= 70) return "bg-blue-100 text-blue-800 border-blue-300"
+    if (grade === "C+" || grade === "C" || percentage >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-300"
+    if (grade === "D" || percentage >= 50) return "bg-orange-100 text-orange-800 border-orange-300"
+    return "bg-red-100 text-red-800 border-red-300"
   }
 
   const formatExamType = (examType: string) => {
     switch (examType) {
-      case "CONTINUOUS_ASSESSMENT":
-        return "CA"
-      case "QUIZ":
-        return "Quiz"
-      case "ASSIGNMENT":
-        return "Assignment"
-      case "FINAL":
-        return "Final Exam"
-      case "MID_TERM":
-        return "Mid-Term"
-      default:
-        return examType
+      case "CONTINUOUS_ASSESSMENT": return "Continuous Assessment"
+      case "QUIZ": return "Quiz"
+      case "ASSIGNMENT": return "Assignment"
+      case "FINAL": return "Final Exam"
+      case "MID_TERM": return "Mid-Term"
+      default: return examType
     }
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header Section */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">My Academic Results</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <GraduationCap className="h-8 w-8" />
+          <h1 className="text-3xl font-bold">My Report Card</h1>
+        </div>
         <p className="text-indigo-100">
+          <User className="inline h-4 w-4 mr-1" />
           {data.student.name} • {data.student.admissionNumber} • {data.student.className}
         </p>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overall Average</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.overallAverage.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              Across all subjects
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Results</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.totalResults}</div>
-            <p className="text-xs text-muted-foreground">
-              All assessments
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Academic Years</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.summary.yearsWithResults}</div>
-            <p className="text-xs text-muted-foreground">
-              Years with results
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Exam Types</CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Object.keys(data.summary.examTypeCounts).length}</div>
-            <p className="text-xs text-muted-foreground">
-              Different assessment types
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Exam Type Summary Cards */}
-      {Object.keys(data.summary.examTypeCounts).length > 0 && (
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          {Object.entries(data.summary.examTypeCounts).map(([examType, count]) => (
-            <Card key={examType} className="border-l-4" style={{ borderLeftColor: getExamTypeColorHex(examType) }}>
-              <CardContent className="p-4">
-                <p className="text-sm font-medium text-muted-foreground">{formatExamType(examType)}</p>
-                <p className="text-2xl font-bold">{count}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Academic Years Tabs */}
+      {/* Filters Section */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Academic Results by Year
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filter Results
           </CardTitle>
-          <CardDescription>
-            View your results organized by academic year and terms
-          </CardDescription>
+          <CardDescription>Choose what results you want to view</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={selectedYear} onValueChange={setSelectedYear}>
-            <TabsList className="grid w-full grid-cols-auto">
-              {data.academicYears.map((yearData) => (
-                <TabsTrigger key={yearData.academicYear} value={yearData.academicYear}>
-                  {yearData.academicYear}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Academic Year Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="year-filter" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Academic Year
+              </Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="year-filter">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {data.academicYears.map(y => (
+                    <SelectItem key={y.academicYear} value={y.academicYear}>
+                      {y.academicYear}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {data.academicYears.map((yearData) => (
-              <TabsContent key={yearData.academicYear} value={yearData.academicYear} className="space-y-6">
-                <div className="grid gap-4">
-                  <Accordion type="multiple" defaultValue={yearData.terms.map(t => t.termName)}>
-                    {yearData.terms.map((term) => (
-                      <AccordionItem key={term.termName} value={term.termName}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center justify-between w-full pr-4">
-                            <div className="flex items-center gap-3">
-                              <BarChart3 className="h-5 w-5 text-blue-600" />
-                              <span className="font-semibold">{term.termName}</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant="outline" className={getGradeColor(term.termGrade, term.termAverage)}>
-                                {term.termAverage.toFixed(1)}% ({term.termGrade})
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">
-                                {term.totalAssessments} results
-                              </span>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-6 pt-4">
-                          {/* Results grouped by Exam Type */}
-                          {term.examTypeSections.map((section) => (
-                            <div key={section.examType} className="border rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-semibold flex items-center gap-2">
-                                  {getExamTypeIcon(section.examType)}
-                                  {formatExamType(section.examType)}
-                                </h4>
-                                <div className="flex items-center gap-3">
-                                  <Badge variant="outline" className={getGradeColor(null, section.average)}>
-                                    Avg: {section.average.toFixed(1)}%
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground">
-                                    {section.totalResults} result{section.totalResults !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Subject</TableHead>
-                                      <TableHead>Assessment</TableHead>
-                                      <TableHead>Marks</TableHead>
-                                      <TableHead>Score</TableHead>
-                                      <TableHead>Grade</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {section.results.map((result) => (
-                                      <TableRow key={result.id}>
-                                        <TableCell className="font-medium">
-                                          {result.subjectName}
-                                          {result.subjectCode && (
-                                            <div className="text-xs text-muted-foreground">
-                                              {result.subjectCode}
-                                            </div>
-                                          )}
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.examName || formatExamType(result.examType)}
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.marksObtained.toFixed(0)} / {result.maxMarks.toFixed(0)}
-                                        </TableCell>
-                                        <TableCell>
-                                          <span className={`font-bold ${
-                                            result.percentage >= 80
-                                              ? "text-green-600"
-                                              : result.percentage >= 60
-                                              ? "text-blue-600"
-                                              : result.percentage >= 50
-                                              ? "text-orange-600"
-                                              : "text-red-600"
-                                          }`}>
-                                            {result.percentage.toFixed(1)}%
-                                          </span>
-                                        </TableCell>
-                                        <TableCell>
-                                          {result.grade && (
-                                            <Badge variant="outline" className={getGradeColor(result.grade, result.percentage)}>
-                                              {result.grade}
-                                            </Badge>
-                                          )}
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            </div>
-                          ))}
+            {/* Term Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="term-filter" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Term
+              </Label>
+              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                <SelectTrigger id="term-filter">
+                  <SelectValue placeholder="Select term" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Terms</SelectItem>
+                  {uniqueTermNames.map(termName => (
+                    <SelectItem key={termName} value={termName}>
+                      {termName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-                          {term.examTypeSections.length === 0 && (
-                            <div className="text-center py-8 text-muted-foreground">
-                              No results available for this term
-                            </div>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              </TabsContent>
-            ))}
-          </Tabs>
+            {/* Exam Type Filter */}
+            <div className="space-y-2">
+              <Label htmlFor="exam-filter" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Exam Type
+              </Label>
+              <Select value={selectedExamType} onValueChange={setSelectedExamType}>
+                <SelectTrigger id="exam-filter">
+                  <SelectValue placeholder="Select exam type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Exam Types</SelectItem>
+                  {allExamTypes.map(examType => (
+                    <SelectItem key={examType} value={examType}>
+                      {formatExamType(examType)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      {filteredResults.length > 0 ? (
+        <>
+          {/* Performance Summary Cards */}
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-4 text-center">
+                <Target className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                <p className="text-3xl font-bold text-blue-700">{overallPercentage.toFixed(1)}%</p>
+                <p className="text-sm text-blue-600">Average Score</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+              <CardContent className="p-4 text-center">
+                <Award className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                <p className="text-3xl font-bold text-green-700">{getGrade(overallPercentage)}</p>
+                <p className="text-sm text-green-600">Overall Grade</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-4 text-center">
+                <Trophy className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                <p className="text-3xl font-bold text-purple-700">{totalPoints}</p>
+                <p className="text-sm text-purple-600">Total Points</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-4 text-center">
+                <BarChart3 className="h-8 w-8 mx-auto mb-2 text-orange-600" />
+                <p className="text-3xl font-bold text-orange-700">{totalMarks}/{maxMarks}</p>
+                <p className="text-sm text-orange-600">Total Marks</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
+              <CardContent className="p-4 text-center">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-indigo-600" />
+                <p className="text-3xl font-bold text-indigo-700">{filteredResults.length}</p>
+                <p className="text-sm text-indigo-600">Subjects</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Results Table - Report Card Style */}
+          <Card>
+            <CardHeader className="bg-gray-100 border-b">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Subject Results
+              </CardTitle>
+              <CardDescription>
+                {selectedYear !== "all" ? selectedYear : "All Years"} • 
+                {selectedTerm !== "all" ? ` ${selectedTerm}` : " All Terms"} • 
+                {selectedExamType !== "all" ? ` ${formatExamType(selectedExamType)}` : " All Exams"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50">
+                      <TableHead className="font-bold">Subject</TableHead>
+                      <TableHead className="font-bold text-center">Assessment</TableHead>
+                      <TableHead className="font-bold text-center">Score</TableHead>
+                      <TableHead className="font-bold text-center">%</TableHead>
+                      <TableHead className="font-bold text-center">Points</TableHead>
+                      <TableHead className="font-bold text-center">Grade</TableHead>
+                      <TableHead className="font-bold">Remark</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredResults.map((result, index) => {
+                      const points = getPoints(result.percentage)
+                      const remark = result.percentage >= 75 ? "Excellent" :
+                                     result.percentage >= 65 ? "Very Good" :
+                                     result.percentage >= 50 ? "Good" :
+                                     result.percentage >= 40 ? "Fair" :
+                                     result.percentage >= 30 ? "Poor" : "Fail"
+                      return (
+                        <TableRow key={result.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                          <TableCell className="font-medium">
+                            {result.subjectName}
+                            {result.subjectCode && (
+                              <div className="text-xs text-muted-foreground">{result.subjectCode}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-xs">
+                              {result.examName || formatExamType(result.examType)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {result.marksObtained}/{result.maxMarks}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={`font-bold ${
+                              result.percentage >= 75 ? "text-green-600" :
+                              result.percentage >= 50 ? "text-blue-600" :
+                              result.percentage >= 40 ? "text-orange-600" : "text-red-600"
+                            }`}>
+                              {result.percentage.toFixed(0)}%
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                              {points}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge className={getGradeColor(result.grade, result.percentage)}>
+                              {result.grade || getGrade(result.percentage)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {remark}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {/* Totals Row */}
+                    <TableRow className="bg-gray-100 font-bold border-t-2">
+                      <TableCell>TOTAL</TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-center">{totalMarks}/{maxMarks}</TableCell>
+                      <TableCell className="text-center text-blue-600">{overallPercentage.toFixed(1)}%</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-purple-600 text-white">{totalPoints}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={getGradeColor(null, overallPercentage)}>
+                          {getGrade(overallPercentage)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Teacher Comment Section */}
+          <Card className="border-2">
+            <CardHeader className="bg-blue-50 border-b">
+              <CardTitle className="flex items-center gap-2 text-blue-800">
+                <MessageSquare className="h-5 w-5" />
+                Performance Comment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <p className="text-gray-700 italic">
+                &quot;{getComment(overallPercentage)}&quot;
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Quick Stats */}
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  Best Performing Subjects
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {[...filteredResults]
+                    .sort((a, b) => b.percentage - a.percentage)
+                    .slice(0, 3)
+                    .map((result, index) => (
+                      <div key={result.id} className="flex items-center justify-between p-2 bg-green-50 rounded">
+                        <span className="font-medium">{index + 1}. {result.subjectName}</span>
+                        <Badge className="bg-green-600">{result.percentage.toFixed(0)}%</Badge>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4 text-orange-600" />
+                  Needs Improvement
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {[...filteredResults]
+                    .sort((a, b) => a.percentage - b.percentage)
+                    .slice(0, 3)
+                    .map((result, index) => (
+                      <div key={result.id} className="flex items-center justify-between p-2 bg-orange-50 rounded">
+                        <span className="font-medium">{index + 1}. {result.subjectName}</span>
+                        <Badge variant="outline" className="border-orange-300 text-orange-700">
+                          {result.percentage.toFixed(0)}%
+                        </Badge>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Results Found</h3>
+            <p className="text-muted-foreground text-center">
+              No results match your selected filters. Try adjusting the filters above.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
