@@ -237,15 +237,28 @@ export default function ClassResultsPage() {
   }
 
   const generatePDFReport = async (reportData: any) => {
-    // Fetch school config, signatures, and remark templates
+    // Fetch school config, signatures, remark templates, and points config
     let schoolConfig: any = null
     let principalSig: any = null
     let classTeacherSig: any = null
+    let pointsConfig: any[] = []
+    
+    // Default points configuration
+    const defaultPointsConfig = [
+      { minPercentage: 75, maxPercentage: 100, points: 1 },
+      { minPercentage: 65, maxPercentage: 74.99, points: 2 },
+      { minPercentage: 50, maxPercentage: 64.99, points: 3 },
+      { minPercentage: 40, maxPercentage: 49.99, points: 4 },
+      { minPercentage: 30, maxPercentage: 39.99, points: 5 },
+      { minPercentage: 1, maxPercentage: 29.99, points: 6 },
+      { minPercentage: 0, maxPercentage: 0.99, points: 7 },
+    ]
     
     try {
-      const [schoolConfigRes, signaturesRes] = await Promise.all([
+      const [schoolConfigRes, signaturesRes, pointsConfigRes] = await Promise.all([
         fetch("/api/settings/school-config"),
         fetch("/api/signatures"),
+        fetch("/api/settings/points-config"),
       ])
       if (schoolConfigRes.ok) {
         schoolConfig = await schoolConfigRes.json()
@@ -255,8 +268,24 @@ export default function ClassResultsPage() {
         principalSig = signatures.find((s: any) => s.signatureType === "PRINCIPAL")
         classTeacherSig = signatures.find((s: any) => s.signatureType === "CLASS_TEACHER")
       }
+      if (pointsConfigRes.ok) {
+        const dbPointsConfig = await pointsConfigRes.json()
+        pointsConfig = dbPointsConfig.length > 0 ? dbPointsConfig : defaultPointsConfig
+      } else {
+        pointsConfig = defaultPointsConfig
+      }
     } catch (error) {
       console.error("Error fetching config/signatures:", error)
+      pointsConfig = defaultPointsConfig
+    }
+    
+    // Helper function to get points based on percentage
+    const getPoints = (percentage: number): number | undefined => {
+      const rounded = Math.round(percentage)
+      const config = pointsConfig.find(
+        (pc: any) => rounded >= pc.minPercentage && rounded <= pc.maxPercentage
+      )
+      return config?.points
     }
 
     const doc = new jsPDF()
@@ -380,28 +409,36 @@ export default function ClassResultsPage() {
     doc.text(`${position} out of ${classSize}`, pageWidth / 2 + 45, yPos)
     yPos += 10
 
-    // Results table using autoTable
+    // Calculate total points
+    let totalPoints = 0
+    
+    // Results table using autoTable - now with POINTS column
     const tableData = reportData.results.map((result: any) => {
       const pct = result.maxMarks > 0 ? Math.round((result.marksObtained / result.maxMarks) * 100) : 0
+      const pts = getPoints(pct)
+      if (pts !== undefined) totalPoints += pts
       return [
         result.classSubject.subject.name,
         `${result.marksObtained}/${result.maxMarks}`,
         `${pct}%`,
+        pts !== undefined ? String(pts) : "-",
         getRemark(pct)
       ]
     })
 
-    // Add total row
+    // Add total row with total points
+    const totalPct = totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0
     tableData.push([
       "TOTAL",
       `${totalMarks}/${totalMax}`,
       `${percentage}%`,
+      String(totalPoints),
       getRemark(percentage)
     ])
 
     autoTable(doc, {
       startY: yPos,
-      head: [["SUBJECT", "SCORE", "%", "REMARK"]],
+      head: [["SUBJECT", "SCORE", "%", "PTS", "REMARK"]],
       body: tableData,
       theme: "grid",
       headStyles: {
@@ -415,10 +452,11 @@ export default function ClassResultsPage() {
         cellPadding: 3,
       },
       columnStyles: {
-        0: { halign: "left", cellWidth: 70 },
-        1: { halign: "center", cellWidth: 35 },
-        2: { halign: "center", cellWidth: 25 },
-        3: { halign: "center", cellWidth: 45 }
+        0: { halign: "left", cellWidth: 55 },
+        1: { halign: "center", cellWidth: 30 },
+        2: { halign: "center", cellWidth: 20 },
+        3: { halign: "center", cellWidth: 20 },
+        4: { halign: "center", cellWidth: 45 }
       },
       margin: { left: 20, right: 20 }
     })

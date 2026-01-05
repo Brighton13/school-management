@@ -412,14 +412,15 @@ async function generateStudentReportData(
   const isFinalExam = exam.examType === "FINAL" || exam.isFinal === true
   
   // Default points configuration if none exists in database
+  // Using >= for min and <= for max with proper ranges
   const defaultPointsConfig = [
     { minPercentage: 75, maxPercentage: 100, points: 1 },
-    { minPercentage: 65, maxPercentage: 74, points: 2 },
-    { minPercentage: 50, maxPercentage: 64, points: 3 },
-    { minPercentage: 40, maxPercentage: 49, points: 4 },
-    { minPercentage: 30, maxPercentage: 39, points: 5 },
-    { minPercentage: 1, maxPercentage: 29, points: 6 },
-    { minPercentage: 0, maxPercentage: 0, points: 7 },
+    { minPercentage: 65, maxPercentage: 74.99, points: 2 },
+    { minPercentage: 50, maxPercentage: 64.99, points: 3 },
+    { minPercentage: 40, maxPercentage: 49.99, points: 4 },
+    { minPercentage: 30, maxPercentage: 39.99, points: 5 },
+    { minPercentage: 1, maxPercentage: 29.99, points: 6 },
+    { minPercentage: 0, maxPercentage: 0.99, points: 7 },
   ]
   
   // Always load points configuration for all exams
@@ -427,8 +428,11 @@ async function generateStudentReportData(
     where: { isActive: true },
     orderBy: { maxPercentage: "desc" },
   })
-  // Use database config if exists, otherwise use defaults
+  
+  // Use database config if exists and has entries, otherwise use defaults
   const pointsConfig = dbConfig.length > 0 ? dbConfig : defaultPointsConfig
+  
+  console.log("Points config being used:", pointsConfig.length, "entries")
 
   // Calculate totals
   let totalMarks = 0
@@ -443,11 +447,16 @@ async function generateStudentReportData(
     // Calculate points for this subject (for all exams)
     let subjectPoints: number | undefined
     if (pointsConfig.length > 0) {
+      // Find matching config - use Math.floor for percentage to avoid decimal issues
+      const roundedPercentage = Math.round(percentage)
       const matchingConfig = pointsConfig.find(
-        pc => percentage >= pc.minPercentage && percentage <= pc.maxPercentage
+        pc => roundedPercentage >= pc.minPercentage && roundedPercentage <= pc.maxPercentage
       )
+      
+      console.log(`Subject: ${r.classSubject.subject.name}, Percentage: ${roundedPercentage}%, Matching config:`, matchingConfig)
+      
       subjectPoints = matchingConfig?.points
-      if (subjectPoints) {
+      if (subjectPoints !== undefined) {
         totalPoints += subjectPoints
       }
     }
