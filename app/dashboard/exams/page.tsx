@@ -162,6 +162,7 @@ export default function ExamsPage() {
         setFormClassId("")
         setFormStatus("DRAFT")
         setEditFormExamType("")
+        setEditFormTermId("")
         setEditFormClassId("")
         setEditFormStatus("DRAFT")
         fetchData()
