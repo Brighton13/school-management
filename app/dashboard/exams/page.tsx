@@ -73,11 +73,11 @@ export default function ExamsPage() {
   // Form state for Select components
   const [formExamType, setFormExamType] = useState("")
   const [formTermId, setFormTermId] = useState("")
-  const [formClassId, setFormClassId] = useState("")
+  const [formClassId, setFormClassId] = useState("all")
   const [formStatus, setFormStatus] = useState("DRAFT")
   const [editFormExamType, setEditFormExamType] = useState("")
   const [editFormTermId, setEditFormTermId] = useState("")
-  const [editFormClassId, setEditFormClassId] = useState("")
+  const [editFormClassId, setEditFormClassId] = useState("all")
   const [editFormStatus, setEditFormStatus] = useState("DRAFT")
   
   const canApprove = session?.user.role === "ADMIN" || session?.user.role === "PRINCIPAL"
@@ -144,7 +144,7 @@ export default function ExamsPage() {
           description: formData.get("description"),
           examType,
           termId,
-          classId: classId || null,
+          classId: classId === "all" ? null : classId,
           startDate: formData.get("startDate") || null,
           endDate: formData.get("endDate") || null,
           isFinal: formData.get("isFinal") === "on",
@@ -159,11 +159,11 @@ export default function ExamsPage() {
         setEditingExam(null)
         setFormExamType("")
         setFormTermId("")
-        setFormClassId("")
+        setFormClassId("all")
         setFormStatus("DRAFT")
         setEditFormExamType("")
         setEditFormTermId("")
-        setEditFormClassId("")
+        setEditFormClassId("all")
         setEditFormStatus("DRAFT")
         fetchData()
         if (e.currentTarget) {
@@ -183,7 +183,7 @@ export default function ExamsPage() {
     setEditingExam(exam)
     setEditFormExamType(exam.examType)
     setEditFormTermId(exam.termId)
-    setEditFormClassId(exam.classId || "")
+    setEditFormClassId(exam.classId || "all")
     setEditFormStatus(exam.status)
     setIsEditDialogOpen(true)
   }
@@ -270,7 +270,7 @@ export default function ExamsPage() {
           if (!open) {
             setFormExamType("")
             setFormTermId("")
-            setFormClassId("")
+            setFormClassId("all")
             setFormStatus("DRAFT")
           }
         }}>
@@ -548,7 +548,7 @@ export default function ExamsPage() {
           setEditingExam(null)
           setEditFormExamType("")
           setEditFormTermId("")
-          setEditFormClassId("")
+          setEditFormClassId("all")
           setEditFormStatus("DRAFT")
         }
       }}>

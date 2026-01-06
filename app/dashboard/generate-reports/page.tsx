@@ -130,7 +130,7 @@ export default function GenerateReportsPage() {
   const [selectedTerm, setSelectedTerm] = useState<string>("")
   const [selectedExam, setSelectedExam] = useState<string>("")
   const [selectedExamData, setSelectedExamData] = useState<Exam | null>(null)
-  const [selectedSection, setSelectedSection] = useState<string>("")
+  const [selectedSection, setSelectedSection] = useState<string>("all")
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
   
   // Generated reports state
@@ -222,7 +222,7 @@ export default function GenerateReportsPage() {
         setLoading(true)
         setError(null)
         const params = new URLSearchParams({ examId: selectedExam })
-        if (selectedSection) params.append("sectionId", selectedSection)
+        if (selectedSection && selectedSection !== "all") params.append("sectionId", selectedSection)
 
         const res = await fetch(`/api/reports/class-teacher-generate?${params}`)
         if (!res.ok) {
@@ -291,7 +291,7 @@ export default function GenerateReportsPage() {
     setSelectedTerm("")
     setSelectedExam("")
     setSelectedExamData(null)
-    setSelectedSection("")
+    setSelectedSection("all")
     setEligibleStudents([])
     setGeneratedReports([])
     setSelectedStudents(new Set())
@@ -340,7 +340,7 @@ export default function GenerateReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           examId: selectedExam,
-          sectionId: selectedSection,
+          sectionId: selectedSection === "all" ? undefined : selectedSection,
           studentIds: targetIds,
           returnPdf: true,
         }),
@@ -393,7 +393,7 @@ export default function GenerateReportsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           examId: selectedExam,
-          sectionId: selectedSection,
+          sectionId: selectedSection === "all" ? undefined : selectedSection,
           studentIds: targetIds,
           returnPdf: true,
         }),
@@ -759,7 +759,7 @@ export default function GenerateReportsPage() {
                     <SelectValue placeholder="All sections" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All sections</SelectItem>
+                    <SelectItem value="all">All sections</SelectItem>
                     {sections.map(section => (
                       <SelectItem key={section.id} value={section.id}>
                         {section.class?.name} {section.name}
