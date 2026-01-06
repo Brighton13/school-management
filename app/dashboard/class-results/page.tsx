@@ -99,7 +99,7 @@ export default function ClassResultsPage() {
     try {
       const [termsRes, examsRes] = await Promise.all([
         fetch("/api/terms"),
-        fetch("/api/exams?status=ACTIVE"),
+        fetch("/api/exams"),
       ])
       if (termsRes.ok) {
         setTerms(await termsRes.json())
