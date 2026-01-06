@@ -336,7 +336,7 @@ export default function ExamsPage() {
                       <SelectValue placeholder="All Classes (School-wide)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Classes (School-wide)</SelectItem>
+                      <SelectItem value="all">All Classes (School-wide)</SelectItem>
                       {classes.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>
                           {cls.name} ({cls.sections?.length || 0} sections)
@@ -609,7 +609,7 @@ export default function ExamsPage() {
                       <SelectValue placeholder="All Classes (School-wide)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Classes (School-wide)</SelectItem>
+                      <SelectItem value="all">All Classes (School-wide)</SelectItem>
                       {classes.map((cls) => (
                         <SelectItem key={cls.id} value={cls.id}>
                           {cls.name} ({cls.sections?.length || 0} sections)
