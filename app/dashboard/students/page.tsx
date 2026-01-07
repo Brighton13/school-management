@@ -44,6 +44,19 @@ interface Student {
   }>
 }
 
+interface TeacherClassSection {
+  id: string
+  name: string
+  isClassTeacher: boolean
+  subjects: string[]
+}
+
+interface TeacherClass {
+  id: string
+  name: string
+  sections: TeacherClassSection[]
+}
+
 export default function StudentsPage() {
   const { data: session } = useSession()
   const [students, setStudents] = useState<Student[]>([])
@@ -61,18 +74,57 @@ export default function StudentsPage() {
   const [teacherSections, setTeacherSections] = useState<Array<{ id: string; name: string; class: { name: string } }>>([])
   const [downloadSectionId, setDownloadSectionId] = useState<string>("")
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  
+  // Teacher filter states
+  const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([])
+  const [filterClassId, setFilterClassId] = useState<string>("")
+  const [filterSectionId, setFilterSectionId] = useState<string>("")
+  const [availableFilterSections, setAvailableFilterSections] = useState<TeacherClassSection[]>([])
 
   useEffect(() => {
-    fetchStudents()
-    fetchClasses()
     if (session?.user?.role === "TEACHER") {
+      fetchTeacherClasses()
       fetchTeacherSections()
+    } else {
+      fetchStudents()
     }
+    fetchClasses()
   }, [session])
+
+  // Fetch students when teacher filter changes
+  useEffect(() => {
+    if (session?.user?.role === "TEACHER") {
+      fetchStudents()
+    }
+  }, [filterClassId, filterSectionId])
+
+  // Update available sections when filter class changes
+  useEffect(() => {
+    if (filterClassId && filterClassId !== "all_classes") {
+      const selectedClass = teacherClasses.find(c => c.id === filterClassId)
+      setAvailableFilterSections(selectedClass?.sections || [])
+      setFilterSectionId("") // Reset section when class changes
+    } else {
+      setAvailableFilterSections([])
+      setFilterSectionId("")
+    }
+  }, [filterClassId, teacherClasses])
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch("/api/students")
+      setLoading(true)
+      let url = "/api/students"
+      
+      // Add teacher filter params if role is TEACHER
+      if (session?.user?.role === "TEACHER" && filterClassId && filterClassId !== "all_classes") {
+        const params = new URLSearchParams()
+        params.set("teacherFilter", "true")
+        params.set("classId", filterClassId)
+        if (filterSectionId && filterSectionId !== "all") params.set("sectionId", filterSectionId)
+        url = `/api/students?${params.toString()}`
+      }
+      
+      const res = await fetch(url)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
@@ -84,6 +136,18 @@ export default function StudentsPage() {
       console.error("Failed to fetch students:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTeacherClasses = async () => {
+    try {
+      const res = await fetch("/api/teacher-classes")
+      if (res.ok) {
+        const data = await res.json()
+        setTeacherClasses(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch teacher classes:", error)
     }
   }
 
@@ -338,12 +402,15 @@ export default function StudentsPage() {
               {downloading ? "Downloading..." : "Download My Class Students"}
             </Button>
           )}
+
+          {session?.user?.role !== "TEACHER"&& (
           <Link href="/dashboard/bulk-upload">
             <Button variant="outline">
               <Upload className="mr-2 h-4 w-4" />
               Bulk Upload
             </Button>
           </Link>
+        )}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -553,6 +620,79 @@ export default function StudentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Teacher Class/Section Filter */}
+      {session?.user?.role === "TEACHER" && teacherClasses.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Filter Students by Class</CardTitle>
+            <CardDescription>
+              Select a class and section to view students. You can only see students in classes you are assigned to.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[200px] space-y-2">
+                <Label htmlFor="filter-class">Class</Label>
+                <Select 
+                  value={filterClassId} 
+                  onValueChange={setFilterClassId}
+                >
+                  <SelectTrigger id="filter-class">
+                    <SelectValue placeholder="All Classes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all_classes">All My Classes</SelectItem>
+                    {teacherClasses.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1 min-w-[200px] space-y-2">
+                <Label htmlFor="filter-section">Section</Label>
+                <Select 
+                  value={filterSectionId} 
+                  onValueChange={setFilterSectionId}
+                  disabled={!filterClassId || filterClassId === "all_classes"}
+                >
+                  <SelectTrigger id="filter-section">
+                    <SelectValue placeholder="All Sections" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sections</SelectItem>
+                    {availableFilterSections.map((section) => (
+                      <SelectItem key={section.id} value={section.id}>
+                        {section.name}
+                        {section.isClassTeacher && " (Class Teacher)"}
+                        {section.subjects.length > 0 && ` - ${section.subjects.join(", ")}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFilterClassId("")
+                  setFilterSectionId("")
+                }}
+                disabled={!filterClassId && !filterSectionId}
+              >
+                Clear Filter
+              </Button>
+            </div>
+            {filterClassId && filterClassId !== "all_classes" && (
+              <p className="text-sm text-muted-foreground mt-3">
+                Showing students from: {teacherClasses.find(c => c.id === filterClassId)?.name}
+                {filterSectionId && filterSectionId !== "all" && ` - ${availableFilterSections.find(s => s.id === filterSectionId)?.name}`}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -562,7 +702,9 @@ export default function StudentsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{students.length}</div>
-            <p className="text-xs text-muted-foreground">All registered students</p>
+            <p className="text-xs text-muted-foreground">
+              {session?.user?.role === "TEACHER" ? "Students in your classes" : "All registered students"}
+            </p>
           </CardContent>
         </Card>
         
@@ -575,7 +717,9 @@ export default function StudentsPage() {
             <div className="text-2xl font-bold">
               {students.filter(s => s.classEnrollment && s.classEnrollment.length > 0).length}
             </div>
-            <p className="text-xs text-muted-foreground">Currently enrolled in classes</p>
+            <p className="text-xs text-muted-foreground">
+              {session?.user?.role === "TEACHER" ? "Currently enrolled" : "Currently enrolled in classes"}
+            </p>
           </CardContent>
         </Card>
 
@@ -616,9 +760,16 @@ export default function StudentsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>All Students</CardTitle>
+              <CardTitle>
+                {session?.user?.role === "TEACHER" 
+                  ? (filterClassId && filterClassId !== "all_classes"
+                      ? `Students - ${teacherClasses.find(c => c.id === filterClassId)?.name}${filterSectionId && filterSectionId !== "all" ? ` (${availableFilterSections.find(s => s.id === filterSectionId)?.name})` : ""}`
+                      : "My Students")
+                  : "All Students"}
+              </CardTitle>
               <CardDescription>
                 {filteredStudents.length} student(s) found
+                {session?.user?.role === "TEACHER" && !filterClassId && " across all your assigned classes"}
               </CardDescription>
             </div>
             <div className="relative">

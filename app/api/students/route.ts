@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const classId = searchParams.get("classId")
     const sectionId = searchParams.get("sectionId")
     const currentAcademicYear = searchParams.get("currentAcademicYear") === "true"
+    const teacherFilter = searchParams.get("teacherFilter") === "true"
 
     // If filtering by class/section for current academic year
     if (classId && currentAcademicYear) {
@@ -78,18 +79,20 @@ export async function GET(request: NextRequest) {
           // Get sections where teacher is class teacher
           sections: {
             include: {
+              class: true,
               enrollments: {
-                select: { studentId: true },
+                select: { studentId: true, classId: true, sectionId: true },
               },
             },
           },
           // Get class-subjects where teacher teaches
           classSubjects: {
             include: {
+              section: true,
               class: {
                 include: {
                   enrollments: {
-                    select: { studentId: true },
+                    select: { studentId: true, classId: true, sectionId: true },
                   },
                 },
               },
@@ -103,25 +106,68 @@ export async function GET(request: NextRequest) {
         return NextResponse.json([])
       }
 
-      // Collect student IDs from:
-      // 1. Sections where teacher is class teacher
-      const classTeacherStudentIds = staff.sections.flatMap((section: { enrollments: Array<{ studentId: string }> }) =>
-        section.enrollments.map((enrollment: { studentId: string }) => enrollment.studentId)
-      )
+      // If teacherFilter is true and classId/sectionId provided, filter specifically
+      if (teacherFilter && (classId || sectionId)) {
+        // Verify teacher has access to this class/section
+        const hasClassTeacherAccess = staff.sections.some(
+          (s: { classId: string; id: string }) => 
+            (!classId || s.classId === classId) && (!sectionId || s.id === sectionId)
+        )
+        const hasSubjectTeacherAccess = staff.classSubjects.some(
+          (cs: { classId: string; sectionId: string | null }) => 
+            (!classId || cs.classId === classId) && (!sectionId || cs.sectionId === sectionId || !cs.sectionId)
+        )
 
-      // 2. Classes where teacher teaches subjects
-      const subjectTeacherStudentIds = staff.classSubjects.flatMap((cs: { class: { enrollments: Array<{ studentId: string }> } }) =>
-        cs.class.enrollments.map((enrollment: { studentId: string }) => enrollment.studentId)
-      )
+        if (!hasClassTeacherAccess && !hasSubjectTeacherAccess) {
+          return NextResponse.json({ error: "Access denied to this class/section" }, { status: 403 })
+        }
 
-      // Combine and deduplicate
-      const allStudentIds = Array.from(new Set([...classTeacherStudentIds, ...subjectTeacherStudentIds]))
-      
-      if (allStudentIds.length === 0) {
-        return NextResponse.json([])
+        // Filter students based on the selected class/section
+        let filteredStudentIds: string[] = []
+        
+        // From class teacher sections
+        staff.sections.forEach((section: { classId: string; id: string; enrollments: Array<{ studentId: string; classId: string; sectionId: string }> }) => {
+          if ((!classId || section.classId === classId) && (!sectionId || section.id === sectionId)) {
+            filteredStudentIds.push(...section.enrollments.map(e => e.studentId))
+          }
+        })
+
+        // From subject teaching assignments
+        staff.classSubjects.forEach((cs: { classId: string; sectionId: string | null; class: { enrollments: Array<{ studentId: string; classId: string; sectionId: string }> } }) => {
+          if ((!classId || cs.classId === classId) && (!sectionId || cs.sectionId === sectionId || !cs.sectionId)) {
+            const enrollments = cs.class.enrollments.filter(
+              (e: { classId: string; sectionId: string }) => (!sectionId || e.sectionId === sectionId)
+            )
+            filteredStudentIds.push(...enrollments.map(e => e.studentId))
+          }
+        })
+
+        studentIds = Array.from(new Set(filteredStudentIds))
+        
+        if (studentIds.length === 0) {
+          return NextResponse.json([])
+        }
+      } else {
+        // Collect student IDs from:
+        // 1. Sections where teacher is class teacher
+        const classTeacherStudentIds = staff.sections.flatMap((section: { enrollments: Array<{ studentId: string }> }) =>
+          section.enrollments.map((enrollment: { studentId: string }) => enrollment.studentId)
+        )
+
+        // 2. Classes where teacher teaches subjects
+        const subjectTeacherStudentIds = staff.classSubjects.flatMap((cs: { class: { enrollments: Array<{ studentId: string }> } }) =>
+          cs.class.enrollments.map((enrollment: { studentId: string }) => enrollment.studentId)
+        )
+
+        // Combine and deduplicate
+        const allStudentIds = Array.from(new Set([...classTeacherStudentIds, ...subjectTeacherStudentIds]))
+        
+        if (allStudentIds.length === 0) {
+          return NextResponse.json([])
+        }
+
+        studentIds = allStudentIds
       }
-
-      studentIds = allStudentIds
     }
 
     const students = await prisma.student.findMany({
