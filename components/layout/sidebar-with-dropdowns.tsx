@@ -72,10 +72,10 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Student Management",
-    roles: ["ADMIN", "PRINCIPAL"],
+    roles: ["ADMIN", "PRINCIPAL", "TEACHER"],
     items: [
       { name: "Enrollment", href: "/dashboard/enrollment", icon: UserCheck, roles: ["ADMIN"] },
-      { name: "Students", href: "/dashboard/students", icon: GraduationCap, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Students", href: "/dashboard/students", icon: GraduationCap, roles: ["ADMIN", "PRINCIPAL","TEACHER"] },
       { name: "Student-promotions", href: "/dashboard/promotions", icon: BookOpen, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Pending Applications", href: "/dashboard/pending-applications", icon: Clock, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Subject Selection", href: "/dashboard/student-subjects", icon: BookOpen, roles: ["ADMIN", "STUDENT"] },
