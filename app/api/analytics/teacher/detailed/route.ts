@@ -15,7 +15,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Get teacher's staff record
+    // Get current academic context first
+    const context = await getAcademicContext()
+    const currentTerm = await prisma.term.findUnique({
+      where: { id: context.termId },
+      include: { academicYear: true },
+    })
+
+    if (!currentTerm) {
+      return NextResponse.json({ 
+        error: "No current term set. Please set a current academic year and term." 
+      }, { status: 400 })
+    }
+
+    const currentAcademicYearId = currentTerm.academicYear.id
+
+    // Get teacher's staff record with enrollments filtered by current academic year
     const staff = await prisma.staff.findUnique({
       where: { userId: session.user.id },
       include: {
@@ -23,40 +38,20 @@ export async function GET(request: NextRequest) {
           include: {
             class: true,
             subject: true,
-            results: {
-              include: {
-                student: {
-                  include: {
-                    user: true,
-                    classEnrollment: {
-                      include: {
-                        class: true,
-                        section: true,
-                      },
-                    },
-                  },
-                },
-                academicYear: true,
-                term: true,
-              },
-            },
           },
         },
         sections: {
           include: {
             class: true,
             enrollments: {
+              where: {
+                academicYearId: currentAcademicYearId,
+                status: "ACTIVE",
+              },
               include: {
                 student: {
                   include: {
                     user: true,
-                    attendance: {
-                      where: {
-                        date: {
-                          gte: new Date(new Date().setDate(new Date().getDate() - 30)),
-                        },
-                      },
-                    },
                   },
                 },
               },
@@ -69,13 +64,6 @@ export async function GET(request: NextRequest) {
     if (!staff) {
       return NextResponse.json({ error: "Staff record not found" }, { status: 404 })
     }
-
-    // Get current academic context
-    const context = await getAcademicContext()
-    const currentTerm = await prisma.term.findUnique({
-      where: { id: context.termId },
-      include: { academicYear: true },
-    })
 
     // Get all students in teacher's classes
     const allStudents = staff.sections.flatMap((section) =>
@@ -215,14 +203,23 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.averageScore - a.averageScore)
     }
 
-    // Attendance Analytics
+    // Attendance Analytics - Filter by current term's date range
+    const termStartDate = currentTerm.startDate
+    const termEndDate = currentTerm.endDate
+    
+    // Use last 30 days or term start date, whichever is more recent
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const attendanceStartDate = termStartDate > thirtyDaysAgo ? termStartDate : thirtyDaysAgo
 
     const attendanceData = await prisma.attendance.findMany({
       where: {
         studentId: { in: uniqueStudents.map((s) => s.id) },
-        date: { gte: thirtyDaysAgo },
+        date: { 
+          gte: attendanceStartDate,
+          lte: termEndDate || new Date(),
+        },
+        academicYearId: currentAcademicYearId,
       },
       include: {
         student: {
@@ -273,14 +270,15 @@ export async function GET(request: NextRequest) {
       })
     )
 
-    // Attendance Trends (Last 6 months)
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
+    // Attendance Trends - For the current term only
     const monthlyAttendance = await prisma.attendance.findMany({
       where: {
         studentId: { in: uniqueStudents.map((s) => s.id) },
-        date: { gte: sixMonthsAgo },
+        date: { 
+          gte: termStartDate,
+          lte: termEndDate || new Date(),
+        },
+        academicYearId: currentAcademicYearId,
       },
       select: {
         status: true,

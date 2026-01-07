@@ -15,7 +15,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Get teacher's staff record
+    const { searchParams } = new URL(request.url)
+    const termId = searchParams.get("termId")
+
+    // Get current term first to filter data properly
+    let currentTerm = null
+    if (termId) {
+      currentTerm = await prisma.term.findUnique({
+        where: { id: termId },
+        include: { academicYear: true },
+      })
+    } else {
+      currentTerm = await prisma.term.findFirst({
+        where: { isCurrent: true },
+        include: { academicYear: true },
+      })
+    }
+
+    if (!currentTerm) {
+      return NextResponse.json({ 
+        error: "No current term set. Please set a current academic year and term." 
+      }, { status: 400 })
+    }
+
+    const currentAcademicYearId = currentTerm.academicYear.id
+
+    // Get teacher's staff record with enrollments filtered by current academic year
     const staff = await prisma.staff.findUnique({
       where: { userId: session.user.id },
       include: {
@@ -23,23 +48,16 @@ export async function GET(request: NextRequest) {
           include: {
             class: true,
             subject: true,
-            results: {
-              include: {
-                student: {
-                  include: {
-                    user: true,
-                  },
-                },
-                academicYear: true,
-                term: true,
-              },
-            },
           },
         },
         sections: {
           include: {
             class: true,
             enrollments: {
+              where: {
+                academicYearId: currentAcademicYearId,
+                status: "ACTIVE",
+              },
               include: {
                 student: {
                   include: {
@@ -55,23 +73,6 @@ export async function GET(request: NextRequest) {
 
     if (!staff) {
       return NextResponse.json({ error: "Staff record not found" }, { status: 404 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const termId = searchParams.get("termId")
-
-    // Get current term if not specified
-    let currentTerm = null
-    if (termId) {
-      currentTerm = await prisma.term.findUnique({
-        where: { id: termId },
-        include: { academicYear: true },
-      })
-    } else {
-      currentTerm = await prisma.term.findFirst({
-        where: { isCurrent: true },
-        include: { academicYear: true },
-      })
     }
 
     // Get all classes and subjects assigned to this teacher
@@ -211,9 +212,14 @@ export async function GET(request: NextRequest) {
         .slice(0, 5)
     }
 
-    // Attendance for assigned classes (Last 30 days)
+    // Attendance for assigned classes - Filter by current term
+    const termStartDate = currentTerm.startDate
+    const termEndDate = currentTerm.endDate
+    
+    // Use last 30 days or term start date, whichever is more recent
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const attendanceStartDate = termStartDate > thirtyDaysAgo ? termStartDate : thirtyDaysAgo
 
     const studentIds = assignedClasses.flatMap((section) =>
       section.enrollments.map((e) => e.studentId)
@@ -223,7 +229,11 @@ export async function GET(request: NextRequest) {
       by: ["status"],
       where: {
         studentId: { in: studentIds },
-        date: { gte: thirtyDaysAgo },
+        date: { 
+          gte: attendanceStartDate,
+          lte: termEndDate || new Date(),
+        },
+        academicYearId: currentAcademicYearId,
       },
       _count: { status: true },
     })
@@ -262,15 +272,12 @@ export async function GET(request: NextRequest) {
       })
     })
 
-    // Performance Trends (Last 6 months)
-    const sixMonthsAgo = new Date()
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
-
+    // Performance Trends - For current academic year only
     const monthlyResults = await prisma.result.findMany({
       where: {
         classSubjectId: { in: assignedSubjects.map((s) => s.id) },
         status: { in: ["APPROVED", "PUBLISHED"] },
-        createdAt: { gte: sixMonthsAgo },
+        academicYearId: currentAcademicYearId,
       },
       select: {
         marksObtained: true,
