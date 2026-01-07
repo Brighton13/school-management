@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { createNotification } from "@/lib/notifications"
 
 // Default points configuration (fallback if no config in DB)
 const defaultPointsConfig = [
@@ -157,11 +158,23 @@ export async function PUT(
       updateData.examType = examType
     }
     
-    // If teacher updates, resubmit for approval
-    if (session.user.role === "TEACHER" && existingResult.status !== "DRAFT") {
-      updateData.status = "PENDING_APPROVAL"
-      updateData.submittedBy = session.user.id
-      updateData.submittedAt = new Date()
+    // If teacher updates a DRAFT result, set to PENDING_CLASS_TEACHER
+    // If teacher updates any other editable status, maintain the current status
+    // Only change to PENDING_APPROVAL for initial submission
+    if (session.user.role === "TEACHER") {
+      if (existingResult.status === "DRAFT") {
+        // First submission - send to class teacher
+        updateData.status = "PENDING_CLASS_TEACHER"
+        updateData.submittedBy = session.user.id
+        updateData.submittedAt = new Date()
+      } else if (existingResult.status === "REJECTED") {
+        // Resubmitting after rejection - goes back to class teacher
+        updateData.status = "PENDING_CLASS_TEACHER"
+        updateData.submittedBy = session.user.id
+        updateData.submittedAt = new Date()
+      }
+      // For PENDING_CLASS_TEACHER and PENDING_APPROVAL, maintain the current status
+      // This allows teachers to correct marks without resetting the workflow
     }
 
     const updatedResult = await prisma.result.update({
@@ -175,6 +188,7 @@ export async function PUT(
           include: {
             subject: true,
             class: true,
+            section: true,
             teacher: {
               include: { user: true },
             },
@@ -185,6 +199,35 @@ export async function PUT(
         exam: true,
       },
     })
+
+    // Send notifications based on status changes
+    const statusChanged = updateData.status && updateData.status !== existingResult.status
+    
+    if (statusChanged && updateData.status === "PENDING_CLASS_TEACHER") {
+      // Notify class teacher that results need review
+      const section = updatedResult.classSubject.section
+      if (section) {
+        const sectionWithClassTeacher = await prisma.section.findUnique({
+          where: { id: section.id },
+          include: {
+            classTeacher: {
+              include: { user: true },
+            },
+          },
+        })
+        
+        if (sectionWithClassTeacher?.classTeacher?.user) {
+          await createNotification({
+            userId: sectionWithClassTeacher.classTeacher.user.id,
+            title: "Results Submitted for Review",
+            message: `${session.user.name} has submitted results for ${updatedResult.classSubject.subject.name} (${updatedResult.classSubject.class.name}${section.name ? ` - ${section.name}` : ""}) requiring your review.`,
+            type: "INFO",
+            category: "RESULT",
+            link: "/dashboard/class-results",
+          })
+        }
+      }
+    }
 
     // Log audit trail
     await logAuditTrail(

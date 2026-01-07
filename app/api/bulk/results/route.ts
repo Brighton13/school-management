@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
+import { createNotification } from "@/lib/notifications"
 
 // Function to calculate grade based on percentage
 function calculateGrade(marks: number, maxMarks: number): string {
@@ -262,6 +263,55 @@ export async function POST(request: NextRequest) {
         metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classSubjectId, examId, termId },
       }
     )
+
+    // Send notification to class teacher if results were submitted
+    if (results.success > 0 && status === "PENDING_CLASS_TEACHER") {
+      // Find the class teacher(s) for this class
+      const sectionsWithTeachers = await prisma.section.findMany({
+        where: { 
+          classId: classSubject.classId,
+          classTeacherId: { not: null },
+        },
+        include: {
+          classTeacher: {
+            include: { user: true },
+          },
+        },
+      })
+
+      const notifiedTeachers = new Set<string>()
+      for (const section of sectionsWithTeachers) {
+        if (section.classTeacher?.user && !notifiedTeachers.has(section.classTeacher.user.id)) {
+          await createNotification({
+            userId: section.classTeacher.user.id,
+            title: "New Results for Review",
+            message: `${session.user.name} has uploaded ${results.success} result(s) for ${classSubject.class.name} - ${classSubject.subject.name}. Please review and submit to principal.`,
+            type: "INFO",
+            category: "RESULT",
+            link: "/dashboard/class-results",
+          })
+          notifiedTeachers.add(section.classTeacher.user.id)
+        }
+      }
+    }
+
+    // If directly submitted to principal (no class teacher), notify principal
+    if (results.success > 0 && status === "PENDING_APPROVAL") {
+      const principal = await prisma.staff.findFirst({
+        where: { designation: "PRINCIPAL" },
+      })
+
+      if (principal) {
+        await createNotification({
+          userId: principal.userId,
+          title: "Results Pending Approval",
+          message: `${session.user.name} has submitted ${results.success} result(s) for ${classSubject.class.name} - ${classSubject.subject.name} for your approval.`,
+          type: "INFO",
+          category: "RESULT",
+          link: "/dashboard/principal-approvals",
+        })
+      }
+    }
 
     return NextResponse.json(results)
   } catch (error: any) {

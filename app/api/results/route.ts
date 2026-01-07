@@ -423,6 +423,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Notify the student about the new result
     await createNotification({
       userId: result.student.userId,
       title: "New Result Available",
@@ -432,6 +433,51 @@ export async function POST(request: NextRequest) {
       link: `/dashboard/results`,
       metadata: { resultId: result.id },
     })
+
+    // Notify class teacher if result is pending their review
+    if (status === "PENDING_CLASS_TEACHER") {
+      const studentEnrollment = await prisma.classEnrollment.findFirst({
+        where: { studentId, academicYearId, status: "ACTIVE" },
+        include: {
+          section: {
+            include: {
+              classTeacher: {
+                include: { user: true },
+              },
+            },
+          },
+        },
+      })
+
+      if (studentEnrollment?.section?.classTeacher?.user) {
+        await createNotification({
+          userId: studentEnrollment.section.classTeacher.user.id,
+          title: "Result Submitted for Review",
+          message: `${session.user.name} has submitted a result for ${result.student.user.name} in ${result.classSubject.subject.name}. Please review.`,
+          type: "INFO",
+          category: "RESULT",
+          link: "/dashboard/class-results",
+        })
+      }
+    }
+
+    // Notify principal if result is pending their approval (no class teacher)
+    if (status === "PENDING_APPROVAL") {
+      const principal = await prisma.staff.findFirst({
+        where: { designation: "PRINCIPAL" },
+      })
+
+      if (principal) {
+        await createNotification({
+          userId: principal.userId,
+          title: "Result Pending Approval",
+          message: `A result for ${result.student.user.name} in ${result.classSubject.subject.name} is pending your approval.`,
+          type: "INFO",
+          category: "RESULT",
+          link: "/dashboard/principal-approvals",
+        })
+      }
+    }
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {

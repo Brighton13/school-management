@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { createNotification } from "@/lib/notifications"
 
 export async function POST(
   request: NextRequest,
@@ -113,6 +114,47 @@ export async function POST(
         description: `Class teacher ${approved ? (submitToPrincipal ? "reviewed and submitted" : "approved") : "rejected"} result for ${updatedResult.student.user.name} - ${updatedResult.classSubject.subject.name}`,
       }
     )
+
+    // Notify subject teacher about the review decision
+    if (updatedResult.classSubject.teacher?.user) {
+      if (approved) {
+        await createNotification({
+          userId: updatedResult.classSubject.teacher.user.id,
+          title: submitToPrincipal ? "Result Submitted to Principal" : "Result Approved",
+          message: `Class teacher has ${submitToPrincipal ? "submitted" : "approved"} the result for ${updatedResult.student.user.name} in ${updatedResult.classSubject.subject.name}.`,
+          type: "SUCCESS",
+          category: "RESULT",
+          link: "/dashboard/results",
+        })
+      } else {
+        await createNotification({
+          userId: updatedResult.classSubject.teacher.user.id,
+          title: "Result Rejected",
+          message: `Class teacher has rejected the result for ${updatedResult.student.user.name} in ${updatedResult.classSubject.subject.name}. Please review and resubmit.`,
+          type: "WARNING",
+          category: "RESULT",
+          link: "/dashboard/results",
+        })
+      }
+    }
+
+    // Notify principal when submitted for approval
+    if (approved && submitToPrincipal) {
+      const principal = await prisma.staff.findFirst({
+        where: { designation: "PRINCIPAL" },
+      })
+
+      if (principal) {
+        await createNotification({
+          userId: principal.userId,
+          title: "Result Pending Approval",
+          message: `A result for ${updatedResult.student.user.name} in ${updatedResult.classSubject.subject.name} is pending your approval.`,
+          type: "INFO",
+          category: "RESULT",
+          link: "/dashboard/principal-approvals",
+        })
+      }
+    }
 
     return NextResponse.json(updatedResult)
   } catch (error) {
