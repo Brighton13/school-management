@@ -248,9 +248,9 @@ export default function LoginPage() {
       {/* Theme toggle - fixed position */}
       <div className="fixed top-4 right-4 z-50">
         {/* Replace with your ThemeToggle component */}
-        <Button variant="outline" size="icon" className="h-9 w-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
+        {/* <Button variant="outline" size="icon" className="h-9 w-9 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm">
           <span className="text-sm">🌓</span>
-        </Button>
+        </Button> */}
       </div>
 
       {/* Left side - Login Form */}
@@ -360,26 +360,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col items-center justify-center p-12 text-white w-full">
           <div className="text-center max-w-lg">
             {/* Hero illustration */}
-            <div className="mb-12 relative">
-              <div className="w-64 h-64 mx-auto bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl flex items-center justify-center border border-white/20 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent"></div>
-                <div className="relative z-10 grid grid-cols-2 gap-4 p-6">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 flex items-center justify-center">
-                    <BookOpen className="h-12 w-12 text-white" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 flex items-center justify-center">
-                    <Users className="h-12 w-12 text-white" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 flex items-center justify-center col-span-2">
-                    <Award className="h-12 w-12 text-white" />
-                  </div>
-                </div>
-              </div>
-              {/* Floating elements */}
-              <div className="absolute -top-8 -right-8 w-32 h-32 bg-yellow-400/20 rounded-full blur-2xl"></div>
-              <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-pink-400/20 rounded-full blur-2xl"></div>
-            </div>
-            
+                       
             <h1 className="text-4xl lg:text-5xl font-bold mb-6 tracking-tight leading-tight">
               School Management
               <br />
