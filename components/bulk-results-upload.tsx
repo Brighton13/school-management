@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 interface ClassSubject {
   id: string
   class: { name: string }
+  section: { name: string } | null
   subject: { name: string; code: string }
 }
 
@@ -264,7 +265,7 @@ export function BulkResultsUpload() {
               <SelectContent>
                 {classSubjects.map((cs) => (
                   <SelectItem key={cs.id} value={cs.id}>
-                    {cs.class.name} - {cs.subject.name} ({cs.subject.code})
+                    {cs.class.name}{cs.section ? ` - ${cs.section.name}` : ""} - {cs.subject.name} ({cs.subject.code})
                   </SelectItem>
                 ))}
               </SelectContent>
