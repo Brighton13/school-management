@@ -16,7 +16,7 @@ export async function PATCH(
     const body = await request.json()
     const { read } = body
 
-    const notification = await (prisma as any).notification.update({
+    const notification = await prisma.notification.update({
       where: {
         id: params.id,
         userId: session.user.id,
@@ -53,7 +53,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await (prisma as any).notification.delete({
+    await prisma.notification.delete({
       where: {
         id: params.id,
         userId: session.user.id,

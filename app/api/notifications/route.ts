@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
       whereClause.category = category
     }
 
-    const notifications = await (prisma as any).notification.findMany({
+    const notifications = await prisma.notification.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
       take: limit,
     })
 
-    const unreadCount = await (prisma as any).notification.count({
+    const unreadCount = await prisma.notification.count({
       where: {
         userId: session.user.id,
         read: false,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark notifications as read
-    await (prisma as any).notification.updateMany({
+    await prisma.notification.updateMany({
       where: {
         id: { in: notificationIds },
         userId: session.user.id,

@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
       let lastCheck = new Date()
       const pollInterval = setInterval(async () => {
         try {
-          // Use $queryRaw or check if notification model exists
-          const newNotifications = await (prisma as any).notification.findMany({
+          const newNotifications = await prisma.notification.findMany({
             where: {
               userId: session.user.id,
               read: false,
