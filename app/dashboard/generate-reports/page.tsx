@@ -42,8 +42,8 @@ import {
   RefreshCw,
   Users,
 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
+import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -135,14 +135,14 @@ export default function GenerateReportsPage() {
   
   // Generated reports state
   const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showPreviewDialog, setShowPreviewDialog] = useState(false)
   const [previewPdf, setPreviewPdf] = useState<string | null>(null)
   const [previewStudentName, setPreviewStudentName] = useState<string>("")
   const [generationProgress, setGenerationProgress] = useState(0)
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [generatingCombined, setGeneratingCombined] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   // Check authorization
   useEffect(() => {
@@ -281,7 +281,6 @@ export default function GenerateReportsPage() {
       setCurrentStep("select-exam")
       setEligibleStudents([])
       setGeneratedReports([])
-      setSuccessMessage(null)
     }
   }
 
@@ -295,8 +294,6 @@ export default function GenerateReportsPage() {
     setEligibleStudents([])
     setGeneratedReports([])
     setSelectedStudents(new Set())
-    setError(null)
-    setSuccessMessage(null)
   }
 
   const handleSelectAll = () => {
@@ -320,13 +317,15 @@ export default function GenerateReportsPage() {
   const generateReports = async (studentIds?: string[]) => {
     try {
       setGenerating(true)
-      setError(null)
-      setSuccessMessage(null)
       setGenerationProgress(0)
 
       const targetIds = studentIds || Array.from(selectedStudents)
       if (targetIds.length === 0) {
-        setError("No students selected")
+        toast({
+          title: "Error",
+          description: "No students selected",
+          variant: "destructive",
+        })
         return
       }
 
@@ -356,14 +355,25 @@ export default function GenerateReportsPage() {
 
       const data = await res.json()
       setGeneratedReports(data.reports || [])
-      setSuccessMessage(data.message)
+      toast({
+        title: "Success",
+        description: data.message,
+      })
 
       if (data.errors && data.errors.length > 0) {
-        setError(`${data.errors.length} student(s) failed: ${data.errors.map((e: any) => e.error).join(", ")}`)
+        toast({
+          title: "Warning",
+          description: `${data.errors.length} student(s) failed: ${data.errors.map((e: any) => e.error).join(", ")}`,
+          variant: "destructive",
+        })
       }
     } catch (err: any) {
       console.error("Error generating reports:", err)
-      setError(err.message)
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      })
     } finally {
       setGenerating(false)
     }
@@ -373,13 +383,15 @@ export default function GenerateReportsPage() {
   const generateCombinedReport = async () => {
     try {
       setGeneratingCombined(true)
-      setError(null)
-      setSuccessMessage(null)
       setGenerationProgress(0)
 
       const targetIds = eligibleStudents.map(s => s.studentId)
       if (targetIds.length === 0) {
-        setError("No students available for report generation")
+        toast({
+          title: "Error",
+          description: "No students available for report generation",
+          variant: "destructive",
+        })
         return
       }
 
@@ -413,15 +425,26 @@ export default function GenerateReportsPage() {
       if (reports.length > 0) {
         // Combine all PDFs into a single file
         await combinePdfsAndDownload(reports)
-        setSuccessMessage(`Combined report with ${reports.length} student(s) generated successfully!`)
+        toast({
+          title: "Success",
+          description: `Combined report with ${reports.length} student(s) generated successfully!`,
+        })
       }
 
       if (data.errors && data.errors.length > 0) {
-        setError(`${data.errors.length} student(s) failed: ${data.errors.map((e: any) => e.error).join(", ")}`)
+        toast({
+          title: "Warning",
+          description: `${data.errors.length} student(s) failed: ${data.errors.map((e: any) => e.error).join(", ")}`,
+          variant: "destructive",
+        })
       }
     } catch (err: any) {
       console.error("Error generating combined report:", err)
-      setError(err.message)
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      })
     } finally {
       setGeneratingCombined(false)
       setGenerationProgress(0)
@@ -571,22 +594,6 @@ export default function GenerateReportsPage() {
           3
         </div>
       </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert className="border-green-500 bg-green-50">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-600">Success</AlertTitle>
-          <AlertDescription className="text-green-600">{successMessage}</AlertDescription>
-        </Alert>
-      )}
 
       {/* Step 1: Select Term */}
       {currentStep === "select-term" && (

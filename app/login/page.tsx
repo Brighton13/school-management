@@ -187,17 +187,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { GraduationCap, AlertCircle, BookOpen, Users, Award } from "lucide-react"
+import { GraduationCap } from "lucide-react"
 import { signIn } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [idleTimeoutMessage, setIdleTimeoutMessage] = useState(false)
+  const { toast } = useToast()
 
   // Note: Replace these with your actual imports
   const router = useRouter()
@@ -205,13 +204,16 @@ export default function LoginPage() {
   
   useEffect(() => {
     if (searchParams.get("reason") === "idle_timeout") {
-      setIdleTimeoutMessage(true)
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired due to inactivity. Please log in again.",
+        variant: "destructive",
+      })
     }
-  }, [searchParams])
+  }, [searchParams, toast])
 
   const handleSubmit = async (e:any) => {
     e.preventDefault()
-    setError("")
     setLoading(true)
 
     try {
@@ -223,7 +225,11 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError("Invalid email or password")
+        toast({
+          title: "Login Failed",
+          description: "Invalid email or password. Please try again.",
+          variant: "destructive",
+        })
       } else {
         try {
           await fetch("/api/session-logs", {
@@ -233,11 +239,19 @@ export default function LoginPage() {
         } catch (error) {
           console.error("Failed to log session:", error)
         }
+        toast({
+          title: "Welcome Back!",
+          description: "You have successfully signed in.",
+        })
         router.push("/dashboard")
         router.refresh()
       }
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -271,24 +285,6 @@ export default function LoginPage() {
           </CardHeader>
           
           <CardContent className="space-y-4 px-4 sm:px-6">
-            {idleTimeoutMessage && (
-              <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900">
-                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                <AlertDescription className="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
-                  Your session has expired due to inactivity. Please log in again.
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {error && (
-              <Alert className="bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900">
-                <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-500" />
-                <AlertDescription className="text-xs sm:text-sm text-red-800 dark:text-red-200">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-            
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm sm:text-base font-medium text-slate-700 dark:text-slate-300">
                 Email

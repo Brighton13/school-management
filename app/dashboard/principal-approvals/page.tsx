@@ -25,7 +25,7 @@ import {
   BookOpen,
   RefreshCw
 } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 import {
   Collapsible,
   CollapsibleContent,
@@ -248,15 +248,10 @@ export default function PrincipalApprovalsPage() {
 
   if (!["PRINCIPAL", "ADMIN"].includes(session?.user.role || "")) {
     return (
-      <div className="p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            This page is only accessible to the principal and administrators.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <PermissionDenied 
+        title="Access Denied"
+        message="This page is only accessible to the principal and administrators."
+      />
     )
   }
 
@@ -656,26 +651,34 @@ export default function PrincipalApprovalsPage() {
 
           <div className="space-y-4 py-4">
             {approvalAction === "reject" ? (
-              <Alert variant="destructive">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Reject Results</AlertTitle>
-                <AlertDescription>
-                  This will send {selectedSectionIds.length > 0 ? "the selected section's" : "all"} results back to 
-                  class teachers for review and correction.
-                </AlertDescription>
-              </Alert>
+              <Card className="border-destructive bg-destructive/10">
+                <CardContent className="flex items-start gap-3 pt-4">
+                  <XCircle className="h-5 w-5 text-destructive mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive">Reject Results</p>
+                    <p className="text-sm text-destructive/80">
+                      This will send {selectedSectionIds.length > 0 ? "the selected section's" : "all"} results back to 
+                      class teachers for review and correction.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             ) : (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>
-                  {approvalAction === "publish" ? "Approve and Publish" : "Approve Results"}
-                </AlertTitle>
-                <AlertDescription>
-                  {approvalAction === "publish"
-                    ? `This will approve ${selectedSectionIds.length > 0 ? "the selected section's" : "all"} results and make them visible to students and parents.`
-                    : `This will approve ${selectedSectionIds.length > 0 ? "the selected section's" : "all"} results. You can publish them later.`}
-                </AlertDescription>
-              </Alert>
+              <Card className="border-primary/50 bg-primary/10">
+                <CardContent className="flex items-start gap-3 pt-4">
+                  <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium">
+                      {approvalAction === "publish" ? "Approve and Publish" : "Approve Results"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {approvalAction === "publish"
+                        ? `This will approve ${selectedSectionIds.length > 0 ? "the selected section's" : "all"} results and make them visible to students and parents.`
+                        : `This will approve ${selectedSectionIds.length > 0 ? "the selected section's" : "all"} results. You can publish them later.`}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {selectedSectionIds.length > 0 && (

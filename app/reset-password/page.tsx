@@ -6,38 +6,49 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Lock, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get("token")
+  const { toast } = useToast()
 
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
     if (!token) {
-      setError("Invalid reset token. Please request a new password reset.")
+      toast({
+        title: "Invalid Token",
+        description: "Invalid reset token. Please request a new password reset.",
+        variant: "destructive",
+      })
     }
-  }, [token])
+  }, [token, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match",
+        variant: "destructive",
+      })
       return
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long")
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      })
       return
     }
 
@@ -53,15 +64,27 @@ export default function ResetPasswordPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "Failed to reset password")
+        toast({
+          title: "Reset Failed",
+          description: data.error || "Failed to reset password",
+          variant: "destructive",
+        })
       } else {
         setSuccess(true)
+        toast({
+          title: "Password Reset Successful",
+          description: "Your password has been reset. Redirecting to login...",
+        })
         setTimeout(() => {
           router.push("/login")
         }, 2000)
       }
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -103,11 +126,6 @@ export default function ResetPasswordPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
               <Input

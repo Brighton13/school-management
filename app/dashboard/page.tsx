@@ -14,10 +14,15 @@ import { DashboardCharts } from "@/components/analytics/dashboard-charts"
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   
-  // Get current academic year
-  const currentAcademicYear = await prisma.academicYear.findFirst({
-    where: { isCurrent: true },
-  })
+  // Get current academic year with error handling
+  let currentAcademicYear = null
+  try {
+    currentAcademicYear = await prisma.academicYear.findFirst({
+      where: { isCurrent: true },
+    })
+  } catch (error) {
+    console.error("Failed to fetch academic year:", error)
+  }
   
   // Fetch stats with error handling - filtered by current academic year
   let studentCount = 0

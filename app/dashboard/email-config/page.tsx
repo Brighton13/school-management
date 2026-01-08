@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Switch } from "@/components/ui/switch"
 import { Mail, Save, CheckCircle2, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface EmailConfig {
   host: string
@@ -33,9 +33,8 @@ export default function EmailConfigPage() {
     configured: false,
   })
   const [password, setPassword] = useState("")
-  const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchConfig()
@@ -62,8 +61,6 @@ export default function EmailConfigPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setMessage("")
     setSaving(true)
 
     try {
@@ -79,15 +76,26 @@ export default function EmailConfigPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || "Failed to save email configuration")
+        toast({
+          title: "Error",
+          description: data.error || "Failed to save email configuration",
+          variant: "destructive",
+        })
       } else {
-        setMessage("Email configuration saved successfully!")
+        toast({
+          title: "Success",
+          description: "Email configuration saved successfully!",
+        })
         setConfig(data.config)
         setPassword("")
         fetchConfig()
       }
     } catch (error) {
-      setError("An error occurred. Please try again.")
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -136,19 +144,6 @@ export default function EmailConfigPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {message && (
-              <Alert className="bg-green-50 border-green-200">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">{message}</AlertDescription>
-              </Alert>
-            )}
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="host">SMTP Host *</Label>

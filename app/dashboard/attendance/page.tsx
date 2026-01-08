@@ -21,8 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Student {
   studentId: string
@@ -53,11 +53,11 @@ export default function AttendancePage() {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: string; text: string } | null>(null)
   const [attendanceStatus, setAttendanceStatus] = useState<
     Record<string, { status: string; remarks?: string }>
   >({})
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -72,8 +72,11 @@ export default function AttendancePage() {
   }, [session])
 
   const showMessage = (type: string, text: string) => {
-    setMessage({ type, text })
-    setTimeout(() => setMessage(null), 3000)
+    toast({
+      title: type === "error" ? "Error" : "Success",
+      description: text,
+      variant: type === "error" ? "destructive" : "default",
+    })
   }
 
   const fetchSections = async () => {
@@ -232,14 +235,6 @@ export default function AttendancePage() {
           Mark attendance for your class sections
         </p>
       </div>
-
-      {message && (
-        <Alert className={message.type === "error" ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50"}>
-          <AlertDescription className={message.type === "error" ? "text-red-800" : "text-green-800"}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
 
       <Card>
         <CardHeader>
@@ -404,12 +399,14 @@ export default function AttendancePage() {
       )}
 
       {!selectedSection && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Select a section to view and mark attendance
-          </AlertDescription>
-        </Alert>
+        <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+          <CardContent className="flex items-center gap-2 py-4">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              Select a section to view and mark attendance
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

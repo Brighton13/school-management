@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, Loader2, Lock, Eye, EyeOff, AlertCircle, ShieldCheck } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 function VerifyEmailContent() {
   const [password, setPassword] = useState("")
@@ -20,6 +20,7 @@ function VerifyEmailContent() {
   const [success, setSuccess] = useState(false)
   const [tokenValid, setTokenValid] = useState(false)
   const [userEmail, setUserEmail] = useState("")
+  const { toast } = useToast()
   
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -74,15 +75,22 @@ function VerifyEmailContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
 
     if (!passwordValidation.isValid) {
-      setError("Password does not meet the requirements.")
+      toast({
+        title: "Invalid Password",
+        description: "Password does not meet the requirements.",
+        variant: "destructive",
+      })
       return
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match.")
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -99,14 +107,26 @@ function VerifyEmailContent() {
 
       if (res.ok) {
         setSuccess(true)
+        toast({
+          title: "Success!",
+          description: "Your email has been verified and password set.",
+        })
         setTimeout(() => {
           router.push("/login")
         }, 3000)
       } else {
-        setError(data.error || "Failed to set password. Please try again.")
+        toast({
+          title: "Error",
+          description: data.error || "Failed to set password. Please try again.",
+          variant: "destructive",
+        })
       }
     } catch (err) {
-      setError("An error occurred. Please try again.")
+      toast({
+        title: "Error",
+        description: "An error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -184,13 +204,6 @@ function VerifyEmailContent() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
             <div className="space-y-2">
               <Label htmlFor="password">New Password</Label>
               <div className="relative">

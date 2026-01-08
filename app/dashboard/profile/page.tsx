@@ -14,9 +14,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { AlertCircle, CheckCircle2, Loader2, User, Mail, Phone, Calendar, MapPin, Shield, Briefcase, GraduationCap } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProfileData {
   id: string
@@ -80,7 +80,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const { toast } = useToast()
 
   // Form state
   const [name, setName] = useState("")
@@ -130,11 +130,19 @@ export default function ProfilePage() {
           setQualification(data.staff.qualification || "")
         }
       } else {
-        setMessage({ type: "error", text: "Failed to load profile" })
+        toast({
+          title: "Error",
+          description: "Failed to load profile",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error fetching profile:", error)
-      setMessage({ type: "error", text: "Failed to load profile" })
+      toast({
+        title: "Error",
+        description: "Failed to load profile",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -144,21 +152,32 @@ export default function ProfilePage() {
     // Validate password change if attempted
     if (showPasswordSection && newPassword) {
       if (newPassword !== confirmPassword) {
-        setMessage({ type: "error", text: "New passwords do not match" })
+        toast({
+          title: "Error",
+          description: "New passwords do not match",
+          variant: "destructive",
+        })
         return
       }
       if (newPassword.length < 6) {
-        setMessage({ type: "error", text: "New password must be at least 6 characters" })
+        toast({
+          title: "Error",
+          description: "New password must be at least 6 characters",
+          variant: "destructive",
+        })
         return
       }
       if (!currentPassword) {
-        setMessage({ type: "error", text: "Current password is required" })
+        toast({
+          title: "Error",
+          description: "Current password is required",
+          variant: "destructive",
+        })
         return
       }
     }
 
     setSaving(true)
-    setMessage(null)
 
     try {
       const updateData: any = {
@@ -195,22 +214,31 @@ export default function ProfilePage() {
       if (response.ok) {
         const updatedProfile = await response.json()
         setProfile(updatedProfile)
-        setMessage({ type: "success", text: "Profile updated successfully" })
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        })
         
         // Clear password fields
         setCurrentPassword("")
         setNewPassword("")
         setConfirmPassword("")
         setShowPasswordSection(false)
-        
-        setTimeout(() => setMessage(null), 3000)
       } else {
         const error = await response.json()
-        setMessage({ type: "error", text: error.error || "Failed to update profile" })
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update profile",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error updating profile:", error)
-      setMessage({ type: "error", text: "Failed to update profile" })
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -226,10 +254,12 @@ export default function ProfilePage() {
 
   if (!profile) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>Failed to load profile data</AlertDescription>
-      </Alert>
+      <Card className="border-destructive">
+        <CardContent className="flex items-center gap-2 pt-6">
+          <AlertCircle className="h-4 w-4 text-destructive" />
+          <p className="text-destructive">Failed to load profile data</p>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -243,19 +273,6 @@ export default function ProfilePage() {
           View and update your personal information
         </p>
       </div>
-
-      {message && (
-        <Alert variant={message.type === "error" ? "destructive" : "default"} className={message.type === "success" ? "border-green-500 bg-green-50 dark:bg-green-900/20" : ""}>
-          {message.type === "error" ? (
-            <AlertCircle className="h-4 w-4" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          )}
-          <AlertDescription className={message.type === "success" ? "text-green-800 dark:text-green-200" : ""}>
-            {message.text}
-          </AlertDescription>
-        </Alert>
-      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         {/* Profile Summary Card */}

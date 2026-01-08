@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle, XCircle, Eye, Send, AlertCircle, Clock, Users, BookOpen } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface SubjectSubmission {
   id: string
@@ -190,15 +190,10 @@ export default function ClassTeacherSubmissionPage() {
 
   if (session?.user.role !== "TEACHER") {
     return (
-      <div className="p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            This page is only accessible to class teachers.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <PermissionDenied 
+        title="Access Denied"
+        message="This page is only accessible to class teachers."
+      />
     )
   }
 
@@ -443,14 +438,18 @@ export default function ClassTeacherSubmissionPage() {
 
           {selectedSubmission && (
             <div className="space-y-4 py-4">
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertTitle>Ready for Submission</AlertTitle>
-                <AlertDescription>
-                  All {selectedSubmission.totalSubjects} subjects have complete results for{" "}
-                  {selectedSubmission.totalStudents} students.
-                </AlertDescription>
-              </Alert>
+              <Card className="border-green-500/50 bg-green-50 dark:bg-green-900/20">
+                <CardContent className="flex items-start gap-3 pt-4">
+                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-green-800 dark:text-green-200">Ready for Submission</p>
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      All {selectedSubmission.totalSubjects} subjects have complete results for{" "}
+                      {selectedSubmission.totalStudents} students.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>

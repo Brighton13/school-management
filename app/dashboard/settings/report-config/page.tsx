@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useToast } from "@/hooks/use-toast"
 import { 
   Save, 
   Upload, 
@@ -82,7 +82,7 @@ export default function ReportConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState("school")
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const { toast } = useToast()
 
   // School config state
   const [schoolConfig, setSchoolConfig] = useState<SchoolConfig>({
@@ -249,12 +249,12 @@ export default function ReportConfigPage() {
       if (res.ok) {
         const data = await res.json()
         setMySignature(data.signature)
-        setMessage({ type: "success", text: "Signature saved successfully" })
+        toast({ title: "Success", description: "Signature saved successfully" })
       } else {
-        setMessage({ type: "error", text: "Failed to save signature" })
+        toast({ title: "Error", description: "Failed to save signature", variant: "destructive" })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to save signature" })
+      toast({ title: "Error", description: "Failed to save signature", variant: "destructive" })
     }
   }
 
@@ -268,12 +268,12 @@ export default function ReportConfigPage() {
       })
 
       if (res.ok) {
-        setMessage({ type: "success", text: "School configuration saved successfully" })
+        toast({ title: "Success", description: "School configuration saved successfully" })
       } else {
-        setMessage({ type: "error", text: "Failed to save school configuration" })
+        toast({ title: "Error", description: "Failed to save school configuration", variant: "destructive" })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to save school configuration" })
+      toast({ title: "Error", description: "Failed to save school configuration", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -289,12 +289,12 @@ export default function ReportConfigPage() {
       })
 
       if (res.ok) {
-        setMessage({ type: "success", text: "Remark templates saved successfully" })
+        toast({ title: "Success", description: "Remark templates saved successfully" })
       } else {
-        setMessage({ type: "error", text: "Failed to save remark templates" })
+        toast({ title: "Error", description: "Failed to save remark templates", variant: "destructive" })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to save remark templates" })
+      toast({ title: "Error", description: "Failed to save remark templates", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -311,12 +311,12 @@ export default function ReportConfigPage() {
       })
 
       if (res.ok) {
-        setMessage({ type: "success", text: "Comment templates saved successfully" })
+        toast({ title: "Success", description: "Comment templates saved successfully" })
       } else {
-        setMessage({ type: "error", text: "Failed to save comment templates" })
+        toast({ title: "Error", description: "Failed to save comment templates", variant: "destructive" })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to save comment templates" })
+      toast({ title: "Error", description: "Failed to save comment templates", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -403,13 +403,13 @@ export default function ReportConfigPage() {
       if (res.ok) {
         const data = await res.json()
         setPointsConfig(data)
-        setMessage({ type: "success", text: "Points configuration saved successfully" })
+        toast({ title: "Success", description: "Points configuration saved successfully" })
       } else {
         const error = await res.json()
-        setMessage({ type: "error", text: error.error || "Failed to save points configuration" })
+        toast({ title: "Error", description: error.error || "Failed to save points configuration", variant: "destructive" })
       }
     } catch (error) {
-      setMessage({ type: "error", text: "Failed to save points configuration" })
+      toast({ title: "Error", description: "Failed to save points configuration", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -466,15 +466,10 @@ export default function ReportConfigPage() {
 
   if (!["ADMIN", "PRINCIPAL", "CLASS_TEACHER", "TEACHER"].includes(session?.user.role || "")) {
     return (
-      <div className="p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Access Denied</AlertTitle>
-          <AlertDescription>
-            You don't have permission to access this page.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <PermissionDenied 
+        title="Access Denied"
+        message="You don't have permission to access this page."
+      />
     )
   }
 
@@ -495,18 +490,6 @@ export default function ReportConfigPage() {
           Configure school settings, signatures, and comment templates for report cards
         </p>
       </div>
-
-      {message && (
-        <Alert variant={message.type === "error" ? "destructive" : "default"}>
-          {message.type === "error" ? (
-            <AlertCircle className="h-4 w-4" />
-          ) : (
-            <CheckCircle className="h-4 w-4" />
-          )}
-          <AlertTitle>{message.type === "error" ? "Error" : "Success"}</AlertTitle>
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
@@ -1044,15 +1027,19 @@ export default function ReportConfigPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Alert className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Note</AlertTitle>
-                <AlertDescription>
-                  Points are only shown on reports for exams marked as "Final" or "End of Term". 
-                  Each subject's percentage is converted to points based on these ranges.
-                  Example: A student scoring 85% gets 1 point (if 75-100% = 1 point).
-                </AlertDescription>
-              </Alert>
+              <Card className="mb-4 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+                <CardContent className="flex items-start gap-3 pt-4">
+                  <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-blue-800 dark:text-blue-200">Note</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Points are only shown on reports for exams marked as "Final" or "End of Term". 
+                      Each subject's percentage is converted to points based on these ranges.
+                      Example: A student scoring 85% gets 1 point (if 75-100% = 1 point).
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
               
               <Table>
                 <TableHeader>

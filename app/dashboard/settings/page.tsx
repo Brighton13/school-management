@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface SystemSettings {
   id: string
@@ -21,8 +21,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchSettings()
@@ -40,11 +40,19 @@ export default function SettingsPage() {
         const data = await response.json()
         setSettings(data)
       } else {
-        setMessage({ type: "error", text: "Failed to load settings" })
+        toast({
+          title: "Error",
+          description: "Failed to load settings",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error fetching settings:", error)
-      setMessage({ type: "error", text: "Failed to load settings" })
+      toast({
+        title: "Error",
+        description: "Failed to load settings",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -54,7 +62,6 @@ export default function SettingsPage() {
     if (!settings) return
 
     setSaving(true)
-    setMessage(null)
 
     try {
       const response = await fetch("/api/system-settings", {
@@ -68,15 +75,25 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        setMessage({ type: "success", text: "Settings saved successfully" })
-        setTimeout(() => setMessage(null), 3000)
+        toast({
+          title: "Success",
+          description: "Settings saved successfully",
+        })
       } else {
         const error = await response.json()
-        setMessage({ type: "error", text: error.error || "Failed to save settings" })
+        toast({
+          title: "Error",
+          description: error.error || "Failed to save settings",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error saving settings:", error)
-      setMessage({ type: "error", text: "Failed to save settings" })
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -97,10 +114,12 @@ export default function SettingsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Configure system settings and permissions</p>
         </div>
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Failed to load settings</AlertDescription>
-        </Alert>
+        <Card className="border-destructive">
+          <CardContent className="flex items-center gap-2 pt-6">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <p className="text-destructive">Failed to load settings</p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -120,17 +139,6 @@ export default function SettingsPage() {
         <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
         <p className="text-sm sm:text-base text-muted-foreground">Configure system settings and permissions</p>
       </div>
-
-      {message && (
-        <Alert variant={message.type === "error" ? "destructive" : "default"}>
-          {message.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{message.text}</AlertDescription>
-        </Alert>
-      )}
 
       <Card className="shadow-sm">
         <CardHeader>
