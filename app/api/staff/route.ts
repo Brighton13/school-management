@@ -8,17 +8,55 @@ import { sendStaffVerificationEmail, loadEmailConfigFromDB } from "@/lib/email"
 import { generateEmployeeId } from "@/lib/admission_number_gen"
 import crypto from "crypto"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const designation = searchParams.get("designation")
+    const department = searchParams.get("department")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    // Build where clause
+    const whereClause: any = {}
+    
+    if (search) {
+      whereClause.OR = [
+        { employeeId: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ]
+    }
+    
+    if (designation) {
+      whereClause.designation = designation
+    }
+    
+    if (department) {
+      whereClause.department = department
+    }
+
+    // Get total count
+    const total = await prisma.staff.count({ where: whereClause })
+
     const staff = await prisma.staff.findMany({
+      where: whereClause,
       include: {
         user: true,
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(staff)
+    if (noPagination) {
+      return NextResponse.json(staff)
+    }
+
+    return NextResponse.json(createPaginatedResponse(staff, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch staff" },

@@ -4,10 +4,33 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const status = searchParams.get("status")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {}
+    if (search) {
+      whereClause.OR = [
+        { year: { contains: search, mode: "insensitive" } },
+      ]
+    }
+    if (status) {
+      whereClause.status = status
+    }
+
+    // Get total count
+    const total = await prisma.academicYear.count({ where: whereClause })
+
     const academicYears = await prisma.academicYear.findMany({
+      where: whereClause,
       include: {
         terms: {
           orderBy: { termNumber: "asc" },
@@ -22,9 +45,14 @@ export async function GET() {
         },
       },
       orderBy: { startDate: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(academicYears)
+    if (noPagination) {
+      return NextResponse.json(academicYears)
+    }
+
+    return NextResponse.json(createPaginatedResponse(academicYears, total, page, limit))
   } catch (error) {
     console.error("Failed to fetch academic years:", error)
     return NextResponse.json(

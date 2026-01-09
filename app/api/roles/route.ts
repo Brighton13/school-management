@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,8 +21,25 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const includePermissions = searchParams.get("includePermissions") === "true"
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {}
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.role.count({ where: whereClause })
 
     const roles = await prisma.role.findMany({
+      where: whereClause,
       include: {
         _count: {
           select: {
@@ -39,9 +57,14 @@ export async function GET(request: NextRequest) {
         }),
       },
       orderBy: { name: "asc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(roles)
+    if (noPagination) {
+      return NextResponse.json(roles)
+    }
+
+    return NextResponse.json(createPaginatedResponse(roles, total, page, limit))
   } catch (error) {
     console.error("Error fetching roles:", error)
     return NextResponse.json(

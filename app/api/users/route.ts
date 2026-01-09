@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,12 +18,16 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get("role")
     const isActive = searchParams.get("isActive")
     const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     const whereClause: any = {}
     if (role) {
       whereClause.role = role
     }
-    if (isActive !== null) {
+    if (isActive !== null && isActive !== undefined) {
       whereClause.isActive = isActive === "true"
     }
     if (search) {
@@ -31,6 +36,9 @@ export async function GET(request: NextRequest) {
         { email: { contains: search, mode: "insensitive" } },
       ]
     }
+
+    // Get total count
+    const total = await prisma.user.count({ where: whereClause })
 
     const users = await prisma.user.findMany({
       where: whereClause,
@@ -73,12 +81,17 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
     // Remove password from response
     const usersWithoutPassword = users.map(({ password, ...user }) => user)
 
-    return NextResponse.json(usersWithoutPassword)
+    if (noPagination) {
+      return NextResponse.json(usersWithoutPassword)
+    }
+
+    return NextResponse.json(createPaginatedResponse(usersWithoutPassword, total, page, limit))
   } catch (error) {
     console.error("Error fetching users:", error)
     return NextResponse.json(

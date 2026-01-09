@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,8 +13,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const unreadOnly = searchParams.get("unreadOnly") === "true"
-    const limit = parseInt(searchParams.get("limit") || "50")
     const category = searchParams.get("category")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     const whereClause: any = {
       userId: session.user.id,
@@ -27,10 +31,13 @@ export async function GET(request: NextRequest) {
       whereClause.category = category
     }
 
+    // Get total count
+    const total = await prisma.notification.count({ where: whereClause })
+
     const notifications = await prisma.notification.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
-      take: limit,
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
     const unreadCount = await prisma.notification.count({
@@ -40,8 +47,15 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    if (noPagination) {
+      return NextResponse.json({
+        notifications,
+        unreadCount,
+      })
+    }
+
     return NextResponse.json({
-      notifications,
+      ...createPaginatedResponse(notifications, total, page, limit),
       unreadCount,
     })
   } catch (error) {

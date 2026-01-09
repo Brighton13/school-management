@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,13 +17,32 @@ export async function GET(request: NextRequest) {
     const teacherId = searchParams.get("teacherId")
     const classId = searchParams.get("classId")
     const sectionId = searchParams.get("sectionId")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {
+      ...(teacherId ? { teacherId } : {}),
+      ...(classId ? { classId } : {}),
+      ...(sectionId ? { sectionId } : {}),
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { subject: { name: { contains: search, mode: "insensitive" } } },
+        { class: { name: { contains: search, mode: "insensitive" } } },
+        { teacher: { user: { name: { contains: search, mode: "insensitive" } } } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.classSubject.count({ where: whereClause })
 
     const assignments = await prisma.classSubject.findMany({
-      where: {
-        ...(teacherId ? { teacherId } : {}),
-        ...(classId ? { classId } : {}),
-        ...(sectionId ? { sectionId } : {}),
-      },
+      where: whereClause,
       include: {
         class: true,
         section: true,
@@ -32,9 +52,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: [{ class: { name: "asc" } }, { section: { name: "asc" } }, { createdAt: "desc" }],
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(assignments)
+    if (noPagination) {
+      return NextResponse.json(assignments)
+    }
+
+    return NextResponse.json(createPaginatedResponse(assignments, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch teacher assignments" },

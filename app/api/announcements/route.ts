@@ -5,10 +5,19 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const type = searchParams.get("type")
+    const targetAudience = searchParams.get("targetAudience")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
     
     // Build where clause based on user role
     const whereClause: any = {
@@ -25,15 +34,42 @@ export async function GET() {
       whereClause.published = true
     }
 
+    // Add search filter
+    if (search) {
+      whereClause.AND = whereClause.AND || []
+      whereClause.AND.push({
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { content: { contains: search, mode: "insensitive" } },
+        ]
+      })
+    }
+
+    if (type) {
+      whereClause.type = type
+    }
+
+    if (targetAudience) {
+      whereClause.targetAudience = targetAudience
+    }
+
+    // Get total count
+    const total = await prisma.announcement.count({ where: whereClause })
+
     const announcements = await prisma.announcement.findMany({
       where: whereClause,
       include: {
         creator: true,
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(announcements)
+    if (noPagination) {
+      return NextResponse.json(announcements)
+    }
+
+    return NextResponse.json(createPaginatedResponse(announcements, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch announcements" },

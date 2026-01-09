@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { getCurrentAcademicYear } from "@/lib/academic-year"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +17,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get("studentId")
     const allYears = searchParams.get("allYears") === "true" // Optional flag to get all years
+    const classId = searchParams.get("classId")
+    const sectionId = searchParams.get("sectionId")
+    const status = searchParams.get("status")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // Get current academic year
     const currentAcademicYear = await getCurrentAcademicYear()
@@ -59,7 +68,7 @@ export async function GET(request: NextRequest) {
 
       if (!staff) {
         // Teacher has no assignments, return empty
-        return NextResponse.json([])
+        return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
       }
 
       // Collect student IDs from:
@@ -77,19 +86,35 @@ export async function GET(request: NextRequest) {
       const allStudentIds = Array.from(new Set([...classTeacherStudentIds, ...subjectTeacherStudentIds]))
       
       if (allStudentIds.length === 0) {
-        return NextResponse.json([])
+        return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
       }
 
       studentIds = allStudentIds
     }
 
+    const whereClause: any = {
+      ...(studentId ? { studentId } : {}),
+      ...(studentIds ? { studentId: { in: studentIds } } : {}),
+      // Filter by current academic year unless allYears flag is set
+      ...(!allYears && currentAcademicYear ? { academicYearId: currentAcademicYear.id } : {}),
+      ...(classId ? { classId } : {}),
+      ...(sectionId ? { sectionId } : {}),
+      ...(status ? { status } : {}),
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { student: { admissionNumber: { contains: search, mode: "insensitive" } } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.classEnrollment.count({ where: whereClause })
+
     const enrollments = await prisma.classEnrollment.findMany({
-      where: {
-        ...(studentId ? { studentId } : {}),
-        ...(studentIds ? { studentId: { in: studentIds } } : {}),
-        // Filter by current academic year unless allYears flag is set
-        ...(!allYears && currentAcademicYear ? { academicYearId: currentAcademicYear.id } : {}),
-      },
+      where: whereClause,
       include: {
         student: {
           include: { user: true },
@@ -99,9 +124,14 @@ export async function GET(request: NextRequest) {
         academicYear: true,
       },
       orderBy: { enrolledAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(enrollments)
+    if (noPagination) {
+      return NextResponse.json(enrollments)
+    }
+
+    return NextResponse.json(createPaginatedResponse(enrollments, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch enrollments" },

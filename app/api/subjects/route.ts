@@ -4,14 +4,43 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get("search")
+    const type = searchParams.get("type")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {}
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+      ]
+    }
+    if (type) {
+      whereClause.type = type
+    }
+
+    // Get total count
+    const total = await prisma.subject.count({ where: whereClause })
+
     const subjects = await prisma.subject.findMany({
+      where: whereClause,
       orderBy: { name: "asc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(subjects)
+    if (noPagination) {
+      return NextResponse.json(subjects)
+    }
+
+    return NextResponse.json(createPaginatedResponse(subjects, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch subjects" },

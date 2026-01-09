@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +16,11 @@ export async function GET(request: NextRequest) {
     const feeId = searchParams.get("feeId")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // Students can only see their own payments
     if (session.user.role === "STUDENT") {
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
         parentStudentIds = parent.students.map(student => student.id)
       }
       if (parentStudentIds.length === 0) {
-        return NextResponse.json([])
+        return NextResponse.json(noPagination ? { payments: [], summary: { totalPayments: 0, paymentCount: 0 } } : { ...createPaginatedResponse([], 0, page, limit), summary: { totalPayments: 0, paymentCount: 0 } })
       }
     }
 
@@ -63,6 +69,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { student: { admissionNumber: { contains: search, mode: "insensitive" } } },
+        { receiptNumber: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.payment.count({ where: whereClause })
+
     const payments = await prisma.payment.findMany({
       where: whereClause,
       include: {
@@ -80,14 +98,25 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
     // Calculate summary statistics
     const totalPayments = payments.reduce((sum: any, p: { amount: any }) => sum + p.amount, 0)
     const paymentCount = payments.length
 
+    if (noPagination) {
+      return NextResponse.json({
+        payments,
+        summary: {
+          totalPayments,
+          paymentCount,
+        },
+      })
+    }
+
     return NextResponse.json({
-      payments,
+      ...createPaginatedResponse(payments, total, page, limit),
       summary: {
         totalPayments,
         paymentCount,

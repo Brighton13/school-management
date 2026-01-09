@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Edit, Trash2, Search, Filter, CheckCircle2, XCircle, Shield, UserCog } from "lucide-react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface User {
   id: string
@@ -118,6 +119,16 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  
+  // Pagination state
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   // Form state
   const [formName, setFormName] = useState("")
@@ -130,14 +141,63 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [page, limit])
+
+  // Refetch when search or filters change (with debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchUsers()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm, roleFilter, statusFilter])
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const params: Record<string, string | undefined> = {
+        search: searchTerm || undefined,
+        role: roleFilter !== "all" ? roleFilter : undefined,
+        isActive: statusFilter !== "all" ? statusFilter : undefined,
+      }
+      const queryString = buildPaginatedQuery(params, { page, limit })
+      const res = await fetch(`/api/users?${queryString}`)
+      
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
+      
+      const data = await res.json()
+      // Handle paginated response
+      if (data.data && data.pagination) {
+        setUsers(data.data)
+        setPaginationInfo(data.pagination)
+      } else {
+        setUsers(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch users:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
+      setLoading(true)
+      const params: Record<string, string | undefined> = {
+        search: searchTerm || undefined,
+        role: roleFilter !== "all" ? roleFilter : undefined,
+        isActive: statusFilter !== "all" ? statusFilter : undefined,
+      }
+      const queryString = buildPaginatedQuery(params, { page, limit })
+      
       const [usersRes, rolesRes, permissionsRes] = await Promise.all([
-        fetch("/api/users"),
-        fetch("/api/roles?includePermissions=true"),
-        fetch("/api/permissions"),
+        fetch(`/api/users?${queryString}`),
+        fetch("/api/roles?includePermissions=true&noPagination=true"),
+        fetch("/api/permissions?noPagination=true"),
       ])
       
       // Check for permission denied on users endpoint
@@ -151,23 +211,32 @@ export default function UsersPage() {
       const rolesData = await rolesRes.json()
       const permissionsData = await permissionsRes.json()
       
-      // Handle errors from API
-      if (usersRes.ok && Array.isArray(usersData)) {
+      // Handle paginated response for users
+      if (usersData.data && usersData.pagination) {
+        setUsers(usersData.data)
+        setPaginationInfo(usersData.pagination)
+      } else if (Array.isArray(usersData)) {
         setUsers(usersData)
       } else {
         console.error("Failed to fetch users:", usersData)
         setUsers([])
       }
       
-      if (rolesRes.ok && Array.isArray(rolesData)) {
+      // Handle roles response (might be paginated or not)
+      if (Array.isArray(rolesData)) {
         setRoles(rolesData)
+      } else if (rolesData.data) {
+        setRoles(rolesData.data)
       } else {
         console.error("Failed to fetch roles:", rolesData)
         setRoles([])
       }
       
-      if (permissionsRes.ok && Array.isArray(permissionsData)) {
+      // Handle permissions response
+      if (Array.isArray(permissionsData)) {
         setPermissions(permissionsData)
+      } else if (permissionsData.data) {
+        setPermissions(permissionsData.data)
       } else {
         console.error("Failed to fetch permissions:", permissionsData)
         setPermissions([])
@@ -714,6 +783,15 @@ export default function UsersPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+          
+          {/* Pagination */}
+          {paginationInfo.total > 0 && (
+            <Pagination
+              pagination={paginationInfo}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+            />
           )}
         </CardContent>
       </Card>

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,13 +16,32 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get("studentId")
     const status = searchParams.get("status")
     const academicYear = searchParams.get("academicYear")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {
+      ...(studentId ? { studentId } : {}),
+      ...(status ? { applicationStatus: status } : {}),
+      ...(academicYear ? { academicYearId: academicYear } : {}),
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { student: { admissionNumber: { contains: search, mode: "insensitive" } } },
+        { applicationNumber: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.application.count({ where: whereClause })
 
     const applications = await prisma.application.findMany({
-      where: {
-        ...(studentId ? { studentId } : {}),
-        ...(status ? { applicationStatus: status } : {}),
-        ...(academicYear ? { academicYearId: academicYear } : {}),
-      },
+      where: whereClause,
       include: {
         student: {
           include: {
@@ -53,9 +73,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(applications)
+    if (noPagination) {
+      return NextResponse.json(applications)
+    }
+
+    return NextResponse.json(createPaginatedResponse(applications, total, page, limit))
   } catch (error) {
     console.error("Failed to fetch applications:", error)
     return NextResponse.json(

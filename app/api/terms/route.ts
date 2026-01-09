@@ -4,17 +4,45 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const academicYearId = searchParams.get("academicYearId")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
+
+    const whereClause: any = {}
+    if (academicYearId) {
+      whereClause.academicYearId = academicYearId
+    }
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.term.count({ where: whereClause })
+
     const terms = await prisma.term.findMany({
+      where: whereClause,
       include: {
         academicYear: true,
       },
       orderBy: { startDate: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(terms)
+    if (noPagination) {
+      return NextResponse.json(terms)
+    }
+
+    return NextResponse.json(createPaginatedResponse(terms, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch terms" },

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Plus, Search, Upload, Edit, Trash2, CheckCircle, Clock, XCircle, Download } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Student {
   id: string
@@ -75,6 +76,16 @@ export default function StudentsPage() {
   const [downloadSectionId, setDownloadSectionId] = useState<string>("")
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   
+  // Pagination state
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
+  
   // Teacher filter states
   const [teacherClasses, setTeacherClasses] = useState<TeacherClass[]>([])
   const [filterClassId, setFilterClassId] = useState<string>("")
@@ -91,12 +102,30 @@ export default function StudentsPage() {
     fetchClasses()
   }, [session])
 
-  // Fetch students when teacher filter changes
+  // Fetch students when teacher filter changes or pagination changes
   useEffect(() => {
     if (session?.user?.role === "TEACHER") {
       fetchStudents()
     }
-  }, [filterClassId, filterSectionId])
+  }, [filterClassId, filterSectionId, page, limit])
+
+  // Fetch when search changes (with debounce reset to page 1)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (session?.user?.role !== "TEACHER") {
+        resetPagination()
+        fetchStudents()
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Refetch on page/limit change for non-teachers
+  useEffect(() => {
+    if (session?.user?.role !== "TEACHER") {
+      fetchStudents()
+    }
+  }, [page, limit])
 
   // Update available sections when filter class changes
   useEffect(() => {
@@ -113,16 +142,19 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      let url = "/api/students"
+      const params: Record<string, string | number | boolean | undefined> = {
+        search: searchTerm || undefined,
+      }
       
       // Add teacher filter params if role is TEACHER
       if (session?.user?.role === "TEACHER" && filterClassId && filterClassId !== "all_classes") {
-        const params = new URLSearchParams()
-        params.set("teacherFilter", "true")
-        params.set("classId", filterClassId)
-        if (filterSectionId && filterSectionId !== "all") params.set("sectionId", filterSectionId)
-        url = `/api/students?${params.toString()}`
+        params.teacherFilter = "true"
+        params.classId = filterClassId
+        if (filterSectionId && filterSectionId !== "all") params.sectionId = filterSectionId
       }
+      
+      const queryString = buildPaginatedQuery(params, { page, limit })
+      const url = `/api/students?${queryString}`
       
       const res = await fetch(url)
       if (res.status === 401 || res.status === 403) {
@@ -131,7 +163,15 @@ export default function StudentsPage() {
         return
       }
       const data = await res.json()
-      setStudents(data)
+      
+      // Handle paginated response
+      if (data.data && data.pagination) {
+        setStudents(data.data)
+        setPaginationInfo(data.pagination)
+      } else {
+        // Fallback for non-paginated response
+        setStudents(Array.isArray(data) ? data : [])
+      }
     } catch (error) {
       console.error("Failed to fetch students:", error)
     } finally {
@@ -153,9 +193,10 @@ export default function StudentsPage() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch("/api/classes")
+      const res = await fetch("/api/classes?noPagination=true")
       const data = await res.json()
-      setClasses(data)
+      // Handle both paginated and non-paginated response
+      setClasses(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch classes:", error)
     }

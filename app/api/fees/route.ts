@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +16,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     let studentId = searchParams.get("studentId")
     const status = searchParams.get("status")
+    const feeType = searchParams.get("feeType")
+    const termId = searchParams.get("termId")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // Students can only see their own fees
     if (session.user.role === "STUDENT") {
@@ -42,16 +50,33 @@ export async function GET(request: NextRequest) {
         parentStudentIds = parent.students.map(student => student.id)
       }
       if (parentStudentIds.length === 0) {
-        return NextResponse.json([])
+        return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
       }
     }
 
+    // Build where clause
+    const whereClause: any = {
+      ...(studentId ? { studentId } : {}),
+      ...(session.user.role === "PARENT" && !studentId ? { studentId: { in: parentStudentIds } } : {}),
+      ...(status ? { status } : {}),
+      ...(feeType ? { feeType } : {}),
+      ...(termId ? { termId } : {}),
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { student: { admissionNumber: { contains: search, mode: "insensitive" } } },
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { feeType: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.fee.count({ where: whereClause })
+
     const fees = await prisma.fee.findMany({
-      where: {
-        ...(studentId ? { studentId } : {}),
-        ...(session.user.role === "PARENT" && !studentId ? { studentId: { in: parentStudentIds } } : {}),
-        ...(status ? { status } : {}),
-      },
+      where: whereClause,
       include: {
         student: {
           include: { user: true },
@@ -68,9 +93,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { dueDate: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(fees)
+    if (noPagination) {
+      return NextResponse.json(fees)
+    }
+
+    return NextResponse.json(createPaginatedResponse(fees, total, page, limit))
   } catch (error) {
     console.error("Error fetching fees:", error)
     return NextResponse.json(

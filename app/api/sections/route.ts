@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,9 +16,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const classId = searchParams.get("classId")
     const teacherId = searchParams.get("teacherId")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // If requesting teacher's sections, get the teacher's sections
-    let where: any = classId ? { classId } : undefined
+    let where: any = classId ? { classId } : {}
 
     if (teacherId === "true") {
       // Get current user's staff record
@@ -35,6 +41,17 @@ export async function GET(request: NextRequest) {
       where = { classTeacherId: staff.id }
     }
 
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { class: { name: { contains: search, mode: "insensitive" } } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.section.count({ where })
+
     const sections = await prisma.section.findMany({
       where,
       include: {
@@ -47,9 +64,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { name: "asc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(sections)
+    if (noPagination) {
+      return NextResponse.json(sections)
+    }
+
+    return NextResponse.json(createPaginatedResponse(sections, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch sections" },

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status")
     const classId = searchParams.get("classId")
     const hasApprovedResults = searchParams.get("hasApprovedResults")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // Build the where clause
     const whereClause: any = {
@@ -35,6 +41,17 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.exam.count({ where: whereClause })
 
     const exams = await prisma.exam.findMany({
       where: whereClause,
@@ -54,9 +71,14 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(exams)
+    if (noPagination) {
+      return NextResponse.json(exams)
+    }
+
+    return NextResponse.json(createPaginatedResponse(exams, total, page, limit))
   } catch (error: any) {
     console.error("Error fetching exams:", error)
     return NextResponse.json(

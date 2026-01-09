@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification, createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 // Default points configuration (fallback if no config in DB)
 const defaultPointsConfig = [
@@ -172,6 +173,13 @@ export async function GET(request: NextRequest) {
     const termId = searchParams.get("termId")
     const academicYearId = searchParams.get("academicYearId")
     const status = searchParams.get("status")
+    const examId = searchParams.get("examId")
+    const classSubjectId = searchParams.get("classSubjectId")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // For teachers, only show results for their assigned subjects
     let teacherClassSubjectIds: string[] | undefined
@@ -188,7 +196,7 @@ export async function GET(request: NextRequest) {
         teacherClassSubjectIds = staff.classSubjects.map((cs: { id: any }) => cs.id)
       } else {
         // Teacher has no assignments, return empty
-        return NextResponse.json([])
+        return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
       }
     }
 
@@ -198,6 +206,8 @@ export async function GET(request: NextRequest) {
       ...(termId ? { termId } : {}),
       ...(academicYearId ? { academicYearId } : {}),
       ...(status ? { status } : {}),
+      ...(examId ? { examId } : {}),
+      ...(classSubjectId ? { classSubjectId } : {}),
       ...(teacherClassSubjectIds ? { classSubjectId: { in: teacherClassSubjectIds } } : {}),
     }
 
@@ -206,6 +216,18 @@ export async function GET(request: NextRequest) {
     if (session.user.role === "TEACHER" && !status) {
       whereClause.status = { in: ["DRAFT", "PENDING_CLASS_TEACHER", "PENDING_APPROVAL", "REJECTED"] }
     }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { student: { user: { name: { contains: search, mode: "insensitive" } } } },
+        { student: { admissionNumber: { contains: search, mode: "insensitive" } } },
+        { classSubject: { subject: { name: { contains: search, mode: "insensitive" } } } },
+      ]
+    }
+
+    // Get total count
+    const total = await prisma.result.count({ where: whereClause })
 
     const results = await prisma.result.findMany({
       where: whereClause,
@@ -226,9 +248,14 @@ export async function GET(request: NextRequest) {
         academicYear: true,
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(results)
+    if (noPagination) {
+      return NextResponse.json(results)
+    }
+
+    return NextResponse.json(createPaginatedResponse(results, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch results" },

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
+import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +19,12 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get("sectionId")
     const currentAcademicYear = searchParams.get("currentAcademicYear") === "true"
     const teacherFilter = searchParams.get("teacherFilter") === "true"
+    const search = searchParams.get("search")
+    const status = searchParams.get("status")
+    const noPagination = searchParams.get("noPagination") === "true"
+    
+    // Parse pagination params
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // If filtering by class/section for current academic year
     if (classId && currentAcademicYear) {
@@ -163,17 +170,33 @@ export async function GET(request: NextRequest) {
         const allStudentIds = Array.from(new Set([...classTeacherStudentIds, ...subjectTeacherStudentIds]))
         
         if (allStudentIds.length === 0) {
-          return NextResponse.json([])
+          return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
         }
 
         studentIds = allStudentIds
       }
     }
 
+    // Build where clause
+    const whereClause: any = {
+      ...(studentIds ? { id: { in: studentIds } } : {}),
+      ...(status ? { status } : {}),
+    }
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { admissionNumber: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ]
+    }
+
+    // Get total count for pagination
+    const total = await prisma.student.count({ where: whereClause })
+
     const students = await prisma.student.findMany({
-      where: {
-        ...(studentIds ? { id: { in: studentIds } } : {}),
-      },
+      where: whereClause,
       include: {
         user: true,
         classEnrollment: {
@@ -195,9 +218,15 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      ...(noPagination ? {} : { skip: offset, take: limit }),
     })
 
-    return NextResponse.json(students)
+    // Return without pagination wrapper if noPagination is true (for dropdowns, etc.)
+    if (noPagination) {
+      return NextResponse.json(students)
+    }
+
+    return NextResponse.json(createPaginatedResponse(students, total, page, limit))
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch students" },

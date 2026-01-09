@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Plus, Edit, DollarSign, Users, School, User, History, Receipt, Printer, Mail, Download, Smartphone, Loader2, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react"
+import { Plus, Edit, DollarSign, Users, School, User, History, Receipt, Printer, Mail, Download, Smartphone, Loader2, RefreshCw, CheckCircle, XCircle, Clock, Search } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Payment {
   id: string
@@ -107,30 +108,110 @@ export default function FeesPage() {
   const [selectedCountry, setSelectedCountry] = useState<"zm" | "mw">("zm")
   const [selectedOperator, setSelectedOperator] = useState<string>("")
   const [checkingStatus, setCheckingStatus] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+  
+  // Pagination state
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   const canManage = ["ADMIN", "PRINCIPAL", "ACCOUNTANT"].includes(session?.user.role || "")
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [page, limit])
+
+  // Refetch when search or status filter changes (with debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchFees()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm, statusFilter])
+
+  const fetchFees = async () => {
+    try {
+      setLoading(true)
+      const params: Record<string, string | undefined> = {
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+      }
+      const queryString = buildPaginatedQuery(params, { page, limit })
+      const res = await fetch(`/api/fees?${queryString}`)
+      
+      if (res.status === 401 || res.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
+      
+      if (res.ok) {
+        const data = await res.json()
+        // Handle paginated response
+        if (data.data && data.pagination) {
+          setFees(data.data)
+          setPaginationInfo(data.pagination)
+        } else {
+          // Fallback for non-paginated response
+          setFees(Array.isArray(data) ? data : [])
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch fees:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
+      setLoading(true)
+      const params: Record<string, string | undefined> = {
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+      }
+      const queryString = buildPaginatedQuery(params, { page, limit })
+      
       const [feesRes, studentsRes, termsRes, classesRes] = await Promise.all([
-        fetch("/api/fees"),
-        fetch("/api/students"),
-        fetch("/api/terms"),
-        fetch("/api/classes"),
+        fetch(`/api/fees?${queryString}`),
+        fetch("/api/students?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
+        fetch("/api/classes?noPagination=true"),
       ])
       if (feesRes.status === 401 || feesRes.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      if (feesRes.ok) setFees(await feesRes.json())
-      if (studentsRes.ok) setStudents(await studentsRes.json())
-      if (termsRes.ok) setTerms(await termsRes.json())
-      if (classesRes.ok) setClasses(await classesRes.json())
+      if (feesRes.ok) {
+        const data = await feesRes.json()
+        // Handle paginated response
+        if (data.data && data.pagination) {
+          setFees(data.data)
+          setPaginationInfo(data.pagination)
+        } else {
+          setFees(Array.isArray(data) ? data : [])
+        }
+      }
+      if (studentsRes.ok) {
+        const data = await studentsRes.json()
+        setStudents(Array.isArray(data) ? data : (data.data || []))
+      }
+      if (termsRes.ok) {
+        const data = await termsRes.json()
+        setTerms(Array.isArray(data) ? data : (data.data || []))
+      }
+      if (classesRes.ok) {
+        const data = await classesRes.json()
+        setClasses(Array.isArray(data) ? data : (data.data || []))
+      }
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
