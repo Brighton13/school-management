@@ -551,13 +551,43 @@ model Payment {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  fee      Fee     @relation(fields: [feeId], references: [id], onDelete: Cascade)
-  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  receiver User    @relation("PaymentReceiver", fields: [receivedBy], references: [id])
+  fee                    Fee                     @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  student                Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  receiver               User                    @relation("PaymentReceiver", fields: [receivedBy], references: [id])
+  mobileMoneyTransaction MobileMoneyTransaction?
 
   @@index([feeId])
   @@index([studentId])
   @@index([receiptNumber])
+  @@index([createdAt])
+}
+
+// Mobile Money Transaction - tracks Lenco mobile money payment details
+model MobileMoneyTransaction {
+  id                    String    @id @default(cuid())
+  paymentId             String    @unique
+  reference             String    @unique // Our unique reference sent to Lenco
+  lencoId               String?   // Lenco's transaction ID
+  lencoReference        String?   // Lenco's reference
+  phone                 String    // Customer phone number
+  operator              String    // airtel, mtn, tnm
+  country               String    // zm (Zambia), mw (Malawi)
+  amount                Float
+  status                String    @default("pending") // pending, successful, failed, pay-offline
+  bearer                String    @default("merchant") // merchant or customer
+  initiatedAt           DateTime?
+  completedAt           DateTime?
+  failureReason         String?
+  operatorTransactionId String?   // Mobile operator's transaction ID
+  accountName           String?   // Account name from mobile money
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([reference])
+  @@index([status])
+  @@index([phone])
   @@index([createdAt])
 }
 

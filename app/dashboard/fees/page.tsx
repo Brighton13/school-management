@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, DollarSign, Users, School, User, History, Receipt, Printer, Mail, Download } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Plus, Edit, DollarSign, Users, School, User, History, Receipt, Printer, Mail, Download, Smartphone, Loader2, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 
@@ -93,6 +94,19 @@ export default function FeesPage() {
   const [emailSending, setEmailSending] = useState(false)
   const [bulkTarget, setBulkTarget] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  
+  // Mobile Money Payment State
+  const [isMobileMoneyDialogOpen, setIsMobileMoneyDialogOpen] = useState(false)
+  const [mobileMoneyLoading, setMobileMoneyLoading] = useState(false)
+  const [mobileMoneyStatus, setMobileMoneyStatus] = useState<{
+    status: "idle" | "pending" | "pay-offline" | "successful" | "failed"
+    message: string
+    reference?: string
+    receiptNumber?: string
+  }>({ status: "idle", message: "" })
+  const [selectedCountry, setSelectedCountry] = useState<"zm" | "mw">("zm")
+  const [selectedOperator, setSelectedOperator] = useState<string>("")
+  const [checkingStatus, setCheckingStatus] = useState(false)
 
   const canManage = ["ADMIN", "PRINCIPAL", "ACCOUNTANT"].includes(session?.user.role || "")
 
@@ -242,6 +256,141 @@ export default function FeesPage() {
       console.error("Failed to record payment:", error)
       alert("Failed to record payment")
     }
+  }
+
+  // Mobile Money Payment Handler (Lenco API)
+  const handleMobileMoneyPayment = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedFee) return
+
+    const formData = new FormData(e.currentTarget)
+    const paymentAmount = parseFloat(formData.get("paymentAmount") as string)
+    const phone = formData.get("phone") as string
+    const operator = formData.get("operator") as string
+    const country = formData.get("country") as string
+    
+    if (paymentAmount <= 0) {
+      alert("Payment amount must be greater than 0")
+      return
+    }
+    
+    const remaining = selectedFee.amount - selectedFee.paidAmount
+    if (paymentAmount > remaining) {
+      alert(`Payment amount cannot exceed remaining balance of ${formatCurrency(remaining)}`)
+      return
+    }
+
+    if (!phone || !operator) {
+      alert("Please enter phone number and select operator")
+      return
+    }
+
+    setMobileMoneyLoading(true)
+    setMobileMoneyStatus({ status: "idle", message: "" })
+
+    try {
+      const res = await fetch("/api/payments/mobile-money", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feeId: selectedFee.id,
+          amount: paymentAmount,
+          phone,
+          operator,
+          country,
+          bearer: "merchant",
+        }),
+      })
+
+      const result = await res.json()
+
+      if (res.ok && result.success) {
+        setMobileMoneyStatus({
+          status: result.data.status,
+          message: result.message,
+          reference: result.data.reference,
+          receiptNumber: result.data.receiptNumber,
+        })
+      } else {
+        setMobileMoneyStatus({
+          status: "failed",
+          message: result.error || result.details || "Failed to initiate payment",
+        })
+      }
+    } catch (error: any) {
+      console.error("Mobile money payment error:", error)
+      setMobileMoneyStatus({
+        status: "failed",
+        message: "Failed to connect to payment service",
+      })
+    } finally {
+      setMobileMoneyLoading(false)
+    }
+  }
+
+  // Check Mobile Money Payment Status
+  const checkMobileMoneyStatus = useCallback(async () => {
+    if (!mobileMoneyStatus.reference) return
+
+    setCheckingStatus(true)
+    try {
+      const res = await fetch("/api/payments/mobile-money/check-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference: mobileMoneyStatus.reference }),
+      })
+
+      const result = await res.json()
+
+      if (result.data?.status === "successful") {
+        setMobileMoneyStatus({
+          status: "successful",
+          message: "Payment completed successfully!",
+          reference: mobileMoneyStatus.reference,
+          receiptNumber: mobileMoneyStatus.receiptNumber,
+        })
+        fetchData() // Refresh fees data
+      } else if (result.data?.status === "failed") {
+        setMobileMoneyStatus({
+          status: "failed",
+          message: result.data.failureReason || "Payment failed",
+          reference: mobileMoneyStatus.reference,
+        })
+      } else {
+        setMobileMoneyStatus((prev) => ({
+          ...prev,
+          status: result.data?.status || "pending",
+          message: result.message || "Payment is being processed...",
+        }))
+      }
+    } catch (error) {
+      console.error("Check status error:", error)
+    } finally {
+      setCheckingStatus(false)
+    }
+  }, [mobileMoneyStatus.reference, mobileMoneyStatus.receiptNumber])
+
+  // Reset mobile money state when dialog closes
+  const handleMobileMoneyDialogClose = (open: boolean) => {
+    setIsMobileMoneyDialogOpen(open)
+    if (!open) {
+      setMobileMoneyStatus({ status: "idle", message: "" })
+      setSelectedOperator("")
+    }
+  }
+
+  // Get operators based on selected country
+  const getOperators = () => {
+    if (selectedCountry === "zm") {
+      return [
+        { value: "airtel", label: "Airtel Money" },
+        { value: "mtn", label: "MTN Mobile Money" },
+      ]
+    }
+    return [
+      { value: "airtel", label: "Airtel Money" },
+      { value: "tnm", label: "TNM Mpamba" },
+    ]
   }
 
   // Print receipt function
@@ -1053,6 +1202,19 @@ export default function FeesPage() {
                               Pay
                             </Button>
                             <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedFee(fee)
+                                setIsMobileMoneyDialogOpen(true)
+                              }}
+                              disabled={fee.status === "PAID"}
+                              className="bg-green-50 hover:bg-green-100 border-green-200"
+                            >
+                              <Smartphone className="h-4 w-4 mr-1" />
+                              Mobile
+                            </Button>
+                            <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
@@ -1298,7 +1460,242 @@ export default function FeesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Mobile Money Payment Dialog */}
+      <Dialog open={isMobileMoneyDialogOpen} onOpenChange={handleMobileMoneyDialogClose}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-green-600" />
+              Mobile Money Payment
+            </DialogTitle>
+            <DialogDescription>
+              Pay via Mobile Money for {selectedFee?.student.user.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedFee && (
+            <>
+              {mobileMoneyStatus.status === "idle" ? (
+                <form onSubmit={handleMobileMoneyPayment}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-lg">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Total Fee</Label>
+                        <div className="font-medium">{formatCurrency(selectedFee.amount)}</div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Paid So Far</Label>
+                        <div className="font-medium text-green-600">{formatCurrency(selectedFee.paidAmount)}</div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Balance</Label>
+                        <div className="font-medium text-red-600">{formatCurrency(selectedFee.amount - selectedFee.paidAmount)}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Payment Amount *</Label>
+                      <Input 
+                        name="paymentAmount" 
+                        type="number" 
+                        step="0.01" 
+                        min="0.01"
+                        max={selectedFee.amount - selectedFee.paidAmount}
+                        placeholder={`Max: ${formatCurrency(selectedFee.amount - selectedFee.paidAmount)}`}
+                        required 
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Country *</Label>
+                      <Select 
+                        name="country" 
+                        value={selectedCountry}
+                        onValueChange={(value: "zm" | "mw") => {
+                          setSelectedCountry(value)
+                          setSelectedOperator("")
+                        }}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="zm">🇿🇲 Zambia</SelectItem>
+                          <SelectItem value="mw">🇲🇼 Malawi</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Mobile Money Operator *</Label>
+                      <Select 
+                        name="operator" 
+                        value={selectedOperator}
+                        onValueChange={setSelectedOperator}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select operator" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getOperators().map((op) => (
+                            <SelectItem key={op.value} value={op.value}>
+                              {op.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Phone Number *</Label>
+                      <Input 
+                        name="phone" 
+                        type="tel"
+                        placeholder={selectedCountry === "zm" ? "e.g., 097XXXXXXX or +26097XXXXXXX" : "e.g., 099XXXXXXX"}
+                        required 
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter the mobile money registered phone number
+                      </p>
+                    </div>
+
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <Smartphone className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800 text-sm">
+                        After submitting, the customer will receive a prompt on their phone to authorize the payment.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={mobileMoneyLoading} className="bg-green-600 hover:bg-green-700">
+                      {mobileMoneyLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Smartphone className="h-4 w-4 mr-2" />
+                          Request Payment
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              ) : (
+                <div className="py-6 space-y-6">
+                  {/* Payment Status Display */}
+                  <div className="text-center">
+                    {mobileMoneyStatus.status === "pay-offline" || mobileMoneyStatus.status === "pending" ? (
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 rounded-full bg-yellow-100 flex items-center justify-center">
+                          <Clock className="h-8 w-8 text-yellow-600 animate-pulse" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">Awaiting Authorization</h3>
+                          <p className="text-muted-foreground text-sm mt-1">
+                            {mobileMoneyStatus.message}
+                          </p>
+                        </div>
+                        <Alert className="bg-yellow-50 border-yellow-200 text-left">
+                          <AlertDescription className="text-yellow-800 text-sm">
+                            <strong>Customer Action Required:</strong> The customer must authorize this payment on their mobile phone. 
+                            Please ask them to check their phone for the payment prompt.
+                          </AlertDescription>
+                        </Alert>
+                        <div className="text-sm text-muted-foreground">
+                          Reference: <span className="font-mono">{mobileMoneyStatus.reference}</span>
+                        </div>
+                      </div>
+                    ) : mobileMoneyStatus.status === "successful" ? (
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+                          <CheckCircle className="h-8 w-8 text-green-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg text-green-700">Payment Successful!</h3>
+                          <p className="text-muted-foreground text-sm mt-1">
+                            {mobileMoneyStatus.message}
+                          </p>
+                        </div>
+                        {mobileMoneyStatus.receiptNumber && (
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <p className="text-sm text-green-800">
+                              Receipt Number: <span className="font-mono font-semibold">{mobileMoneyStatus.receiptNumber}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : mobileMoneyStatus.status === "failed" ? (
+                      <div className="space-y-4">
+                        <div className="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                          <XCircle className="h-8 w-8 text-red-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg text-red-700">Payment Failed</h3>
+                          <p className="text-muted-foreground text-sm mt-1">
+                            {mobileMoneyStatus.message}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 justify-center">
+                    {(mobileMoneyStatus.status === "pay-offline" || mobileMoneyStatus.status === "pending") && (
+                      <Button 
+                        onClick={checkMobileMoneyStatus}
+                        disabled={checkingStatus}
+                        variant="outline"
+                      >
+                        {checkingStatus ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Check Status
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    
+                    {mobileMoneyStatus.status === "successful" && (
+                      <Button 
+                        onClick={() => handleMobileMoneyDialogClose(false)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Done
+                      </Button>
+                    )}
+                    
+                    {mobileMoneyStatus.status === "failed" && (
+                      <Button 
+                        onClick={() => setMobileMoneyStatus({ status: "idle", message: "" })}
+                        variant="outline"
+                      >
+                        Try Again
+                      </Button>
+                    )}
+                    
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => handleMobileMoneyDialogClose(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
-
