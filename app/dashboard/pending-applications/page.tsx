@@ -114,9 +114,10 @@ export default function PendingApplicationsPage() {
     if (actionType === "bulkApprove" && applications.length > 0) {
       const classIds = Array.from(new Set(applications.map(app => app.appliedClassId)))
       Promise.all(classIds.map(classId => 
-        fetch(`/api/sections?classId=${classId}`).then(res => res.json())
+        fetch(`/api/sections?classId=${classId}&noPagination=true`).then(res => res.json())
       )).then(results => {
-        setSections(results.flat())
+        const flatResults = results.flat()
+        setSections(Array.isArray(flatResults) ? flatResults : [])
       })
     }
   }, [selectedApplication, actionType, applications])

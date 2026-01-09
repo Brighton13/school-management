@@ -6,6 +6,7 @@ import { PerformanceChart, ClassPerformanceChart } from "./performance-chart"
 import { AttendanceChart, AttendanceRateChart } from "./attendance-chart"
 import { FeeChart, FeeCollectionRateChart } from "./fee-chart"
 import { SubjectPerformanceChart } from "./subject-performance-chart"
+import { AnnouncementsSection } from "./announcements-section"
 import {
   Users,
   GraduationCap,
@@ -484,6 +485,9 @@ export function AdminAnalytics() {
           </CardContent>
         </Card>
       )}
+
+      {/* Announcements */}
+      <AnnouncementsSection maxItems={5} />
     </div>
   )
 }

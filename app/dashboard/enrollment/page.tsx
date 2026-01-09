@@ -155,9 +155,9 @@ export default function EnrollmentPage() {
       const classId = data.class.id
       setEditSelectedClassId(classId)
       if (classId) {
-        const sectionsRes = await fetch(`/api/sections?classId=${classId}`)
+        const sectionsRes = await fetch(`/api/sections?classId=${classId}&noPagination=true`)
         const sectionsData = await sectionsRes.json()
-        setSections(sectionsData)
+        setSections(Array.isArray(sectionsData) ? sectionsData : (sectionsData.data || []))
       }
       setIsEditDialogOpen(true)
     } catch (error) {

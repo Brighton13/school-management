@@ -184,7 +184,7 @@ export default function StudentsPage() {
       const res = await fetch("/api/teacher-classes")
       if (res.ok) {
         const data = await res.json()
-        setTeacherClasses(data)
+        setTeacherClasses(Array.isArray(data) ? data : (data.data || []))
       }
     } catch (error) {
       console.error("Failed to fetch teacher classes:", error)
@@ -207,7 +207,7 @@ export default function StudentsPage() {
       const res = await fetch("/api/teacher-sections")
       if (res.ok) {
         const data = await res.json()
-        setTeacherSections(data)
+        setTeacherSections(Array.isArray(data) ? data : (data.data || []))
       }
     } catch (error) {
       console.error("Failed to fetch teacher sections:", error)
@@ -216,9 +216,9 @@ export default function StudentsPage() {
 
   const fetchSections = async (classId: string) => {
     try {
-      const res = await fetch(`/api/sections?classId=${classId}`)
+      const res = await fetch(`/api/sections?classId=${classId}&noPagination=true`)
       const data = await res.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch sections:", error)
       setSections([])

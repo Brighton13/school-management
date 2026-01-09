@@ -5,6 +5,7 @@ import { StatCard } from "./stat-cards"
 import { PieChartComponent, DonutChart } from "./pie-chart"
 import { PerformanceChart, ClassPerformanceChart } from "./performance-chart"
 import { AttendanceChart, AttendanceRateChart } from "./attendance-chart"
+import { AnnouncementsSection } from "./announcements-section"
 import {
   Users,
   BookOpen,
@@ -612,6 +613,9 @@ export function TeacherDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Announcements */}
+      <AnnouncementsSection maxItems={5} />
     </div>
   )
 }

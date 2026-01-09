@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { StatCard } from "./stat-cards"
+import { AnnouncementsSection } from "./announcements-section"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -248,6 +249,9 @@ export function LibrarianDashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Announcements */}
+      <AnnouncementsSection maxItems={5} />
     </div>
   )
 }

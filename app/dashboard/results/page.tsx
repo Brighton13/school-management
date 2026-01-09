@@ -156,6 +156,7 @@ export default function ResultsPage() {
         const params = new URLSearchParams({
           classId: selectedCS.classId,
           currentAcademicYear: "true",
+          noPagination: "true",
         })
         if (selectedCS.sectionId) {
           params.append("sectionId", selectedCS.sectionId)
@@ -164,7 +165,7 @@ export default function ResultsPage() {
         const res = await fetch(`/api/students?${params.toString()}`)
         if (res.ok) {
           const data = await res.json()
-          setFilteredStudents(data)
+          setFilteredStudents(Array.isArray(data) ? data : (data.data || []))
         } else {
           setFilteredStudents([])
         }

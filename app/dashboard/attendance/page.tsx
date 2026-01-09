@@ -81,13 +81,13 @@ export default function AttendancePage() {
 
   const fetchSections = async () => {
     try {
-      const response = await fetch("/api/sections?teacherId=true")
+      const response = await fetch("/api/sections?teacherId=true&noPagination=true")
       if (response.status === 401 || response.status === 403) {
         setPermissionDenied(true)
         return
       }
       const data = await response.json()
-      setSections(data || [])
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Error fetching sections:", error)
       showMessage("error", "Failed to load sections")
