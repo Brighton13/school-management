@@ -75,14 +75,14 @@ export default function SectionsPage() {
 
   const fetchSections = async () => {
     try {
-      const res = await fetch("/api/sections")
+      const res = await fetch("/api/sections?noPagination=true")
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch sections:", error)
     } finally {
@@ -92,9 +92,9 @@ export default function SectionsPage() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch("/api/classes")
+      const res = await fetch("/api/classes?noPagination=true")
       const data = await res.json()
-      setClasses(data)
+      setClasses(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch classes:", error)
     }
@@ -102,10 +102,11 @@ export default function SectionsPage() {
 
   const fetchTeachers = async () => {
     try {
-      const res = await fetch("/api/staff")
+      const res = await fetch("/api/staff?noPagination=true")
       const data = await res.json()
+      const staffArr = Array.isArray(data) ? data : (data.data || [])
       // Filter for teachers only
-      const teacherStaff = data.filter((staff: Staff) => staff.designation === "TEACHER")
+      const teacherStaff = staffArr.filter((staff: Staff) => staff.designation === "TEACHER")
       setTeachers(teacherStaff)
     } catch (error) {
       console.error("Failed to fetch teachers:", error)

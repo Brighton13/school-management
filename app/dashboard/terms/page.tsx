@@ -62,8 +62,8 @@ export default function TermsPage() {
   const fetchData = async () => {
     try {
       const [termsRes, yearsRes] = await Promise.all([
-        fetch("/api/terms"),
-        fetch("/api/academic-years")
+        fetch("/api/terms?noPagination=true"),
+        fetch("/api/academic-years?noPagination=true")
       ])
       
       if (termsRes.status === 401 || termsRes.status === 403) {
@@ -75,15 +75,18 @@ export default function TermsPage() {
       const termsData = await termsRes.json()
       const yearsData = await yearsRes.json()
       
-      setTerms(termsData)
-      setAcademicYears(yearsData)
+      const termsArr = Array.isArray(termsData) ? termsData : (termsData.data || [])
+      const yearsArr = Array.isArray(yearsData) ? yearsData : (yearsData.data || [])
+      
+      setTerms(termsArr)
+      setAcademicYears(yearsArr)
       
       // Set default academic year to current one
-      const currentYear = yearsData.find((y: AcademicYear) => y.isCurrent)
+      const currentYear = yearsArr.find((y: AcademicYear) => y.isCurrent)
       if (currentYear) {
         setSelectedAcademicYearId(currentYear.id)
-      } else if (yearsData.length > 0) {
-        setSelectedAcademicYearId(yearsData[0].id)
+      } else if (yearsArr.length > 0) {
+        setSelectedAcademicYearId(yearsArr[0].id)
       }
     } catch (error) {
       console.error("Failed to fetch data:", error)

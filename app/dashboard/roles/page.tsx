@@ -52,7 +52,7 @@ export default function RolesPage() {
 
   const fetchRoles = async () => {
     try {
-      const response = await fetch("/api/roles")
+      const response = await fetch("/api/roles?noPagination=true")
       if (response.status === 401 || response.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
@@ -60,7 +60,8 @@ export default function RolesPage() {
       }
       if (response.ok) {
         const data = await response.json()
-        setRoles(Array.isArray(data) ? data : [])
+        const rolesArr = Array.isArray(data) ? data : (data.data || [])
+        setRoles(rolesArr)
         setError(null)
       } else {
         const errorData = await response.json()
@@ -80,10 +81,11 @@ export default function RolesPage() {
 
   const fetchPermissions = async () => {
     try {
-      const response = await fetch("/api/permissions")
+      const response = await fetch("/api/permissions?noPagination=true")
       if (response.ok) {
         const data = await response.json()
-        setPermissions(Array.isArray(data) ? data : [])
+        const permsArr = Array.isArray(data) ? data : (data.data || [])
+        setPermissions(permsArr)
       } else {
         const errorData = await response.json()
         console.error("Error fetching permissions:", errorData)

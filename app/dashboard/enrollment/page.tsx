@@ -68,22 +68,26 @@ export default function EnrollmentPage() {
   const fetchData = async () => {
     try {
       const [enrollmentsRes, studentsRes, classesRes, termsRes] = await Promise.all([
-        fetch("/api/enrollment"),
-        fetch("/api/students"),
-        fetch("/api/classes"),
-        fetch("/api/terms"),
+        fetch("/api/enrollment?noPagination=true"),
+        fetch("/api/students?noPagination=true"),
+        fetch("/api/classes?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
       ])
       if (enrollmentsRes.status === 401 || enrollmentsRes.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      setEnrollments(await enrollmentsRes.json())
-      setStudents(await studentsRes.json())
+      const enrollmentsData = await enrollmentsRes.json()
+      const studentsData = await studentsRes.json()
       const classesData = await classesRes.json()
-      setClasses(classesData)
       const termsData = await termsRes.json()
-      setTerms(termsData)
+      
+      // Handle both paginated and non-paginated responses
+      setEnrollments(Array.isArray(enrollmentsData) ? enrollmentsData : (enrollmentsData.data || []))
+      setStudents(Array.isArray(studentsData) ? studentsData : (studentsData.data || []))
+      setClasses(Array.isArray(classesData) ? classesData : (classesData.data || []))
+      setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {
@@ -93,9 +97,9 @@ export default function EnrollmentPage() {
 
   const fetchSections = async (classId: string) => {
     try {
-      const res = await fetch(`/api/sections?classId=${classId}`)
+      const res = await fetch(`/api/sections?classId=${classId}&noPagination=true`)
       const data = await res.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch sections:", error)
     }

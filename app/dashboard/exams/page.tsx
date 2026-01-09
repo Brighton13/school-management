@@ -90,19 +90,23 @@ export default function ExamsPage() {
   const fetchData = async () => {
     try {
       const [examsRes, termsRes, classesRes] = await Promise.all([
-        fetch("/api/exams"),
-        fetch("/api/terms"),
-        fetch("/api/classes"),
+        fetch("/api/exams?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
+        fetch("/api/classes?noPagination=true"),
       ])
       if (examsRes.status === 401 || examsRes.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      setExams(await examsRes.json())
-      setTerms(await termsRes.json())
+      const examsData = await examsRes.json()
+      const termsData = await termsRes.json()
+      
+      setExams(Array.isArray(examsData) ? examsData : (examsData.data || []))
+      setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
       if (classesRes.ok) {
-        setClasses(await classesRes.json())
+        const classesData = await classesRes.json()
+        setClasses(Array.isArray(classesData) ? classesData : (classesData.data || []))
       }
     } catch (error) {
       console.error("Failed to fetch data:", error)

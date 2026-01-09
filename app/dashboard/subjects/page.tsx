@@ -33,14 +33,14 @@ export default function SubjectsPage() {
 
   const fetchSubjects = async () => {
     try {
-      const res = await fetch("/api/subjects")
+      const res = await fetch("/api/subjects?noPagination=true")
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setSubjects(data)
+      setSubjects(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch subjects:", error)
     } finally {

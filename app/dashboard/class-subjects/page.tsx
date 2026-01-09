@@ -79,25 +79,38 @@ export default function ClassSubjectsPage() {
   const fetchData = async () => {
     try {
       const [classSubjectsRes, classesRes, sectionsRes, subjectsRes, staffRes] = await Promise.all([
-        fetch("/api/class-subjects"),
-        fetch("/api/classes"),
-        fetch("/api/sections"),
-        fetch("/api/subjects"),
-        fetch("/api/staff"),
+        fetch("/api/class-subjects?noPagination=true"),
+        fetch("/api/classes?noPagination=true"),
+        fetch("/api/sections?noPagination=true"),
+        fetch("/api/subjects?noPagination=true"),
+        fetch("/api/staff?noPagination=true"),
       ])
       if (classSubjectsRes.status === 401 || classSubjectsRes.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      if (classSubjectsRes.ok) setClassSubjects(await classSubjectsRes.json())
-      if (classesRes.ok) setClasses(await classesRes.json())
-      if (sectionsRes.ok) setSections(await sectionsRes.json())
-      if (subjectsRes.ok) setSubjects(await subjectsRes.json())
+      if (classSubjectsRes.ok) {
+        const data = await classSubjectsRes.json()
+        setClassSubjects(Array.isArray(data) ? data : (data.data || []))
+      }
+      if (classesRes.ok) {
+        const data = await classesRes.json()
+        setClasses(Array.isArray(data) ? data : (data.data || []))
+      }
+      if (sectionsRes.ok) {
+        const data = await sectionsRes.json()
+        setSections(Array.isArray(data) ? data : (data.data || []))
+      }
+      if (subjectsRes.ok) {
+        const data = await subjectsRes.json()
+        setSubjects(Array.isArray(data) ? data : (data.data || []))
+      }
       if (staffRes.ok) {
         const staffData = await staffRes.json()
+        const staffArr = Array.isArray(staffData) ? staffData : (staffData.data || [])
         // Filter to only show teachers
-        setStaff(staffData.filter((s: Staff) => 
+        setStaff(staffArr.filter((s: Staff) => 
           ["TEACHER", "HEAD_TEACHER", "SENIOR_TEACHER"].includes(s.designation)
         ))
       }

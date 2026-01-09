@@ -74,10 +74,10 @@ export default function GenerateReportPage() {
 
   const fetchSections = async () => {
     try {
-      const response = await fetch("/api/sections")
+      const response = await fetch("/api/sections?noPagination=true")
       if (!response.ok) throw new Error("Failed to fetch sections")
       const data = await response.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (err) {
       console.error("Error fetching sections:", err)
     }
@@ -85,10 +85,10 @@ export default function GenerateReportPage() {
 
   const fetchTerms = async () => {
     try {
-      const response = await fetch("/api/terms")
+      const response = await fetch("/api/terms?noPagination=true")
       if (!response.ok) throw new Error("Failed to fetch terms")
       const data = await response.json()
-      setTerms(data)
+      setTerms(Array.isArray(data) ? data : (data.data || []))
     } catch (err) {
       console.error("Error fetching terms:", err)
     }
@@ -96,10 +96,10 @@ export default function GenerateReportPage() {
 
   const fetchExams = async () => {
     try {
-      const response = await fetch("/api/exams")
+      const response = await fetch("/api/exams?noPagination=true")
       if (!response.ok) throw new Error("Failed to fetch exams")
       const data = await response.json()
-      setExams(data)
+      setExams(Array.isArray(data) ? data : (data.data || []))
     } catch (err) {
       console.error("Error fetching exams:", err)
     }

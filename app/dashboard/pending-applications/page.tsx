@@ -130,14 +130,14 @@ export default function PendingApplicationsPage() {
 
   const fetchPendingApplications = async () => {
     try {
-      const res = await fetch("/api/applications/pending")
+      const res = await fetch("/api/applications/pending?noPagination=true")
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setApplications(data)
+      setApplications(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch pending applications:", error)
       toast({
@@ -152,9 +152,9 @@ export default function PendingApplicationsPage() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch("/api/classes")
+      const res = await fetch("/api/classes?noPagination=true")
       const data = await res.json()
-      setClasses(data)
+      setClasses(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch classes:", error)
     }
@@ -162,9 +162,9 @@ export default function PendingApplicationsPage() {
 
   const fetchSectionsWithCount = async (classId: string) => {
     try {
-      const res = await fetch(`/api/sections?classId=${classId}`)
+      const res = await fetch(`/api/sections?classId=${classId}&noPagination=true`)
       const data = await res.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch sections:", error)
       setSections([])

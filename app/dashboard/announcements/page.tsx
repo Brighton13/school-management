@@ -41,17 +41,18 @@ export default function AnnouncementsPage() {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch("/api/announcements")
+      const res = await fetch("/api/announcements?noPagination=true")
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
+      const announcementsArr = Array.isArray(data) ? data : (data.data || [])
       
       // Ensure data is an array
-      if (Array.isArray(data)) {
-        setAnnouncements(data)
+      if (Array.isArray(announcementsArr)) {
+        setAnnouncements(announcementsArr)
       } else {
         console.error("Invalid data format:", data)
         setAnnouncements([])

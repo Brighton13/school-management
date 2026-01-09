@@ -76,13 +76,14 @@ export default function AcademicYearsPage() {
 
   const fetchAcademicYears = async () => {
     try {
-      const res = await fetch("/api/academic-years")
+      const res = await fetch("/api/academic-years?noPagination=true")
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      const data = await res.json()
+      const responseData = await res.json()
+      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
       setAcademicYears(data)
       // Auto-expand current year
       const currentYear = data.find((y: AcademicYear) => y.isCurrent)

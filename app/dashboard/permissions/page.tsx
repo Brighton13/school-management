@@ -25,7 +25,7 @@ export default function PermissionsPage() {
 
   const fetchPermissions = async () => {
     try {
-      const response = await fetch("/api/permissions")
+      const response = await fetch("/api/permissions?noPagination=true")
       if (response.status === 401 || response.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
@@ -33,7 +33,7 @@ export default function PermissionsPage() {
       }
       if (response.ok) {
         const data = await response.json()
-        setPermissions(data)
+        setPermissions(Array.isArray(data) ? data : (data.data || []))
       }
     } catch (error) {
       console.error("Error fetching permissions:", error)

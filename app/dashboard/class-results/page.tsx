@@ -98,14 +98,16 @@ export default function ClassResultsPage() {
   const fetchInitialData = async () => {
     try {
       const [termsRes, examsRes] = await Promise.all([
-        fetch("/api/terms"),
-        fetch("/api/exams"),
+        fetch("/api/terms?noPagination=true"),
+        fetch("/api/exams?noPagination=true"),
       ])
       if (termsRes.ok) {
-        setTerms(await termsRes.json())
+        const termsData = await termsRes.json()
+        setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
       }
       if (examsRes.ok) {
-        setExams(await examsRes.json())
+        const examsData = await examsRes.json()
+        setExams(Array.isArray(examsData) ? examsData : (examsData.data || []))
       } else {
         console.error("Failed to fetch exams:", await examsRes.text())
         setExams([])

@@ -189,18 +189,31 @@ export default function ResultsPage() {
   const fetchData = async () => {
     try {
       const [resultsRes, studentsRes, termsRes, classSubjectsRes, examsRes] = await Promise.all([
-        fetch("/api/results"),
-        fetch("/api/students"),
-        fetch("/api/terms"),
-        fetch("/api/class-subjects"),
-        fetch("/api/exams?status=ACTIVE"),
+        fetch("/api/results?noPagination=true"),
+        fetch("/api/students?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
+        fetch("/api/class-subjects?noPagination=true"),
+        fetch("/api/exams?status=ACTIVE&noPagination=true"),
       ])
-      if (resultsRes.ok) setResults(await resultsRes.json())
-      if (studentsRes.ok) setStudents(await studentsRes.json())
-      if (termsRes.ok) setTerms(await termsRes.json())
-      if (classSubjectsRes.ok) setClassSubjects(await classSubjectsRes.json())
+      if (resultsRes.ok) {
+        const resultsData = await resultsRes.json()
+        setResults(Array.isArray(resultsData) ? resultsData : (resultsData.data || []))
+      }
+      if (studentsRes.ok) {
+        const studentsData = await studentsRes.json()
+        setStudents(Array.isArray(studentsData) ? studentsData : (studentsData.data || []))
+      }
+      if (termsRes.ok) {
+        const termsData = await termsRes.json()
+        setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
+      }
+      if (classSubjectsRes.ok) {
+        const classSubjectsData = await classSubjectsRes.json()
+        setClassSubjects(Array.isArray(classSubjectsData) ? classSubjectsData : (classSubjectsData.data || []))
+      }
       if (examsRes.ok) {
-        setExams(await examsRes.json())
+        const examsData = await examsRes.json()
+        setExams(Array.isArray(examsData) ? examsData : (examsData.data || []))
       } else {
         console.error("Failed to fetch exams:", await examsRes.text())
         setExams([])

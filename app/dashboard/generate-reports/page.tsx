@@ -158,24 +158,27 @@ export default function GenerateReportsPage() {
       try {
         setLoading(true)
         const [termsRes, examsRes, sectionsRes] = await Promise.all([
-          fetch("/api/terms"),
-          fetch("/api/exams?hasApprovedResults=true"),
-          fetch("/api/sections?classTeacher=true"),
+          fetch("/api/terms?noPagination=true"),
+          fetch("/api/exams?hasApprovedResults=true&noPagination=true"),
+          fetch("/api/sections?classTeacher=true&noPagination=true"),
         ])
 
         if (termsRes.ok) {
           const termsData = await termsRes.json()
-          setTerms(termsData || [])
+          const termsArr = Array.isArray(termsData) ? termsData : (termsData.data || [])
+          setTerms(termsArr)
         }
 
         if (examsRes.ok) {
           const examsData = await examsRes.json()
-          setExams(examsData.exams || examsData || [])
+          const examsArr = Array.isArray(examsData) ? examsData : (examsData.exams || examsData.data || [])
+          setExams(examsArr)
         }
 
         if (sectionsRes.ok) {
           const sectionsData = await sectionsRes.json()
-          setSections(sectionsData.sections || sectionsData || [])
+          const sectionsArr = Array.isArray(sectionsData) ? sectionsData : (sectionsData.sections || sectionsData.data || [])
+          setSections(sectionsArr)
         }
       } catch (err) {
         console.error("Error fetching data:", err)

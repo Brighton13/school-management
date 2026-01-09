@@ -88,13 +88,13 @@ export default function AuditTrailsPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/users")
+      const res = await fetch("/api/users?noPagination=true")
       if (!res.ok) {
         console.error("Failed to fetch users:", res.statusText)
         return
       }
       const data = await res.json()
-      setUsers(data)
+      setUsers(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch users:", error)
     }

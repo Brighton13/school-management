@@ -66,26 +66,33 @@ export default function TeacherAssignmentsPage() {
   const fetchData = async () => {
     try {
       const [assignmentsRes, classesRes, sectionsRes, subjectsRes, staffRes, classSubjectsRes] = await Promise.all([
-        fetch("/api/teacher-assignments"),
-        fetch("/api/classes"),
-        fetch("/api/sections"),
-        fetch("/api/subjects"),
-        fetch("/api/staff"),
-        fetch("/api/class-subjects"),
+        fetch("/api/teacher-assignments?noPagination=true"),
+        fetch("/api/classes?noPagination=true"),
+        fetch("/api/sections?noPagination=true"),
+        fetch("/api/subjects?noPagination=true"),
+        fetch("/api/staff?noPagination=true"),
+        fetch("/api/class-subjects?noPagination=true"),
       ])
       if (assignmentsRes.status === 401 || assignmentsRes.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
-      setAssignments(await assignmentsRes.json())
-      setClasses(await classesRes.json())
-      setSections(await sectionsRes.json())
-      setSubjects(await subjectsRes.json())
-      const staff = await staffRes.json()
+      const assignmentsData = await assignmentsRes.json()
+      const classesData = await classesRes.json()
+      const sectionsData = await sectionsRes.json()
+      const subjectsData = await subjectsRes.json()
+      const staffData = await staffRes.json()
+      const classSubjectsData = await classSubjectsRes.json()
+      
+      setAssignments(Array.isArray(assignmentsData) ? assignmentsData : (assignmentsData.data || []))
+      setClasses(Array.isArray(classesData) ? classesData : (classesData.data || []))
+      setSections(Array.isArray(sectionsData) ? sectionsData : (sectionsData.data || []))
+      setSubjects(Array.isArray(subjectsData) ? subjectsData : (subjectsData.data || []))
       // Filter for staff with user info (teachers)
+      const staff = Array.isArray(staffData) ? staffData : (staffData.data || [])
       setTeachers(staff.filter((s: Staff) => s.user && s.user.name))
-      setClassSubjects(await classSubjectsRes.json())
+      setClassSubjects(Array.isArray(classSubjectsData) ? classSubjectsData : (classSubjectsData.data || []))
     } catch (error) {
       console.error("Failed to fetch data:", error)
     } finally {

@@ -76,9 +76,9 @@ export default function SessionLogsPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/users")
+      const res = await fetch("/api/users?noPagination=true")
       const data = await res.json()
-      setUsers(data)
+      setUsers(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch users:", error)
     }

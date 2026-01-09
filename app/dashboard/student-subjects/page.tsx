@@ -120,8 +120,9 @@ export default function StudentSubjectsPage() {
   const fetchStudentData = async () => {
     try {
       // Get current student
-      const studentRes = await fetch("/api/students")
-      const studentsData = await studentRes.json()
+      const studentRes = await fetch("/api/students?noPagination=true")
+      const studentsRaw = await studentRes.json()
+      const studentsData = Array.isArray(studentsRaw) ? studentsRaw : (studentsRaw.data || [])
       const currentStudent = studentsData.find(
         (s: any) => s.user.email === session?.user.email
       )
@@ -132,14 +133,17 @@ export default function StudentSubjectsPage() {
 
       // Get academic years and terms
       const [academicYearsRes, termsRes] = await Promise.all([
-        fetch("/api/academic-years"),
-        fetch("/api/terms"),
+        fetch("/api/academic-years?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
       ])
-      const academicYearsData = await academicYearsRes.json()
-      const termsData = await termsRes.json()
+      const academicYearsRaw = await academicYearsRes.json()
+      const termsRaw = await termsRes.json()
       
-      setAcademicYears(Array.isArray(academicYearsData) ? academicYearsData : [])
-      setTerms(Array.isArray(termsData) ? termsData : [])
+      const academicYearsData = Array.isArray(academicYearsRaw) ? academicYearsRaw : (academicYearsRaw.data || [])
+      const termsData = Array.isArray(termsRaw) ? termsRaw : (termsRaw.data || [])
+      
+      setAcademicYears(academicYearsData)
+      setTerms(termsData)
 
       // Find current term and set defaults
       const currentTerm = termsData.find((t: Term) => t.isCurrent)
@@ -159,20 +163,24 @@ export default function StudentSubjectsPage() {
   const fetchData = async () => {
     try {
       const [studentsRes, academicYearsRes, termsRes] = await Promise.all([
-        fetch("/api/students"),
-        fetch("/api/academic-years"),
-        fetch("/api/terms"),
+        fetch("/api/students?noPagination=true"),
+        fetch("/api/academic-years?noPagination=true"),
+        fetch("/api/terms?noPagination=true"),
       ])
-      setStudents(await studentsRes.json())
-      
+      const studentsData = await studentsRes.json()
       const academicYearsData = await academicYearsRes.json()
       const termsData = await termsRes.json()
       
-      setAcademicYears(Array.isArray(academicYearsData) ? academicYearsData : [])
-      setTerms(Array.isArray(termsData) ? termsData : [])
+      const studentsArr = Array.isArray(studentsData) ? studentsData : (studentsData.data || [])
+      const academicYearsArr = Array.isArray(academicYearsData) ? academicYearsData : (academicYearsData.data || [])
+      const termsArr = Array.isArray(termsData) ? termsData : (termsData.data || [])
+      
+      setStudents(studentsArr)
+      setAcademicYears(academicYearsArr)
+      setTerms(termsArr)
 
       // Find current term and set defaults
-      const currentTerm = termsData.find((t: Term) => t.isCurrent)
+      const currentTerm = termsArr.find((t: Term) => t.isCurrent)
       if (currentTerm) {
         setSelectedAcademicYearId(currentTerm.academicYear.id)
         setSelectedAcademicYear(currentTerm.academicYear.year)

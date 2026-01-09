@@ -65,10 +65,10 @@ export default function CommentConfigPage() {
 
   const fetchSections = async () => {
     try {
-      const response = await fetch("/api/sections")
+      const response = await fetch("/api/sections?noPagination=true")
       if (!response.ok) throw new Error("Failed to fetch sections")
       const data = await response.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (err) {
       console.error("Error fetching sections:", err)
     }
