@@ -9,18 +9,32 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { NotificationList } from "./notification-list"
+import { NotificationErrorBoundary } from "./notification-error-boundary"
 import { useNotifications } from "@/hooks/use-notifications"
 
 export function NotificationBell() {
   const { unreadCount, playSound } = useNotifications()
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
     // Create audio element for notification sound using Web Audio API
     if (typeof window !== "undefined") {
-      const playBeep = () => {
+      const playBeep = async () => {
         try {
+          // Check if AudioContext is supported
+          if (!window.AudioContext && !(window as any).webkitAudioContext) {
+            console.warn("AudioContext not supported")
+            return
+          }
+
           const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+          
+          // Resume audio context if it's suspended (required for Chrome)
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume()
+          }
+          
           const oscillator = audioContext.createOscillator()
           const gainNode = audioContext.createGain()
           
@@ -34,8 +48,23 @@ export function NotificationBell() {
           
           oscillator.start(audioContext.currentTime)
           oscillator.stop(audioContext.currentTime + 0.3)
+          
+          // Clean up after playing
+          setTimeout(() => {
+            try {
+              audioContext.close()
+            } catch (e) {
+              // Ignore cleanup errors
+            }
+          }, 1000)
         } catch (error) {
           console.error("Error playing notification sound:", error)
+          // Fallback: try to play a simple beep using the system
+          try {
+            // No valid fallback available
+          } catch (e) {
+            // Silent fallback
+          }
         }
       }
       
@@ -50,7 +79,7 @@ export function NotificationBell() {
   }, [playSound])
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative h-9 w-9 sm:h-10 sm:w-10">
           <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -61,8 +90,20 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm p-0" align="end" sideOffset={8}>
-        <NotificationList />
+      <PopoverContent 
+        className="w-[calc(100vw-2rem)] sm:w-80 max-w-sm p-0" 
+        align="end" 
+        sideOffset={8}
+        onOpenAutoFocus={(e) => {
+          // Prevent focus from moving to the first element
+          e.preventDefault()
+        }}
+      >
+        <div className="max-h-[70vh] overflow-hidden">
+          <NotificationErrorBoundary>
+            <NotificationList />
+          </NotificationErrorBoundary>
+        </div>
       </PopoverContent>
     </Popover>
   )

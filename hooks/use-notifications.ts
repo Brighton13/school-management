@@ -21,17 +21,41 @@ export function useNotifications() {
   const [playSound, setPlaySound] = useState(false)
 
   const fetchNotifications = useCallback(async () => {
-    if (!session) return
+    if (!session) {
+      // Clear state when no session
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
 
     try {
       const res = await fetch("/api/notifications?unreadOnly=false&limit=50")
       if (res.ok) {
         const data = await res.json()
-        setNotifications(data.notifications)
-        setUnreadCount(data.unreadCount)
+        // Handle both paginated response (data.data) and non-paginated response (data.notifications)
+        const notificationsList = data.data || data.notifications || []
+        setNotifications(notificationsList)
+        setUnreadCount(data.unreadCount ?? 0)
+      } else if (res.status === 503) {
+        // Database connection error - set empty state
+        console.warn("Database connection lost, showing empty state")
+        setNotifications([])
+        setUnreadCount(0)
+      } else if (res.status === 401) {
+        // Unauthorized - clear state
+        setNotifications([])
+        setUnreadCount(0)
+      } else {
+        console.error("Failed to fetch notifications:", res.status)
+        // Clear state on other errors too
+        setNotifications([])
+        setUnreadCount(0)
       }
     } catch (error) {
       console.error("Error fetching notifications:", error)
+      // Clear state on network errors
+      setNotifications([])
+      setUnreadCount(0)
     }
   }, [session])
 
@@ -40,37 +64,84 @@ export function useNotifications() {
 
     fetchNotifications()
 
-    // Set up Server-Sent Events for real-time notifications
-    const eventSource = new EventSource("/api/notifications/stream")
+    let eventSource: EventSource | null = null
+    let pollInterval: NodeJS.Timeout | null = null
+    let isCleanedUp = false
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      
-      if (data.type === "notification") {
-        const newNotification = data.data
-        setNotifications((prev) => [newNotification, ...prev])
-        setUnreadCount((prev) => prev + 1)
-        setPlaySound(true)
-        setTimeout(() => setPlaySound(false), 100)
+    try {
+      // Set up Server-Sent Events for real-time notifications
+      eventSource = new EventSource("/api/notifications/stream")
+
+      eventSource.onopen = () => {
+        console.log("Notification stream connected")
       }
-    }
 
-    eventSource.onerror = () => {
-      eventSource.close()
-      // Reconnect after 5 seconds
-      setTimeout(() => {
-        if (session) {
+      eventSource.onmessage = (event) => {
+        if (isCleanedUp) return
+        
+        try {
+          const data = JSON.parse(event.data)
+          
+          if (data.type === "notification") {
+            const newNotification = data.data
+            setNotifications((prev) => [newNotification, ...prev.slice(0, 49)]) // Keep max 50 notifications
+            setUnreadCount((prev) => prev + 1)
+            setPlaySound(true)
+            setTimeout(() => {
+              if (!isCleanedUp) {
+                setPlaySound(false)
+              }
+            }, 100)
+          } else if (data.type === "error") {
+            console.warn("Notification stream error:", data.message)
+            // Handle database connection errors gracefully
+            if (data.message === "Database connection lost") {
+              eventSource?.close()
+              // Don't try to reconnect immediately for database errors
+              console.log("Database connection lost, stopping notification stream")
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing notification data:", error)
+        }
+      }
+
+      eventSource.onerror = (error) => {
+        console.error("EventSource error:", error)
+        eventSource?.close()
+        
+        // Reconnect after 5 seconds if not cleaned up
+        if (!isCleanedUp) {
+          setTimeout(() => {
+            if (session && !isCleanedUp) {
+              fetchNotifications()
+            }
+          }, 5000)
+        }
+      }
+
+      // Poll for updates every 30 seconds as fallback
+      pollInterval = setInterval(() => {
+        if (!isCleanedUp) {
           fetchNotifications()
         }
-      }, 5000)
+      }, 30000)
+    } catch (error) {
+      console.error("Error setting up notification stream:", error)
+      // Fallback to polling only
+      pollInterval = setInterval(() => {
+        if (!isCleanedUp) {
+          fetchNotifications()
+        }
+      }, 10000)
     }
 
-    // Poll for updates every 30 seconds as fallback
-    const pollInterval = setInterval(fetchNotifications, 30000)
-
     return () => {
-      eventSource.close()
-      clearInterval(pollInterval)
+      isCleanedUp = true
+      eventSource?.close()
+      if (pollInterval) {
+        clearInterval(pollInterval)
+      }
     }
   }, [session, fetchNotifications])
 

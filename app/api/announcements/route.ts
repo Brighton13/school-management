@@ -70,10 +70,24 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(createPaginatedResponse(announcements, total, page, limit))
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Error fetching announcements:", error?.message || error)
+    
+    // Return empty array for database errors so the UI can handle it gracefully
     return NextResponse.json(
-      { error: "Failed to fetch announcements" },
-      { status: 500 }
+      { 
+        error: "Failed to fetch announcements",
+        data: [],
+        pagination: {
+          total: 0,
+          page: 1,
+          limit: 25,
+          totalPages: 0,
+          hasMore: false,
+          hasPrevious: false,
+        }
+      },
+      { status: 503 }
     )
   }
 }

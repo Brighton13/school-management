@@ -4,11 +4,32 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
+// Error response helper
+function errorResponse(message: string, status: number) {
+  return NextResponse.json(
+    { 
+      error: message, 
+      data: [],
+      notifications: [], 
+      unreadCount: 0,
+      pagination: {
+        total: 0,
+        page: 1,
+        limit: 25,
+        totalPages: 0,
+        hasMore: false,
+        hasPrevious: false,
+      }
+    },
+    { status }
+  )
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return errorResponse("Unauthorized", 401)
     }
 
     const { searchParams } = new URL(request.url)
@@ -58,12 +79,11 @@ export async function GET(request: NextRequest) {
       ...createPaginatedResponse(notifications, total, page, limit),
       unreadCount,
     })
-  } catch (error) {
-    console.error("Error fetching notifications:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch notifications" },
-      { status: 500 }
-    )
+  } catch (error: any) {
+    console.error("Error fetching notifications:", error?.message || error)
+    
+    // Any database error should return empty state
+    return errorResponse("Database error", 503)
   }
 }
 

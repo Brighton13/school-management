@@ -37,6 +37,7 @@ export function AnnouncementsSection({ maxItems = 5, showViewAll = true }: Annou
         const response = await fetch(`/api/announcements?noPagination=true&limit=${maxItems}`)
         if (response.ok) {
           const data = await response.json()
+          // Handle both array response and paginated response
           const announcementsArr = Array.isArray(data) ? data : (data.data || [])
           // Filter to only show published and non-expired
           const filtered = announcementsArr
@@ -44,12 +45,19 @@ export function AnnouncementsSection({ maxItems = 5, showViewAll = true }: Annou
             .filter((a: Announcement) => !a.expiresAt || new Date(a.expiresAt) >= new Date())
             .slice(0, maxItems)
           setAnnouncements(filtered)
+          setError(null)
+        } else if (response.status === 503) {
+          // Database connection error
+          setError("Database connection issue")
+          setAnnouncements([])
         } else {
           setError("Failed to load announcements")
+          setAnnouncements([])
         }
       } catch (err) {
         console.error("Error fetching announcements:", err)
         setError("Failed to load announcements")
+        setAnnouncements([])
       } finally {
         setLoading(false)
       }

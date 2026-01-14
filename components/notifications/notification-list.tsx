@@ -23,17 +23,46 @@ export function NotificationList() {
   const router = useRouter()
   const { notifications, markAsRead, deleteNotification, markAllAsRead } = useNotifications()
   const [localNotifications, setLocalNotifications] = useState<Notification[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasConnectionError, setHasConnectionError] = useState(false)
 
   useEffect(() => {
     setLocalNotifications(notifications)
+    
+    // Only set loading to false after we've received notifications (even if empty array)
+    if (isLoading) {
+      setIsLoading(false)
+    }
   }, [notifications])
 
-  const handleNotificationClick = async (notification: Notification) => {
-    if (!notification.read) {
-      await markAsRead(notification.id)
+  // Separate effect for connection error checking
+  useEffect(() => {
+    // Only check for connection error after initial load and if we have no notifications
+    if (!isLoading && notifications.length === 0) {
+      const checkConnection = async () => {
+        try {
+          const res = await fetch("/api/notifications?limit=1")
+          setHasConnectionError(!res.ok && res.status === 503)
+        } catch {
+          setHasConnectionError(true)
+        }
+      }
+      checkConnection()
+    } else if (notifications.length > 0) {
+      setHasConnectionError(false)
     }
-    if (notification.link) {
-      router.push(notification.link)
+  }, [isLoading, notifications.length])
+
+  const handleNotificationClick = async (notification: Notification) => {
+    try {
+      if (!notification.read) {
+        await markAsRead(notification.id)
+      }
+      if (notification.link) {
+        router.push(notification.link)
+      }
+    } catch (error) {
+      console.error("Error handling notification click:", error)
     }
   }
 
@@ -69,7 +98,18 @@ export function NotificationList() {
         </div>
       </div>
       <ScrollArea className="flex-1">
-        {localNotifications.length === 0 ? (
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <Bell className="h-8 w-8 mx-auto mb-2 opacity-50 animate-pulse" />
+            <p>Loading notifications...</p>
+          </div>
+        ) : hasConnectionError ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <Bell className="h-8 w-8 mx-auto mb-2 opacity-50 text-amber-500" />
+            <p className="font-medium">Connection Issue</p>
+            <p className="text-sm mt-1">Unable to load notifications</p>
+          </div>
+        ) : localNotifications.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No notifications</p>

@@ -13,15 +13,55 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const encoder = new TextEncoder()
-      
-      // Send initial connection message
-      controller.enqueue(
-        encoder.encode(`data: ${JSON.stringify({ type: "connected" })}\n\n`)
-      )
+      let isClosed = false
+      let pollInterval: NodeJS.Timeout | null = null
 
-      // Poll for new notifications every 2 seconds
+      // Helper function to safely enqueue data
+      const safeEnqueue = (data: string) => {
+        if (!isClosed) {
+          try {
+            controller.enqueue(encoder.encode(data))
+          } catch (error) {
+            // Controller is already closed, mark as closed
+            isClosed = true
+            if (pollInterval) {
+              clearInterval(pollInterval)
+              pollInterval = null
+            }
+          }
+        }
+      }
+
+      // Helper function to safely close the controller
+      const safeClose = () => {
+        if (!isClosed) {
+          isClosed = true
+          if (pollInterval) {
+            clearInterval(pollInterval)
+            pollInterval = null
+          }
+          try {
+            controller.close()
+          } catch (error) {
+            // Already closed, ignore
+          }
+        }
+      }
+
+      // Send initial connection message
+      safeEnqueue(`data: ${JSON.stringify({ type: "connected" })}\n\n`)
+
+      // Poll for new notifications every 5 seconds (reduced frequency)
       let lastCheck = new Date()
-      const pollInterval = setInterval(async () => {
+      pollInterval = setInterval(async () => {
+        if (isClosed) {
+          if (pollInterval) {
+            clearInterval(pollInterval)
+            pollInterval = null
+          }
+          return
+        }
+
         try {
           const newNotifications = await prisma.notification.findMany({
             where: {
@@ -35,26 +75,31 @@ export async function GET(request: NextRequest) {
             take: 10,
           })
 
-          if (newNotifications.length > 0) {
+          if (newNotifications.length > 0 && !isClosed) {
             for (const notification of newNotifications) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: "notification", data: notification })}\n\n`
-                )
+              safeEnqueue(
+                `data: ${JSON.stringify({ type: "notification", data: notification })}\n\n`
               )
             }
             lastCheck = new Date()
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error polling notifications:", error)
+          
+          // If it's a database connection error, send error and close
+          if (error.code === 'P1001') {
+            safeEnqueue(
+              `data: ${JSON.stringify({ type: "error", message: "Database connection lost" })}\n\n`
+            )
+            safeClose()
+          }
         }
-      }, 2000)
+      }, 5000) // Increased to 5 seconds to reduce load
 
       // Clean up on client disconnect
       if (request.signal) {
         request.signal.addEventListener("abort", () => {
-          clearInterval(pollInterval)
-          controller.close()
+          safeClose()
         })
       }
     },
