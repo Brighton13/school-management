@@ -3,11 +3,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { requirePermission, Permissions } from "@/lib/permissions"
-import { writeFile } from "fs/promises"
-import { join } from "path"
-import { mkdir } from "fs/promises"
 
-const UPLOADS_DIR = join(process.cwd(), "public", "uploads", "announcements")
+const FILESERVER_URL = process.env.FILESERVER_URL || "http://localhost:3012"
 
 export async function POST(
   request: NextRequest,
@@ -40,23 +37,19 @@ export async function POST(
       )
     }
 
-    // Create uploads directory if it doesn't exist
-    try {
-      await mkdir(UPLOADS_DIR, { recursive: true })
-    } catch (error) {
-      // Directory might already exist, ignore error
+    // Upload to fileserver
+    const uploadResponse = await fetch(`${FILESERVER_URL}/files/upload`, {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Fileserver upload failed: ${uploadResponse.status}`)
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
-    // Generate unique filename
-    const timestamp = Date.now()
-    const extension = file.name.split('.').pop()
-    const fileName = `${timestamp}-${Math.random().toString(36).substring(2)}.${extension}`
-    const filePath = join(UPLOADS_DIR, fileName)
-
-    await writeFile(filePath, buffer)
+    const uploadResult = await uploadResponse.json()
+    const fileName = uploadResult.filename
+    const fileUrl = uploadResult.url
 
     // Save attachment info to database
     const attachment = await prisma.announcementAttachment.create({
@@ -66,7 +59,7 @@ export async function POST(
         originalName: file.name,
         fileSize: file.size,
         mimeType: file.type,
-        filePath: `/uploads/announcements/${fileName}`,
+        filePath: fileUrl,
       },
     })
 
@@ -110,6 +103,16 @@ export async function DELETE(
         { error: "Attachment not found" },
         { status: 404 }
       )
+    }
+
+    // Delete from fileserver
+    const deleteResponse = await fetch(`${FILESERVER_URL}/files/delete/${encodeURIComponent(attachment.fileName)}`, {
+      method: "DELETE",
+    })
+
+    if (!deleteResponse.ok) {
+      console.error("Fileserver deletion error:", await deleteResponse.text())
+      // Continue with database deletion even if fileserver deletion fails
     }
 
     // Delete from database

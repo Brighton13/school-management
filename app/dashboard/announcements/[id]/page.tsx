@@ -342,7 +342,7 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Paperclip className="h-5 w-5" />
-                Attachments ({announcement.attachments.length})
+                Attachments ({announcement.attachments?.length})
               </h3>
               {canManage && (
                 <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
@@ -393,7 +393,7 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
               )}
             </div>
 
-            {announcement.attachments.length > 0 ? (
+            {announcement.attachments?.length > 0 ? (
               <div className="space-y-3">
                 {announcement.attachments.map((attachment) => (
                   <div 

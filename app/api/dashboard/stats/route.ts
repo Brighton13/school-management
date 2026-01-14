@@ -48,14 +48,21 @@ export async function GET(request: NextRequest) {
     })
 
     // Staff Gender Distribution
-    const staffGender = await prisma.staff.groupBy({
-      by: ["gender"],
-      where: { 
-        status: "ACTIVE",
-        gender: { not: null },
-      },
-      _count: { gender: true },
-    })
+    let staffGender: any = null
+    try {
+      staffGender = await prisma.staff.groupBy({
+        by: ["gender"],
+        where: { 
+          status: "ACTIVE",
+          gender: { not: null },
+        },
+        _count: { gender: true },
+      })
+    } catch (error) {
+      console.warn("Staff gender column not available, using fallback data:", error)
+      // Provide fallback data
+      staffGender = []
+    }
 
     // Staff by Designation
     const staffByDesignation = await prisma.staff.groupBy({
@@ -218,7 +225,7 @@ export async function GET(request: NextRequest) {
         name: s.status,
         value: s._count.status,
       })),
-      staffGender: staffGender.map((s) => ({
+      staffGender: (staffGender || []).map((s: any) => ({
         name: s.gender || "Not Specified",
         value: s._count.gender,
       })),

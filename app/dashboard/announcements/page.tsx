@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Bell, Eye, EyeOff, Trash2, ExternalLink } from "lucide-react"
+import { Plus, Bell, Eye, EyeOff, Trash2, ExternalLink, Paperclip } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
+import FileUpload from "@/components/ui/file-upload"
+import { FileTypes } from "@/lib/fileserver"
 
 interface Announcement {
   id: string
@@ -25,6 +27,13 @@ interface Announcement {
   creator: {
     name: string
   }
+  attachments?: Array<{
+    id: string
+    fileName: string
+    originalName: string
+    filePath: string
+    mimeType: string
+  }>
 }
 
 export default function AnnouncementsPage() {
@@ -35,6 +44,8 @@ export default function AnnouncementsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formType, setFormType] = useState("")
   const [formTargetAudience, setFormTargetAudience] = useState("")
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; url: string }>>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
 
   useEffect(() => {
@@ -69,6 +80,7 @@ export default function AnnouncementsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     
     try {
@@ -82,6 +94,7 @@ export default function AnnouncementsPage() {
           targetAudience: formTargetAudience || formData.get("targetAudience"),
           expiresAt: formData.get("expiresAt"),
           published: formData.get("published") === "on",
+          attachments: uploadedFiles,
         }),
       })
 
@@ -92,6 +105,7 @@ export default function AnnouncementsPage() {
         }
         setFormType("")
         setFormTargetAudience("")
+        setUploadedFiles([])
         setIsDialogOpen(false)
         fetchAnnouncements()
       } else {
@@ -101,6 +115,8 @@ export default function AnnouncementsPage() {
     } catch (error) {
       console.error("Failed to create announcement:", error)
       alert("Failed to create announcement")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -248,6 +264,25 @@ export default function AnnouncementsPage() {
                   <Label htmlFor="expiresAt">Expires At (Optional)</Label>
                   <Input id="expiresAt" name="expiresAt" type="datetime-local" />
                 </div>
+                
+                {/* File Upload Section */}
+                <div className="space-y-2">
+                  <Label>Attachments (Optional)</Label>
+                  <FileUpload
+                    title="Upload Files"
+                    description="Attach documents, images, or other files to this announcement"
+                    multiple={true}
+                    maxFiles={5}
+                    onUploadSuccess={setUploadedFiles}
+                    validationOptions={{
+                      maxSize: 10 * 1024 * 1024, // 10MB
+                      allowedTypes: [...FileTypes.ALL_OFFICE, ...FileTypes.IMAGES],
+                    }}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.jpg,.jpeg,.png,.gif"
+                    className="border-none shadow-none p-0"
+                  />
+                </div>
+                
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -259,7 +294,9 @@ export default function AnnouncementsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Create Announcement</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Announcement"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -307,6 +344,15 @@ export default function AnnouncementsPage() {
                   <p className="text-sm text-muted-foreground line-clamp-3">
                     {announcement.content}
                   </p>
+                  
+                  {/* Show attachment indicator */}
+                  {announcement.attachments && announcement.attachments.length > 0 && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Paperclip className="h-3 w-3" />
+                      <span>{announcement.attachments.length} attachment{announcement.attachments.length > 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                  
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">

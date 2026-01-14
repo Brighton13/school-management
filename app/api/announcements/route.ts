@@ -7,6 +7,27 @@ import { createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
 
+// Helper function to get MIME type from filename
+function getMimeType(filename: string): string {
+  const extension = filename.split('.').pop()?.toLowerCase()
+  const mimeTypes: { [key: string]: string } = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'csv': 'text/csv',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+  }
+  return mimeTypes[extension || ''] || 'application/octet-stream'
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -60,6 +81,7 @@ export async function GET(request: NextRequest) {
       where: whereClause,
       include: {
         creator: true,
+        attachments: true,
       },
       orderBy: { createdAt: "desc" },
       ...(noPagination ? {} : { skip: offset, take: limit }),
@@ -109,7 +131,10 @@ export async function POST(request: NextRequest) {
       targetSectionId,
       expiresAt,
       published,
+      attachments,
     } = body
+
+    console.log("Creating announcement with attachments:", attachments)
 
     const announcement = await prisma.announcement.create({
       data: {
@@ -123,9 +148,19 @@ export async function POST(request: NextRequest) {
         published: published || false,
         publishedAt: published ? new Date() : null,
         createdBy: session.user.id,
+        attachments: attachments && attachments.length > 0 ? {
+          create: attachments.map((file: { filename: string; url: string }) => ({
+            fileName: file.filename,
+            originalName: file.filename.split('-').slice(2).join('-') || file.filename,
+            fileSize: 0, // We'll need to get this from fileserver if needed
+            mimeType: getMimeType(file.filename),
+            filePath: file.url,
+          }))
+        } : undefined,
       },
       include: {
         creator: true,
+        attachments: true,
       },
     })
 

@@ -20,9 +20,11 @@ export async function GET(
       where: { id: params.id },
       include: {
         creator: true,
-//        attachments: true
+        attachments: true
       },
     })
+
+    console.log(`Fetching announcement ${params.id}, attachments found:`, announcement?.attachments?.length || 0)
 
     if (!announcement) {
       return NextResponse.json(
@@ -78,6 +80,7 @@ export async function PUT(
       },
       include: {
         creator: true,
+        attachments: true,
       },
     })
 
