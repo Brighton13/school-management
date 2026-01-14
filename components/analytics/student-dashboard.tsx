@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { StatCard } from "./stat-cards"
 import { StudentSubjectSelection } from "./student-subject-selection"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +13,7 @@ import {
   DollarSign,
   FileText,
   Megaphone,
+  ExternalLink,
 } from "lucide-react"
 
 interface StudentDashboardData {
@@ -58,6 +60,7 @@ export function StudentDashboard() {
   const [data, setData] = useState<StudentDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchData() {
@@ -158,7 +161,11 @@ export function StudentDashboard() {
           {data.announcements.length > 0 ? (
             <div className="space-y-4">
               {data.announcements.map((announcement) => (
-                <div key={announcement.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                <div 
+                  key={announcement.id} 
+                  className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/dashboard/announcements/${announcement.id}`)}
+                >
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-lg">{announcement.title}</h3>
                     <div className="flex items-center gap-2">
@@ -176,6 +183,7 @@ export function StudentDashboard() {
                       <span className="text-xs text-muted-foreground">
                         {new Date(announcement.createdAt).toLocaleDateString()}
                       </span>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </div>
                   <p className="text-muted-foreground text-sm mb-2">

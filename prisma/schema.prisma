@@ -639,6 +639,21 @@ model Announcement {
   updatedAt       DateTime  @updatedAt
 
   creator User @relation(fields: [createdBy], references: [id])
+  attachments AnnouncementAttachment[]
+}
+
+// Announcement Attachments
+model AnnouncementAttachment {
+  id             String    @id @default(cuid())
+  announcementId String
+  fileName       String
+  originalName   String
+  fileSize       Int
+  mimeType       String
+  filePath       String
+  createdAt      DateTime  @default(now())
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 }
 
 // Timetable Management

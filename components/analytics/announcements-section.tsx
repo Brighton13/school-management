@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bell, Megaphone } from "lucide-react"
+import { Bell, Megaphone, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -30,6 +31,7 @@ export function AnnouncementsSection({ maxItems = 5, showViewAll = true }: Annou
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     async function fetchAnnouncements() {
@@ -123,7 +125,8 @@ export function AnnouncementsSection({ maxItems = 5, showViewAll = true }: Annou
             {announcements.map((announcement) => (
               <div
                 key={announcement.id}
-                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => router.push(`/dashboard/announcements/${announcement.id}`)}
               >
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-semibold">{announcement.title}</h3>
@@ -138,6 +141,7 @@ export function AnnouncementsSection({ maxItems = 5, showViewAll = true }: Annou
                     <span className="text-xs text-muted-foreground">
                       {new Date(announcement.createdAt).toLocaleDateString()}
                     </span>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
                   </div>
                 </div>
                 <p className="text-muted-foreground text-sm mb-2 line-clamp-2">

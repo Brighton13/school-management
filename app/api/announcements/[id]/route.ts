@@ -6,6 +6,40 @@ import { logAuditTrail } from "@/lib/audit"
 import { createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions } from "@/lib/permissions"
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const announcement = await prisma.announcement.findUnique({
+      where: { id: params.id },
+      include: {
+        creator: true,
+        attachments: true
+      },
+    })
+
+    if (!announcement) {
+      return NextResponse.json(
+        { error: "Announcement not found" },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(announcement)
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: "Failed to fetch announcement" },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
