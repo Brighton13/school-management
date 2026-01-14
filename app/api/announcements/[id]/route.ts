@@ -20,7 +20,7 @@ export async function GET(
       where: { id: params.id },
       include: {
         creator: true,
-        attachments: true
+//        attachments: true
       },
     })
 
