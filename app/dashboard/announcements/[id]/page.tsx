@@ -55,6 +55,7 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
   const router = useRouter()
   const [announcement, setAnnouncement] = useState<Announcement | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
 
@@ -67,15 +68,23 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
 
   const fetchAnnouncement = async () => {
     try {
+      setError(null)
       const res = await fetch(`/api/announcements/${params.id}`)
-      if (res.ok) {
+      
+      if (res.status === 503) {
+        setError("Database connection unavailable. Please try again later.")
+      } else if (res.status === 404) {
+        setError("Announcement not found")
+      } else if (res.ok) {
         const data = await res.json()
         setAnnouncement(data)
       } else {
-        console.error("Failed to fetch announcement")
+        const errorData = await res.json().catch(() => ({ error: "Unknown error occurred" }))
+        setError(errorData.error || "Failed to load announcement")
       }
     } catch (error) {
       console.error("Failed to fetch announcement:", error)
+      setError("Network error. Please check your connection.")
     } finally {
       setLoading(false)
     }
@@ -191,6 +200,50 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="text-muted-foreground mt-2">Loading announcement...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center max-w-md">
+          <div className="mb-4">
+            {error.includes("Database connection") ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h2 className="text-xl font-bold text-yellow-800 mb-2">Service Temporarily Unavailable</h2>
+                <p className="text-yellow-700">{error}</p>
+              </div>
+            ) : error.includes("not found") ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h2 className="text-xl font-bold text-red-800 mb-2">Announcement Not Found</h2>
+                <p className="text-red-700">The announcement you're looking for doesn't exist or has been removed.</p>
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Error Loading Announcement</h2>
+                <p className="text-gray-700">{error}</p>
+              </div>
+            )}
+          </div>
+          <div className="space-x-4">
+            <Button 
+              variant="outline" 
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+            <Button 
+              onClick={() => {
+                setLoading(true)
+                fetchAnnouncement()
+              }}
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     )

@@ -33,6 +33,16 @@ export async function GET(
 
     return NextResponse.json(announcement)
   } catch (error: any) {
+    console.error("Error fetching announcement:", error)
+    
+    // Handle database connection errors specifically
+    if (error.code === 'P1001' || error.message?.includes("Can't reach database server")) {
+      return NextResponse.json(
+        { error: "Database connection unavailable. Please try again later." },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
       { error: "Failed to fetch announcement" },
       { status: 500 }
