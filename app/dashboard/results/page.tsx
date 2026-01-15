@@ -136,6 +136,15 @@ export default function ResultsPage() {
     }
   }, [marksObtained, maxMarks])
 
+  // Update grade when edit marks change
+  useEffect(() => {
+    const marks = parseFloat(editMarksObtained)
+    const max = parseFloat(editMaxMarks)
+    if (!isNaN(marks) && !isNaN(max) && max > 0) {
+      setEditGrade(calculateGrade(marks, max))
+    }
+  }, [editMarksObtained, editMaxMarks])
+
   // Fetch students when class-subject is selected
   useEffect(() => {
     const fetchStudentsForClassSubject = async () => {
@@ -310,15 +319,6 @@ export default function ResultsPage() {
     setEditRemarks("")
     setIsEditDialogOpen(true)
   }
-
-  // Update grade when edit marks change
-  useEffect(() => {
-    const marks = parseFloat(editMarksObtained)
-    const max = parseFloat(editMaxMarks)
-    if (!isNaN(marks) && !isNaN(max) && max > 0) {
-      setEditGrade(calculateGrade(marks, max))
-    }
-  }, [editMarksObtained, editMaxMarks])
 
   // Handle edit form submission
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
