@@ -1,54 +1,41 @@
+# Base image
 FROM node:18-alpine AS base
+WORKDIR /app
 
-# Install dependencies only when needed
+# Dependencies stage
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+COPY prisma ./prisma
 RUN npm ci
-
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-
-# Generate Prisma client
 RUN npx prisma generate
 
-# Build the application
-RUN npm run build
-
-# Production image, copy all the files and run next
-FROM base AS runner
+# Builder stage
+FROM base AS builder
 WORKDIR /app
 
-ENV NODE_ENV production
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Runner stage
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
 
-# Copy built application
+RUN addgroup -S nodejs -g 1001
+RUN adduser -S nextjs -u 1001
+
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Copy Prisma files
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 USER nextjs
-
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+CMD ["npm", "start"]
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
-
-CMD ["node", "server.js"]
