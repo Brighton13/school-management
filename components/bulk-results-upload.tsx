@@ -64,7 +64,7 @@ export function BulkResultsUpload() {
     try {
       const [classSubjectsRes, termsRes] = await Promise.all([
         fetch("/api/class-subjects"),
-        fetch("/api/terms"),
+        fetch("/api/terms?noPagination=true"),
       ])
       
       if (classSubjectsRes.ok) {
@@ -85,7 +85,7 @@ export function BulkResultsUpload() {
 
   const fetchExams = async (termId: string) => {
     try {
-      const response = await fetch(`/api/exams?academicTermId=${termId}&status=ACTIVE`)
+      const response = await fetch(`/api/exams?termId=${termId}&status=ACTIVE&noPagination=true`)
       if (response.ok) {
         const data = await response.json()
         setExams(data)
