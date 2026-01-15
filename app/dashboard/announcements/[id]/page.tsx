@@ -268,45 +268,46 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto p-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 md:space-y-6 max-w-4xl mx-auto p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Button 
           variant="outline" 
           size="sm"
           onClick={() => router.back()}
+          className="w-fit"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">Announcement Details</h1>
-          <p className="text-muted-foreground">View full announcement information and attachments</p>
+          <h1 className="text-2xl md:text-3xl font-bold break-words">Announcement Details</h1>
+          <p className="text-muted-foreground text-sm md:text-base">View full announcement information and attachments</p>
         </div>
       </div>
 
       <Card className="border-2 shadow-lg">
         <CardHeader className="pb-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <CardTitle className="text-2xl mb-2">{announcement.title}</CardTitle>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl md:text-2xl mb-2 break-words pr-2">{announcement.title}</CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  <span>By: {announcement.creator.name}</span>
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">By: {announcement.creator.name}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>Created: {formatDate(announcement.createdAt)}</span>
+                  <Calendar className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Created: {formatDate(announcement.createdAt)}</span>
                 </div>
                 {announcement.publishedAt && (
                   <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    <span>Published: {formatDate(announcement.publishedAt)}</span>
+                    <Clock className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">Published: {formatDate(announcement.publishedAt)}</span>
                   </div>
                 )}
               </div>
             </div>
-            <div className="flex flex-col gap-2 items-end">
+            <div className="flex flex-row lg:flex-col gap-2 lg:items-end flex-wrap">
               <Badge className={getTypeColor(announcement.type)}>
                 {announcement.type}
               </Badge>
@@ -321,7 +322,7 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
         </CardHeader>
         <CardContent>
           <div className="prose max-w-none">
-            <div className="whitespace-pre-wrap text-base leading-relaxed">
+            <div className="whitespace-pre-wrap text-sm md:text-base leading-relaxed break-words">
               {announcement.content}
             </div>
           </div>
@@ -339,17 +340,18 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
 
           {/* Attachments Section */}
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Paperclip className="h-5 w-5" />
-                Attachments ({announcement.attachments?.length})
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                <Paperclip className="h-5 w-5 flex-shrink-0" />
+                <span className="break-words">Attachments ({announcement.attachments?.length})</span>
               </h3>
               {canManage && (
                 <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
+                    <Button size="sm" className="w-full sm:w-auto">
                       <Upload className="h-4 w-4 mr-2" />
-                      Upload File
+                      <span className="hidden xs:inline">Upload File</span>
+                      <span className="xs:hidden">Upload</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -398,32 +400,34 @@ export default function AnnouncementDetailPage({ params }: AnnouncementDetailPag
                 {announcement.attachments.map((attachment) => (
                   <div 
                     key={attachment.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                      <div>
-                        <p className="font-medium text-sm">{attachment.originalName}</p>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm break-words">{attachment.originalName}</p>
                         <p className="text-xs text-muted-foreground">
                           {formatFileSize(attachment.fileSize)} • {formatDate(attachment.createdAt)}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleDownload(attachment)}
+                        className="flex-1 sm:flex-initial"
                       >
                         <Download className="h-4 w-4 mr-1" />
-                        Download
+                        <span className="hidden xs:inline">Download</span>
+                        <span className="xs:hidden">Get</span>
                       </Button>
                       {canManage && (
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleDeleteAttachment(attachment.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 p-2 sm:px-3"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
