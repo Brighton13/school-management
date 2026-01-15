@@ -81,7 +81,11 @@ export default function ReportConfigPage() {
   const { data: session } = useSession()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState("school")
+  
+  // Set default tab based on role - teachers should default to signature
+  const [activeTab, setActiveTab] = useState(
+    session?.user.role === "TEACHER" ? "signature" : "school"
+  )
   const { toast } = useToast()
 
   // School config state
@@ -155,6 +159,17 @@ export default function ReportConfigPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Update active tab when session loads
+  useEffect(() => {
+    if (session?.user.role === "TEACHER") {
+      setActiveTab("signature")
+    } else if (["ADMIN", "PRINCIPAL"].includes(session?.user.role || "")) {
+      if (activeTab === "signature") {
+        setActiveTab("school")
+      }
+    }
+  }, [session])
 
   const fetchData = async () => {
     setLoading(true)

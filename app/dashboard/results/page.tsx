@@ -392,14 +392,16 @@ export default function ResultsPage() {
   }
 
   const generateReport = async (result: Result) => {
-    // Fetch signatures
+    // Fetch signatures and school config
     let principalSig: any[] = []
     let classTeacherSig: any[] = []
+    let schoolConfig: any = null
     
     try {
-      const [principalSigRes, classTeacherSigRes] = await Promise.all([
+      const [principalSigRes, classTeacherSigRes, schoolConfigRes] = await Promise.all([
         fetch("/api/signatures?signatureType=PRINCIPAL"),
         fetch("/api/signatures?signatureType=CLASS_TEACHER"),
+        fetch("/api/settings/school-config"),
       ])
       if (principalSigRes.ok) {
         principalSig = await principalSigRes.json()
@@ -407,24 +409,53 @@ export default function ResultsPage() {
       if (classTeacherSigRes.ok) {
         classTeacherSig = await classTeacherSigRes.json()
       }
+      if (schoolConfigRes.ok) {
+        schoolConfig = await schoolConfigRes.json()
+      }
     } catch (error) {
-      console.error("Error fetching signatures:", error)
+      console.error("Error fetching signatures and school config:", error)
     }
 
     const doc = new jsPDF()
+    
+    // Add school logo if available
+    if (schoolConfig?.schoolLogo) {
+      try {
+        const logoBase64 = schoolConfig.schoolLogo.replace(/^data:image\/\w+;base64,/, "")
+        doc.addImage(logoBase64, "PNG", 20, 10, 30, 30) // Logo at top-left
+      } catch (e) {
+        console.error("Error adding school logo:", e)
+      }
+    }
+    
+    // School header
+    doc.setFontSize(16)
+    doc.text(schoolConfig?.schoolName || "School Name", 105, 15, { align: "center" })
+    
+    if (schoolConfig?.ministryHeader) {
+      doc.setFontSize(12)
+      doc.text(schoolConfig.ministryHeader, 105, 25, { align: "center" })
+    }
+    
+    if (schoolConfig?.schoolAddress) {
+      doc.setFontSize(10)
+      doc.text(schoolConfig.schoolAddress, 105, 32, { align: "center" })
+    }
+    
+    // Report title
     doc.setFontSize(18)
-    doc.text("Result Report", 105, 20, { align: "center" })
+    doc.text("Result Report", 105, 50, { align: "center" })
     
     doc.setFontSize(12)
-    doc.text(`Student: ${result.student.user.name}`, 20, 40)
-    doc.text(`Admission Number: ${result.student.admissionNumber}`, 20, 50)
-    doc.text(`Class: ${result.classSubject.class.name}`, 20, 60)
-    doc.text(`Subject: ${result.classSubject.subject.name}`, 20, 70)
-    doc.text(`Exam: ${result.exam?.name || "N/A"} (${result.exam?.examType || "N/A"})`, 20, 80)
-    doc.text(`Term: ${result.term.name} ${result.academicYear.year}`, 20, 90)
-    doc.text(`Marks: ${result.marksObtained}/${result.maxMarks}`, 20, 100)
+    doc.text(`Student: ${result.student.user.name}`, 20, 70)
+    doc.text(`Admission Number: ${result.student.admissionNumber}`, 20, 80)
+    doc.text(`Class: ${result.classSubject.class.name}`, 20, 90)
+    doc.text(`Subject: ${result.classSubject.subject.name}`, 20, 100)
+    doc.text(`Exam: ${result.exam?.name || "N/A"} (${result.exam?.examType || "N/A"})`, 20, 110)
+    doc.text(`Term: ${result.term.name} ${result.academicYear.year}`, 20, 120)
+    doc.text(`Marks: ${result.marksObtained}/${result.maxMarks}`, 20, 130)
     if (result.grade) {
-      doc.text(`Grade: ${result.grade}`, 20, 110)
+      doc.text(`Grade: ${result.grade}`, 20, 140)
     }
 
     // Add signatures at the bottom
