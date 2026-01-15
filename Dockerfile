@@ -4,12 +4,24 @@ WORKDIR /app
 
 # Dependencies stage
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache openssl1.1-compat
 WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+
+
+
+# Generate Prisma client
 RUN npx prisma generate
 
 # Builder stage
