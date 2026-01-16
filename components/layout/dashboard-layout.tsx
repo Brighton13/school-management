@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar-with-dropdowns"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Header } from "./header"
 import { IdleTimeoutProvider } from "@/components/idle-timeout/idle-timeout-provider"
+import { SessionValidator } from "@/components/session-validator"
 
 export default async function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen">
+      <SessionValidator />
       {/* Desktop sidebar - hidden on mobile */}
       <div className="hidden lg:block">
         <Sidebar userRole={session.user.role} userName={session.user.name} />

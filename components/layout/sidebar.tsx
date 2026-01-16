@@ -26,7 +26,7 @@ import {
   Mail,
   Shield,
 } from "lucide-react"
-import { signOut } from "next-auth/react"
+import { useSecureLogout } from "@/hooks/use-secure-logout"
 import { Button } from "@/components/ui/button"
 
 const menuItems = [
@@ -70,6 +70,7 @@ const menuItems = [
 
 export function Sidebar({ userRole }: { userRole: string }) {
   const pathname = usePathname()
+  const { performSecureLogout } = useSecureLogout()
 
   const filteredMenuItems = menuItems.filter(item => 
     item.roles.includes("ALL") || item.roles.includes(userRole)
@@ -115,7 +116,7 @@ export function Sidebar({ userRole }: { userRole: string }) {
             } catch (error) {
               console.error("Failed to log session logout:", error)
             }
-            signOut({ callbackUrl: "/login" })
+            performSecureLogout("manual_logout")
           }}
         >
           <LogOut className="mr-2 h-4 w-4" />

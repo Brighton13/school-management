@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { signOut } from "next-auth/react"
+import { useSecureLogout } from "./use-secure-logout"
 
 interface IdleTimeoutSettings {
   idleTimeoutMinutes: number
@@ -10,6 +10,7 @@ interface IdleTimeoutSettings {
 }
 
 export function useIdleTimeout() {
+  const { performSecureLogout } = useSecureLogout()
   const [settings, setSettings] = useState<IdleTimeoutSettings>({
     idleTimeoutMinutes: 30,
     warningBeforeLogoutMinutes: 5,
@@ -87,7 +88,7 @@ export function useIdleTimeout() {
                 console.error("Failed to log session logout:", error)
               })
               
-              signOut({ callbackUrl: "/login?reason=idle_timeout" })
+              performSecureLogout("idle_timeout")
               return 0
             }
             return prev - 1
@@ -108,7 +109,7 @@ export function useIdleTimeout() {
         console.error("Failed to log session logout:", error)
       }
       
-      signOut({ callbackUrl: "/login?reason=idle_timeout" })
+      performSecureLogout("idle_timeout")
     }, idleTimeoutMs)
   }, [settings])
 
@@ -202,7 +203,7 @@ export function useIdleTimeout() {
       console.error("Failed to log session logout:", error)
     }
     
-    signOut({ callbackUrl: "/login" })
+    performSecureLogout("manual_logout")
   }, [])
 
   return {

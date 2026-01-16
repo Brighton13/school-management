@@ -191,26 +191,38 @@ import { GraduationCap } from "lucide-react"
 import { signIn } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { useClearLogoutFlag } from "@/hooks/use-secure-logout"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const { clearLogoutFlag } = useClearLogoutFlag()
 
   // Note: Replace these with your actual imports
   const router = useRouter()
   const searchParams = useSearchParams()
   
   useEffect(() => {
-    if (searchParams.get("reason") === "idle_timeout") {
+    const reason = searchParams.get("reason")
+    
+    if (reason === "idle_timeout") {
       toast({
         title: "Session Expired",
         description: "Your session has expired due to inactivity. Please log in again.",
         variant: "destructive",
       })
+    } else if (reason === "manual_logout") {
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out.",
+      })
     }
-  }, [searchParams, toast])
+
+    // Clear any logout flags when visiting login page
+    clearLogoutFlag()
+  }, [searchParams, toast, clearLogoutFlag])
 
   const handleSubmit = async (e:any) => {
     e.preventDefault()

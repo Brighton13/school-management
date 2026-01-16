@@ -31,7 +31,7 @@ import {
   Shield,
   Clock,
 } from "lucide-react"
-import { signOut } from "next-auth/react"
+import { useSecureLogout } from "@/hooks/use-secure-logout"
 import { Button } from "@/components/ui/button"
 import {
   Collapsible,
@@ -155,6 +155,7 @@ interface SidebarProps {
 export function Sidebar({ userRole, userName, onClose }: SidebarProps) {
   const pathname = usePathname()
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  const { performSecureLogout } = useSecureLogout()
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => {
@@ -314,7 +315,7 @@ export function Sidebar({ userRole, userName, onClose }: SidebarProps) {
             } catch (error) {
               console.error("Failed to log session logout:", error)
             }
-            signOut({ callbackUrl: "/login" })
+            performSecureLogout("manual_logout")
           }}
         >
           <LogOut className="mr-2 h-4 w-4" />
