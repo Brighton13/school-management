@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         transactionId: reference, // Store reference temporarily
         receiptNumber: generateReceiptNumber(),
         remarks: `Mobile money payment initiated - ${operator.toUpperCase()} (${country.toUpperCase()}) - Phone: ${phone} - Status: PENDING`,
+        status: "PENDING", // Mobile money payments start as pending
         receivedBy: session.user.id,
       },
     });

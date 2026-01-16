@@ -88,6 +88,9 @@ export async function GET(request: NextRequest) {
             receiver: {
               select: { id: true, name: true },
             },
+            mobileMoneyTransaction: {
+              select: { status: true, failureReason: true },
+            },
           },
           orderBy: { createdAt: 'desc' },
         },

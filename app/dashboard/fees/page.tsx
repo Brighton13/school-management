@@ -24,9 +24,14 @@ interface Payment {
   transactionId?: string
   receiptNumber: string
   remarks?: string
+  status: string
   createdAt: string
   receiver?: {
     name: string
+  }
+  mobileMoneyTransaction?: {
+    status: string
+    failureReason?: string
   }
 }
 
@@ -688,6 +693,30 @@ export default function FeesPage() {
     )
   }
 
+  const getPaymentStatusBadge = (payment: Payment) => {
+    // For mobile money payments, check the mobileMoneyTransaction status
+    const status = payment.mobileMoneyTransaction?.status || payment.status || "SUCCESS"
+    
+    const statusConfig: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
+      SUCCESS: { color: "bg-green-100 text-green-800", label: "Success", icon: <CheckCircle className="h-3 w-3 mr-1" /> },
+      successful: { color: "bg-green-100 text-green-800", label: "Success", icon: <CheckCircle className="h-3 w-3 mr-1" /> },
+      PENDING: { color: "bg-yellow-100 text-yellow-800", label: "Pending", icon: <Clock className="h-3 w-3 mr-1" /> },
+      pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending", icon: <Clock className="h-3 w-3 mr-1" /> },
+      FAILED: { color: "bg-red-100 text-red-800", label: "Failed", icon: <XCircle className="h-3 w-3 mr-1" /> },
+      failed: { color: "bg-red-100 text-red-800", label: "Failed", icon: <XCircle className="h-3 w-3 mr-1" /> },
+      "pay-offline": { color: "bg-orange-100 text-orange-800", label: "Pay Offline", icon: <Clock className="h-3 w-3 mr-1" /> },
+    }
+
+    const config = statusConfig[status] || statusConfig.SUCCESS
+    
+    return (
+      <Badge className={`${config.color} flex items-center`}>
+        {config.icon}
+        {config.label}
+      </Badge>
+    )
+  }
+
   const isStudentOrParent = ["STUDENT", "PARENT"].includes(session?.user.role || "")
 
   // Calculate summary for student view
@@ -844,43 +873,68 @@ export default function FeesPage() {
                           <TableHead>Receipt #</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Method</TableHead>
+                          <TableHead>Status</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedFee.payments.map((payment) => (
-                          <TableRow key={payment.id}>
-                            <TableCell>{formatDate(payment.createdAt)}</TableCell>
-                            <TableCell className="font-mono text-sm">{payment.receiptNumber}</TableCell>
-                            <TableCell className="font-medium text-green-600">{formatCurrency(payment.amount)}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{payment.paymentMethod}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handlePrintReceipt(payment)}
-                                  title="Print Receipt"
-                                >
-                                  <Printer className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedPayment(payment)
-                                    setIsReceiptDialogOpen(true)
-                                  }}
-                                  title="Email Receipt"
-                                >
-                                  <Mail className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {selectedFee.payments.map((payment) => {
+                          const paymentStatus = payment.mobileMoneyTransaction?.status || payment.status || "SUCCESS"
+                          const isSuccessful = ["SUCCESS", "successful"].includes(paymentStatus)
+                          const isPending = ["PENDING", "pending"].includes(paymentStatus)
+                          const isFailed = ["FAILED", "failed"].includes(paymentStatus)
+                          
+                          return (
+                            <TableRow key={payment.id} className={isFailed ? "opacity-60" : ""}>
+                              <TableCell>{formatDate(payment.createdAt)}</TableCell>
+                              <TableCell className="font-mono text-sm">{payment.receiptNumber || "-"}</TableCell>
+                              <TableCell className={`font-medium ${isSuccessful ? "text-green-600" : isPending ? "text-yellow-600" : "text-red-600"}`}>
+                                {formatCurrency(payment.amount)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{payment.paymentMethod}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {getPaymentStatusBadge(payment)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  {isSuccessful && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handlePrintReceipt(payment)}
+                                        title="Print Receipt"
+                                      >
+                                        <Printer className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedPayment(payment)
+                                          setIsReceiptDialogOpen(true)
+                                        }}
+                                        title="Email Receipt"
+                                      >
+                                        <Mail className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {isPending && (
+                                    <span className="text-xs text-muted-foreground">Awaiting confirmation</span>
+                                  )}
+                                  {isFailed && (
+                                    <span className="text-xs text-red-500" title={payment.mobileMoneyTransaction?.failureReason}>
+                                      {payment.mobileMoneyTransaction?.failureReason || "Payment failed"}
+                                    </span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1431,43 +1485,68 @@ export default function FeesPage() {
                         <TableHead>Receipt #</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Method</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedFee.payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>{formatDate(payment.createdAt)}</TableCell>
-                          <TableCell className="font-mono text-sm">{payment.receiptNumber}</TableCell>
-                          <TableCell className="font-medium text-green-600">{formatCurrency(payment.amount)}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{payment.paymentMethod}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handlePrintReceipt(payment)}
-                                title="Print Receipt"
-                              >
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedPayment(payment)
-                                  setIsReceiptDialogOpen(true)
-                                }}
-                                title="Email Receipt"
-                              >
-                                <Mail className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedFee.payments.map((payment) => {
+                        const paymentStatus = payment.mobileMoneyTransaction?.status || payment.status || "SUCCESS"
+                        const isSuccessful = ["SUCCESS", "successful"].includes(paymentStatus)
+                        const isPending = ["PENDING", "pending"].includes(paymentStatus)
+                        const isFailed = ["FAILED", "failed"].includes(paymentStatus)
+                        
+                        return (
+                          <TableRow key={payment.id} className={isFailed ? "opacity-60" : ""}>
+                            <TableCell>{formatDate(payment.createdAt)}</TableCell>
+                            <TableCell className="font-mono text-sm">{payment.receiptNumber || "-"}</TableCell>
+                            <TableCell className={`font-medium ${isSuccessful ? "text-green-600" : isPending ? "text-yellow-600" : "text-red-600"}`}>
+                              {formatCurrency(payment.amount)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{payment.paymentMethod}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {getPaymentStatusBadge(payment)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {isSuccessful && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handlePrintReceipt(payment)}
+                                      title="Print Receipt"
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedPayment(payment)
+                                        setIsReceiptDialogOpen(true)
+                                      }}
+                                      title="Email Receipt"
+                                    >
+                                      <Mail className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                                {isPending && (
+                                  <span className="text-xs text-muted-foreground">Awaiting confirmation</span>
+                                )}
+                                {isFailed && (
+                                  <span className="text-xs text-red-500" title={payment.mobileMoneyTransaction?.failureReason}>
+                                    {payment.mobileMoneyTransaction?.failureReason || "Payment failed"}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>

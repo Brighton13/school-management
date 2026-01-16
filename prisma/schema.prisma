@@ -547,6 +547,7 @@ model Payment {
   transactionId String?  // External reference number
   receiptNumber String?  // Generated receipt number
   remarks       String?
+  status        String   @default("SUCCESS") // PENDING, SUCCESS, FAILED
   receivedBy    String   // User ID who received the payment
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -560,6 +561,7 @@ model Payment {
   @@index([studentId])
   @@index([receiptNumber])
   @@index([createdAt])
+  @@index([status])
 }
 
 // Mobile Money Transaction - tracks Lenco mobile money payment details

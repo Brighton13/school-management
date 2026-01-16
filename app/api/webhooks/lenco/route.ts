@@ -79,11 +79,12 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Update payment with final transaction details
+        // Update payment with final transaction details and mark as SUCCESS
         await prisma.payment.update({
           where: { id: payment.id },
           data: {
             transactionId: data.lencoReference,
+            status: "SUCCESS",
             remarks: `Mobile money payment SUCCESSFUL - ${transaction.operator.toUpperCase()} - Operator TX: ${mobileMoneyDetails?.operatorTransactionId || "N/A"}`,
           },
         });
@@ -109,9 +110,13 @@ export async function POST(request: NextRequest) {
           newStatus,
         });
       } else if (status === "failed" && transaction.payment) {
-        // Delete the pending payment record
-        await prisma.payment.delete({
+        // Mark the payment as failed (keep record for tracking)
+        await prisma.payment.update({
           where: { id: transaction.payment.id },
+          data: {
+            status: "FAILED",
+            remarks: `Mobile money payment FAILED - ${transaction.operator.toUpperCase()} - Reason: ${reasonForFailure || "Unknown error"}`,
+          },
         });
 
         // Notify user about failed payment

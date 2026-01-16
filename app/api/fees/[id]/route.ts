@@ -114,6 +114,7 @@ export async function PUT(
           transactionId: transactionId || null,
           receiptNumber: generateReceiptNumber(),
           remarks: remarks || null,
+          status: "SUCCESS", // Direct payments are immediately successful
           receivedBy: session.user.id,
         },
       })
