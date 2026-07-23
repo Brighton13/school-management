@@ -24,6 +24,14 @@ function copyIfExists(source, destination) {
   fs.cpSync(source, destination, { recursive: true, force: true })
 }
 
+function removePackagedEnvFiles(releaseDir) {
+  for (const name of fs.readdirSync(releaseDir)) {
+    if (name === '.env' || (name.startsWith('.env.') && name !== '.env.example')) {
+      fs.rmSync(path.join(releaseDir, name), { recursive: true, force: true })
+    }
+  }
+}
+
 function cleanDir(directory) {
   const resolved = path.resolve(directory)
   const resolvedDist = path.resolve(distDir)
@@ -31,7 +39,7 @@ function cleanDir(directory) {
     throw new Error(`Refusing to clean outside dist: ${resolved}`)
   }
 
-  fs.rmSync(resolved, { recursive: true, force: true })
+  fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 })
   fs.mkdirSync(resolved, { recursive: true })
 }
 
@@ -42,7 +50,7 @@ function cleanNextOutput() {
     throw new Error(`Refusing to clean unexpected Next output path: ${resolved}`)
   }
 
-  fs.rmSync(nextDir, { recursive: true, force: true })
+  fs.rmSync(nextDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 })
 }
 
 function cleanDistOutput() {
@@ -51,7 +59,7 @@ function cleanDistOutput() {
     throw new Error(`Refusing to clean unexpected dist path: ${resolved}`)
   }
 
-  fs.rmSync(distDir, { recursive: true, force: true })
+  fs.rmSync(distDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 1000 })
   fs.mkdirSync(distDir, { recursive: true })
 }
 
@@ -77,6 +85,7 @@ function createRelease(platform) {
   cleanDir(releaseDir)
 
   fs.cpSync(path.join(rootDir, '.next', 'standalone'), releaseDir, { recursive: true, force: true })
+  removePackagedEnvFiles(releaseDir)
   copyIfExists(path.join(rootDir, '.next', 'static'), path.join(releaseDir, '.next', 'static'))
   copyIfExists(path.join(rootDir, 'public'), path.join(releaseDir, 'public'))
   copyIfExists(path.join(rootDir, 'prisma'), path.join(releaseDir, 'prisma'))
