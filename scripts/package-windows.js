@@ -76,19 +76,39 @@ if (csc) {
     )
   }
 
+  const compileScript = path.join(releaseDir, 'compile-launcher.ps1')
+  writeText(
+    compileScript,
+    `
+param(
+  [Parameter(Mandatory = $true)][string]$SourceFile,
+  [Parameter(Mandatory = $true)][string]$OutputFile
+)
+
+$source = Get-Content -LiteralPath $SourceFile -Raw
+Add-Type -TypeDefinition $source -OutputAssembly $OutputFile -OutputType ConsoleApplication
+`.trimStart()
+  )
+
   run(
     powershell,
     [
       '-NoProfile',
       '-ExecutionPolicy',
       'Bypass',
-      '-Command',
-      '& { param($src, $out) Add-Type -TypeDefinition (Get-Content -LiteralPath $src -Raw) -OutputAssembly $out -OutputType ConsoleApplication }',
+      '-File',
+      compileScript,
       launcherSource,
       launcherExe,
     ],
     { cwd: rootDir, shell: false }
   )
+
+  fs.rmSync(compileScript, { force: true })
+}
+
+if (!fs.existsSync(launcherExe)) {
+  throw new Error('school-management.exe was not created.')
 }
 
 fs.rmSync(launcherSource, { force: true })
