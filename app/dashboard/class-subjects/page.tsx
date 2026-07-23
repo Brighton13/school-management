@@ -57,6 +57,7 @@ interface Staff {
 
 export default function ClassSubjectsPage() {
   const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([])
+  const [overviewClassSubjects, setOverviewClassSubjects] = useState<ClassSubject[]>([])
   const [classes, setClasses] = useState<Class[]>([])
   const [sections, setSections] = useState<Section[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -126,8 +127,9 @@ export default function ClassSubjectsPage() {
 
   const fetchData = async () => {
     try {
-      const [classSubjectsRes, classesRes, sectionsRes, subjectsRes, staffRes] = await Promise.all([
+      const [classSubjectsRes, overviewClassSubjectsRes, classesRes, sectionsRes, subjectsRes, staffRes] = await Promise.all([
         fetch(`/api/class-subjects?${buildPaginatedQuery({}, { page, limit })}`),
+        fetch("/api/class-subjects?noPagination=true&limit=1000"),
         fetch("/api/classes?noPagination=true"),
         fetch("/api/sections?noPagination=true"),
         fetch("/api/subjects?noPagination=true"),
@@ -138,10 +140,19 @@ export default function ClassSubjectsPage() {
         setLoading(false)
         return
       }
+      if (overviewClassSubjectsRes.status === 401 || overviewClassSubjectsRes.status === 403) {
+        setPermissionDenied(true)
+        setLoading(false)
+        return
+      }
       if (classSubjectsRes.ok) {
         const data = await classSubjectsRes.json()
         setClassSubjects(data.data || [])
         if (data.pagination) setPaginationInfo(data.pagination)
+      }
+      if (overviewClassSubjectsRes.ok) {
+        const data = await overviewClassSubjectsRes.json()
+        setOverviewClassSubjects(Array.isArray(data) ? data : (data.data || []))
       }
       if (classesRes.ok) {
         const data = await classesRes.json()
@@ -177,7 +188,7 @@ export default function ClassSubjectsPage() {
 
   // Get subjects not yet assigned to a specific section
   const getAvailableSubjects = (classId: string, sectionId: string) => {
-    const assignedSubjectIds = classSubjects
+    const assignedSubjectIds = overviewClassSubjects
       .filter(cs => cs.class.id === classId && cs.section?.id === sectionId)
       .map(cs => cs.subject.id)
     return subjects.filter(s => !assignedSubjectIds.includes(s.id))
@@ -185,7 +196,7 @@ export default function ClassSubjectsPage() {
 
   // Group class subjects by class/section for overview
   const classSubjectsBySection = sections.map(section => {
-    const sectionSubjects = classSubjects.filter(cs => cs.section?.id === section.id && cs.class.id === section.classId)
+    const sectionSubjects = overviewClassSubjects.filter(cs => cs.section?.id === section.id && cs.class.id === section.classId)
     return {
       ...section,
       className: section.class.name,
@@ -595,7 +606,7 @@ export default function ClassSubjectsPage() {
                     </Badge>
                   </div>
                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {section.subjects.slice(0, 5).map((cs) => (
+                    {section.subjects.map((cs) => (
                       <div key={cs.id} className="flex items-center justify-between text-sm">
                         <span>{cs.subject.name}</span>
                         <span className="text-muted-foreground text-xs">
@@ -603,11 +614,6 @@ export default function ClassSubjectsPage() {
                         </span>
                       </div>
                     ))}
-                    {section.subjects.length > 5 && (
-                      <p className="text-muted-foreground text-xs">
-                        +{section.subjects.length - 5} more...
-                      </p>
-                    )}
                   </div>
                 </CardContent>
               </Card>
