@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { createPaginatedResponse, parsePaginationParams } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,10 +16,10 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId")
     const action = searchParams.get("action")
     const entityType = searchParams.get("entityType")
+    const search = searchParams.get("search")
     const startDate = searchParams.get("startDate")
     const endDate = searchParams.get("endDate")
-    const limit = parseInt(searchParams.get("limit") || "100")
-    const offset = parseInt(searchParams.get("offset") || "0")
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     const whereClause: any = {}
     if (userId) {
@@ -29,6 +30,15 @@ export async function GET(request: NextRequest) {
     }
     if (entityType) {
       whereClause.entityType = entityType
+    }
+    if (search) {
+      whereClause.OR = [
+        { action: { contains: search, mode: "insensitive" } },
+        { entityType: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ]
     }
     if (startDate || endDate) {
       whereClause.createdAt = {}
@@ -60,12 +70,7 @@ export async function GET(request: NextRequest) {
       prisma.auditTrail.count({ where: whereClause }),
     ])
 
-    return NextResponse.json({
-      data: auditTrails,
-      total,
-      limit,
-      offset,
-    })
+    return NextResponse.json(createPaginatedResponse(auditTrails, total, page, limit))
   } catch (error) {
     console.error("Error fetching audit trails:", error)
     return NextResponse.json(

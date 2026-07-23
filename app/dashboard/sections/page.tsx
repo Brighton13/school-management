@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Search } from "lucide-react"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Section {
   id: string
@@ -66,6 +67,16 @@ export default function SectionsPage() {
   const [editFormClassId, setEditFormClassId] = useState<string>("")
   const [editFormClassTeacherId, setEditFormClassTeacherId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [classFilter, setClassFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchSections()
@@ -73,16 +84,37 @@ export default function SectionsPage() {
     fetchTeachers()
   }, [])
 
+  useEffect(() => {
+    fetchSections()
+  }, [page, limit, classFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchSections()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   const fetchSections = async () => {
     try {
-      const res = await fetch("/api/sections?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          classId: classFilter === "all" ? undefined : classFilter,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/sections?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setSections(Array.isArray(data) ? data : (data.data || []))
+      setSections(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
     } catch (error) {
       console.error("Failed to fetch sections:", error)
     } finally {
@@ -454,10 +486,40 @@ export default function SectionsPage() {
         <CardHeader>
           <CardTitle>All Sections</CardTitle>
           <CardDescription>
-            {sections.length} section(s) found
+            Search and filter sections without loading the full section list.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_240px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search sections..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={classFilter}
+              onValueChange={(value) => {
+                setClassFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All classes</SelectItem>
+                {classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : (
@@ -514,6 +576,9 @@ export default function SectionsPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

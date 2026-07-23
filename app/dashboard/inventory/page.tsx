@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, AlertTriangle } from "lucide-react"
+import { Plus, AlertTriangle, Search } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface InventoryItem {
   id: string
@@ -28,21 +29,50 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [stockFilter, setStockFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchInventory()
-  }, [])
+  }, [page, limit, categoryFilter, stockFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchInventory()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch("/api/inventory?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          category: categoryFilter === "all" ? undefined : categoryFilter,
+          lowStock: stockFilter === "low" ? "true" : undefined,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/inventory?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setItems(Array.isArray(data) ? data : (data.data || []))
+      setItems(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
     } catch (error) {
       console.error("Failed to fetch inventory:", error)
     } finally {
@@ -175,10 +205,54 @@ export default function InventoryPage() {
         <CardHeader>
           <CardTitle>Inventory Items</CardTitle>
           <CardDescription>
-            {items.length} item(s) in inventory
+            Search and filter inventory without loading all stock records.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px_180px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search inventory..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => {
+                setCategoryFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="EQUIPMENT">Equipment</SelectItem>
+                <SelectItem value="BOOKS">Books</SelectItem>
+                <SelectItem value="SUPPLIES">Supplies</SelectItem>
+                <SelectItem value="FURNITURE">Furniture</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={stockFilter}
+              onValueChange={(value) => {
+                setStockFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Stock" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All stock</SelectItem>
+                <SelectItem value="low">Low stock</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : (
@@ -217,6 +291,9 @@ export default function InventoryPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

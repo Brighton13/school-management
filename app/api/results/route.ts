@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createNotification, createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 // Default points configuration (fallback if no config in DB)
 const defaultPointsConfig = [
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
         academicYear: true,
       },
       orderBy: { createdAt: "desc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     if (noPagination) {

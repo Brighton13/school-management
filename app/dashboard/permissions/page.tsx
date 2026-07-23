@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Shield } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Shield, Search } from "lucide-react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Permission {
   id: string
@@ -18,14 +20,40 @@ export default function PermissionsPage() {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [loading, setLoading] = useState(true)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [moduleFilter, setModuleFilter] = useState("")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchPermissions()
-  }, [])
+  }, [page, limit])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchPermissions()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm, moduleFilter])
 
   const fetchPermissions = async () => {
     try {
-      const response = await fetch("/api/permissions?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          module: moduleFilter || undefined,
+        },
+        { page, limit }
+      )
+      const response = await fetch(`/api/permissions?${queryString}`)
       if (response.status === 401 || response.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
@@ -33,7 +61,8 @@ export default function PermissionsPage() {
       }
       if (response.ok) {
         const data = await response.json()
-        setPermissions(Array.isArray(data) ? data : (data.data || []))
+        setPermissions(data.data || [])
+        if (data.pagination) setPaginationInfo(data.pagination)
       }
     } catch (error) {
       console.error("Error fetching permissions:", error)
@@ -71,6 +100,25 @@ export default function PermissionsPage() {
           System permissions are predefined and managed by administrators. Select these permissions when creating and managing roles.
         </p>
       </div>
+
+      <Card>
+        <CardContent className="grid gap-3 pt-6 md:grid-cols-[1fr_240px]">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search permissions..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </div>
+          <Input
+            placeholder="Filter by module..."
+            value={moduleFilter}
+            onChange={(event) => setModuleFilter(event.target.value)}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6">
         {Object.entries(groupedPermissions).map(([module, perms]) => (
@@ -129,6 +177,9 @@ export default function PermissionsPage() {
           </p>
         </CardContent>
       </Card>
+      {paginationInfo.total > 0 && (
+        <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
+      )}
     </div>
   )
 }

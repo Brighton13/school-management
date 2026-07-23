@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Upload, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { Pagination, PaginationInfo, usePagination, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Enrollment {
   id: string
@@ -60,16 +61,25 @@ export default function EnrollmentPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editSelectedClassId, setEditSelectedClassId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const { page, limit, setPage, setLimit } = usePagination(50)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [page, limit])
 
   const fetchData = async () => {
     try {
+      const enrollmentQuery = buildPaginatedQuery({}, { page, limit })
       const [enrollmentsRes, studentsRes, classesRes, termsRes] = await Promise.all([
-        fetch("/api/enrollment?noPagination=true"),
-        fetch("/api/students?noPagination=true"),
+        fetch(`/api/enrollment?${enrollmentQuery}`),
+        fetch("/api/students?noPagination=true&compact=true&limit=1000"),
         fetch("/api/classes?noPagination=true"),
         fetch("/api/terms?noPagination=true"),
       ])
@@ -85,6 +95,9 @@ export default function EnrollmentPage() {
       
       // Handle both paginated and non-paginated responses
       setEnrollments(Array.isArray(enrollmentsData) ? enrollmentsData : (enrollmentsData.data || []))
+      if (!Array.isArray(enrollmentsData) && enrollmentsData.pagination) {
+        setPaginationInfo(enrollmentsData.pagination)
+      }
       setStudents(Array.isArray(studentsData) ? studentsData : (studentsData.data || []))
       setClasses(Array.isArray(classesData) ? classesData : (classesData.data || []))
       setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
@@ -139,6 +152,7 @@ export default function EnrollmentPage() {
         setEditingEnrollment(null)
         setSelectedClassId("")
         setEditSelectedClassId("")
+        setPage(1)
         fetchData()
         e.currentTarget.reset()
       }
@@ -487,6 +501,13 @@ export default function EnrollmentPage() {
                     ))}
                   </TableBody>
                 </Table>
+                {!loading && paginationInfo.total > 0 && (
+                  <Pagination
+                    pagination={paginationInfo}
+                    onPageChange={setPage}
+                    onLimitChange={setLimit}
+                  />
+                )}
               </div>
             </div>
           )}

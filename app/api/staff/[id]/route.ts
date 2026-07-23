@@ -20,6 +20,8 @@ export async function GET(
       where: { id: params.id },
       include: {
         user: true,
+        departmentRef: true,
+        staffSubjects: { include: { subject: true }, orderBy: { subject: { name: "asc" } } },
       },
     })
 
@@ -56,6 +58,8 @@ export async function PUT(
       employeeId,
       designation,
       department,
+      departmentId,
+      subjectIds,
       qualification,
       experience,
       salary,
@@ -98,6 +102,7 @@ export async function PUT(
     if (employeeId !== undefined) staffUpdateData.employeeId = employeeId
     if (designation !== undefined) staffUpdateData.designation = designation
     if (department !== undefined) staffUpdateData.department = department
+    if (departmentId !== undefined) staffUpdateData.departmentId = departmentId || null
     if (qualification !== undefined) staffUpdateData.qualification = qualification
     if (experience !== undefined) staffUpdateData.experience = experience ? parseInt(experience) : null
     if (salary !== undefined) staffUpdateData.salary = salary ? parseFloat(salary) : null
@@ -139,9 +144,23 @@ export async function PUT(
 
       return tx.staff.update({
         where: { id: params.id },
-        data: staffUpdateData,
+        data: {
+          ...staffUpdateData,
+          ...(Array.isArray(subjectIds)
+            ? {
+                staffSubjects: {
+                  deleteMany: {},
+                  create: subjectIds.map((subjectId: string) => ({
+                    subject: { connect: { id: subjectId } },
+                  })),
+                },
+              }
+            : {}),
+        },
         include: {
           user: true,
+          departmentRef: true,
+          staffSubjects: { include: { subject: true } },
         },
       })
     })

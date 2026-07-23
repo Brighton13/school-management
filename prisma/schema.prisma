@@ -27,32 +27,32 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  permissions         UserPermission[]
-  roles               UserRole[]
-  student             Student?
-  staff               Staff?
-  parent              Parent?
-  announcements       Announcement[]
-  fees                Fee[]
-  inventory           InventoryTransaction[]
-  exams               Exam[]
-  signature           Signature?
-  submittedResults    Result[]               @relation("SubmittedResults")
-  reviewedResults     Result[]               @relation("ReviewedResults")
-  approvedResults     Result[]               @relation("ApprovedResults")
-  generatedReports    StudentReport[]        @relation("ReportGenerator")
-  submittedReports    StudentReport[]        @relation("ReportSubmitter")
-  approvedReports     StudentReport[]        @relation("ReportApprover")
-  receivedPayments    Payment[]              @relation("PaymentReceiver")
-  auditTrails         AuditTrail[]
-  sessionLogs         SessionLog[]
-  passwordResetTokens PasswordResetToken[]
-  notifications       Notification[]
-  createdApplications Application[]          @relation("ApplicationCreator")
-  approvedApplications Application[]         @relation("ApplicationApprover")
-  examSubmissionReviews ExamResultSubmission[] @relation("ExamSubmissionReviewer")
-  examSubmissionApprovals ExamResultSubmission[] @relation("ExamSubmissionApprover")
-  subjectSubmissions  ExamSubjectSubmission[] @relation("SubjectSubmitter")
+  permissions             UserPermission[]
+  roles                   UserRole[]
+  student                 Student?
+  staff                   Staff?
+  parent                  Parent?
+  announcements           Announcement[]
+  fees                    Fee[]
+  inventory               InventoryTransaction[]
+  exams                   Exam[]
+  signature               Signature?
+  submittedResults        Result[]                @relation("SubmittedResults")
+  reviewedResults         Result[]                @relation("ReviewedResults")
+  approvedResults         Result[]                @relation("ApprovedResults")
+  generatedReports        StudentReport[]         @relation("ReportGenerator")
+  submittedReports        StudentReport[]         @relation("ReportSubmitter")
+  approvedReports         StudentReport[]         @relation("ReportApprover")
+  receivedPayments        Payment[]               @relation("PaymentReceiver")
+  auditTrails             AuditTrail[]
+  sessionLogs             SessionLog[]
+  passwordResetTokens     PasswordResetToken[]
+  notifications           Notification[]
+  createdApplications     Application[]           @relation("ApplicationCreator")
+  approvedApplications    Application[]           @relation("ApplicationApprover")
+  examSubmissionReviews   ExamResultSubmission[]  @relation("ExamSubmissionReviewer")
+  examSubmissionApprovals ExamResultSubmission[]  @relation("ExamSubmissionApprover")
+  subjectSubmissions      ExamSubjectSubmission[] @relation("SubjectSubmitter")
 }
 
 // Dynamic Roles - Users can create custom roles
@@ -137,34 +137,34 @@ model Student {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classEnrollment    ClassEnrollment[]
-  applications       Application[]
-  parents            StudentParent[]
-  attendance         Attendance[]
-  results            Result[]
-  fees               Fee[]
-  payments           Payment[]
-  studentAssignments StudentAssignment[]       @relation("StudentAssignments")
-  subjectSelections  StudentSubjectSelection[]
-  reports            StudentReport[]
+  user                User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classEnrollment     ClassEnrollment[]
+  applications        Application[]
+  parents             StudentParent[]
+  attendance          Attendance[]
+  results             Result[]
+  fees                Fee[]
+  payments            Payment[]
+  studentAssignments  StudentAssignment[]       @relation("StudentAssignments")
+  subjectSelections   StudentSubjectSelection[]
+  reports             StudentReport[]
 }
 
 // Application Management - Intent to Enroll
 model Application {
-  id                 String   @id @default(cuid())
-  studentId          String
-  appliedClassId     String
-  appliedSectionId   String?  // Optional, can be assigned during approval
-  academicYearId     String
-  applicationStatus  String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  notes              String?  // Additional notes or requirements
-  rejectionReason    String?  // Reason if rejected
-  createdBy          String   // Teacher/Admin who created the application
-  approvedBy         String?  // Admin/Head who approved
-  approvedAt         DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String    @id @default(cuid())
+  studentId         String
+  appliedClassId    String
+  appliedSectionId  String? // Optional, can be assigned during approval
+  academicYearId    String
+  applicationStatus String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  notes             String? // Additional notes or requirements
+  rejectionReason   String? // Reason if rejected
+  createdBy         String // Teacher/Admin who created the application
+  approvedBy        String? // Admin/Head who approved
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   appliedClass   Class        @relation(fields: [appliedClassId], references: [id], onDelete: Cascade)
@@ -232,15 +232,15 @@ model Section {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  class              Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classTeacher       Staff?            @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
-  enrollments        ClassEnrollment[]
-  timetable          Timetable[]
-  classSubjects      ClassSubject[]
-  attendance         Attendance[]
-  reports            StudentReport[]
-  commentConfigs     ReportCommentConfig[]
-  applications       Application[]
+  class                 Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classTeacher          Staff?                 @relation(fields: [classTeacherId], references: [id], onDelete: SetNull)
+  enrollments           ClassEnrollment[]
+  timetable             Timetable[]
+  classSubjects         ClassSubject[]
+  attendance            Attendance[]
+  reports               StudentReport[]
+  commentConfigs        ReportCommentConfig[]
+  applications          Application[]
   examResultSubmissions ExamResultSubmission[]
 }
 
@@ -268,25 +268,25 @@ model ClassEnrollment {
 
 // Academic Year Management
 model AcademicYear {
-  id          String   @id @default(cuid())
-  year        String   @unique // e.g., "2024-2025"
-  startDate   DateTime
-  endDate     DateTime
-  isCurrent   Boolean  @default(false)
-  isUpcoming  Boolean  @default(false) // For next academic year
-  status      String   @default("ACTIVE") // ACTIVE, COMPLETED, ARCHIVED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  year       String   @unique // e.g., "2024-2025"
+  startDate  DateTime
+  endDate    DateTime
+  isCurrent  Boolean  @default(false)
+  isUpcoming Boolean  @default(false) // For next academic year
+  status     String   @default("ACTIVE") // ACTIVE, COMPLETED, ARCHIVED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  terms             Term[]
-  enrollments       ClassEnrollment[]
-  applications      Application[]
-  subjectSelections StudentSubjectSelection[]
-  results           Result[]
-  fees              Fee[]
-  exams             Exam[]
-  reports           StudentReport[]
-  attendance        Attendance[]
+  terms                 Term[]
+  enrollments           ClassEnrollment[]
+  applications          Application[]
+  subjectSelections     StudentSubjectSelection[]
+  results               Result[]
+  fees                  Fee[]
+  exams                 Exam[]
+  reports               StudentReport[]
+  attendance            Attendance[]
   examResultSubmissions ExamResultSubmission[]
 
   @@index([isCurrent])
@@ -297,21 +297,21 @@ model AcademicYear {
 // Term Management
 model Term {
   id             String   @id @default(cuid())
-  name           String   // e.g., "First Term", "Second Term", "Third Term"
+  name           String // e.g., "First Term", "Second Term", "Third Term"
   academicYearId String
-  termNumber     Int      // 1, 2, 3
+  termNumber     Int // 1, 2, 3
   startDate      DateTime
   endDate        DateTime
   isCurrent      Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  results      Result[]
-  fees         Fee[]
-  exams        Exam[]
-  reports      StudentReport[]
-  attendance   Attendance[]
+  academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  results               Result[]
+  fees                  Fee[]
+  exams                 Exam[]
+  reports               StudentReport[]
+  attendance            Attendance[]
   examResultSubmissions ExamResultSubmission[]
 
   @@unique([academicYearId, termNumber])
@@ -326,24 +326,29 @@ model Staff {
   employeeId    String    @unique
   designation   String // TEACHER, PRINCIPAL, ACCOUNTANT, LIBRARIAN, ADMIN
   department    String?
+  departmentId  String?
   qualification String?
   experience    Int?
   salary        Float?
   joiningDate   DateTime?
-  gender        String?   // MALE, FEMALE, OTHER
+  gender        String? // MALE, FEMALE, OTHER
   dateOfBirth   DateTime?
   address       String?
   status        String    @default("ACTIVE") // ACTIVE, RESIGNED, RETIRED
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classSubjects      ClassSubject[]
-  sections           Section[]
-  assignments        Assignment[]
-  attendance         Attendance[]
-  reportComments     ReportComment[]
-  commentConfigs     ReportCommentConfig[]
+  user            User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentRef   Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  classSubjects   ClassSubject[]
+  staffSubjects   StaffSubject[]
+  sections        Section[]
+  assignments     Assignment[]
+  attendance      Attendance[]
+  reportComments  ReportComment[]
+  commentConfigs  ReportCommentConfig[]
+
+  @@index([departmentId])
 }
 
 // Subject Management
@@ -351,12 +356,31 @@ model Subject {
   id          String   @id @default(cuid())
   name        String
   code        String   @unique
+  departmentId String?
   description String?
   type        String   @default("CORE") // CORE, ELECTIVE, OPTIONAL
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  department    Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   classSubjects ClassSubject[]
+  staffSubjects StaffSubject[]
+
+  @@index([departmentId])
+}
+
+model StaffSubject {
+  id        String   @id @default(cuid())
+  staffId   String
+  subjectId String
+  createdAt DateTime @default(now())
+
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, subjectId])
+  @@index([staffId])
+  @@index([subjectId])
 }
 
 model ClassSubject {
@@ -412,7 +436,7 @@ model Exam {
   examType         String // MID_TERM, FINAL, QUIZ, ASSIGNMENT, CONTINUOUS_ASSESSMENT
   termId           String
   academicYearId   String
-  classId          String?   // Optional: if set, exam is for this class and all its sections
+  classId          String? // Optional: if set, exam is for this class and all its sections
   startDate        DateTime?
   endDate          DateTime?
   isFinal          Boolean   @default(false)
@@ -422,12 +446,12 @@ model Exam {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  class        Class?       @relation(fields: [classId], references: [id], onDelete: Cascade)
-  creator      User         @relation(fields: [createdBy], references: [id])
-  results      Result[]
-  reports      StudentReport[]
+  term                  Term                   @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  class                 Class?                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  creator               User                   @relation(fields: [createdBy], references: [id])
+  results               Result[]
+  reports               StudentReport[]
   examResultSubmissions ExamResultSubmission[]
 
   @@index([termId])
@@ -446,7 +470,7 @@ model Result {
   marksObtained  Float
   maxMarks       Float
   grade          String?
-  points         Int?      // Points based on percentage at time of result creation
+  points         Int? // Points based on percentage at time of result creation
   remarks        String?
   status         String    @default("DRAFT") // DRAFT, PENDING_CLASS_TEACHER, PENDING_APPROVAL, APPROVED, REJECTED, PUBLISHED
   submittedBy    String? // User ID who submitted
@@ -481,12 +505,12 @@ model Result {
 model Attendance {
   id             String   @id @default(cuid())
   studentId      String?
-  staffId        String?  // For staff attendance
-  sectionId      String?  // Class section for tracking which class
+  staffId        String? // For staff attendance
+  sectionId      String? // Class section for tracking which class
   academicYearId String
   termId         String
   date           DateTime
-  status         String   // PRESENT, ABSENT, LATE, EXCUSED
+  status         String // PRESENT, ABSENT, LATE, EXCUSED
   remarks        String?
   isArchived     Boolean  @default(false) // Auto-archived when term ends
   createdAt      DateTime @default(now())
@@ -529,7 +553,7 @@ model Fee {
   term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [createdBy], references: [id])
-  payments     Payment[]    // Track individual payments
+  payments     Payment[] // Track individual payments
 
   @@index([studentId])
   @@index([termId])
@@ -542,13 +566,13 @@ model Payment {
   id            String   @id @default(cuid())
   feeId         String
   studentId     String
-  amount        Float    // Amount paid in this transaction
-  paymentMethod String   // CASH, BANK_TRANSFER, MOBILE_MONEY, CHEQUE, CARD
-  transactionId String?  // External reference number
-  receiptNumber String?  // Generated receipt number
+  amount        Float // Amount paid in this transaction
+  paymentMethod String // CASH, BANK_TRANSFER, MOBILE_MONEY, CHEQUE, CARD
+  transactionId String? // External reference number
+  receiptNumber String? // Generated receipt number
   remarks       String?
   status        String   @default("SUCCESS") // PENDING, SUCCESS, FAILED
-  receivedBy    String   // User ID who received the payment
+  receivedBy    String // User ID who received the payment
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -569,19 +593,19 @@ model MobileMoneyTransaction {
   id                    String    @id @default(cuid())
   paymentId             String    @unique
   reference             String    @unique // Our unique reference sent to Lenco
-  lencoId               String?   // Lenco's transaction ID
-  lencoReference        String?   // Lenco's reference
-  phone                 String    // Customer phone number
-  operator              String    // airtel, mtn, tnm
-  country               String    // zm (Zambia), mw (Malawi)
+  lencoId               String? // Lenco's transaction ID
+  lencoReference        String? // Lenco's reference
+  phone                 String // Customer phone number
+  operator              String // airtel, mtn, tnm
+  country               String // zm (Zambia), mw (Malawi)
   amount                Float
   status                String    @default("pending") // pending, successful, failed, pay-offline
   bearer                String    @default("merchant") // merchant or customer
   initiatedAt           DateTime?
   completedAt           DateTime?
   failureReason         String?
-  operatorTransactionId String?   // Mobile operator's transaction ID
-  accountName           String?   // Account name from mobile money
+  operatorTransactionId String? // Mobile operator's transaction ID
+  accountName           String? // Account name from mobile money
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
@@ -640,20 +664,20 @@ model Announcement {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  creator User @relation(fields: [createdBy], references: [id])
+  creator     User                     @relation(fields: [createdBy], references: [id])
   attachments AnnouncementAttachment[]
 }
 
 // Announcement Attachments
 model AnnouncementAttachment {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   announcementId String
   fileName       String
   originalName   String
   fileSize       Int
   mimeType       String
   filePath       String
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime @default(now())
 
   announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
 }
@@ -823,57 +847,57 @@ model EmailConfig {
 
 // System Settings (Singleton - only one config should exist)
 model SystemSettings {
-  id                String   @id @default(cuid())
-  idleTimeoutMinutes Int      @default(30) // Default 30 minutes
-  warningBeforeLogoutMinutes Int @default(5) // Show warning 5 minutes before logout
-  isIdleTimeoutEnabled Boolean @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                         String   @id @default(cuid())
+  idleTimeoutMinutes         Int      @default(30) // Default 30 minutes
+  warningBeforeLogoutMinutes Int      @default(5) // Show warning 5 minutes before logout
+  isIdleTimeoutEnabled       Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   @@unique([id]) // Ensure only one config exists
 }
 
 // Student Reports - Generated reports for students
 model StudentReport {
-  id               String    @id @default(cuid())
-  studentId        String
-  sectionId        String
-  termId           String
-  academicYearId   String
-  examId           String?
-  totalMarksObtained Float?  // Sum of all core subject marks
-  maxTotalMarks    Float?
-  positionInClass  Int?      // Student's rank/position
-  classSize        Int?      // Total students in class
-  progressRatio    Float?    // Compared to last term (percentage improvement/decline)
+  id                  String  @id @default(cuid())
+  studentId           String
+  sectionId           String
+  termId              String
+  academicYearId      String
+  examId              String?
+  totalMarksObtained  Float? // Sum of all core subject marks
+  maxTotalMarks       Float?
+  positionInClass     Int? // Student's rank/position
+  classSize           Int? // Total students in class
+  progressRatio       Float? // Compared to last term (percentage improvement/decline)
   previousTermAverage Float? // Previous term's average marks
-  currentTermAverage Float?  // Current term's average marks
-  
+  currentTermAverage  Float? // Current term's average marks
+
   // Approval workflow
-  status           String    @default("DRAFT") // DRAFT, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, REJECTED
-  submittedBy      String?   // Class teacher who submitted
-  submittedAt      DateTime?
-  approvedBy       String?   // Principal who approved
-  approvedAt       DateTime?
-  rejectionReason  String?
-  
+  status          String    @default("DRAFT") // DRAFT, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, REJECTED
+  submittedBy     String? // Class teacher who submitted
+  submittedAt     DateTime?
+  approvedBy      String? // Principal who approved
+  approvedAt      DateTime?
+  rejectionReason String?
+
   // Generation tracking
-  generatedAt      DateTime  @default(now())
-  generatedBy      String    // Teacher/Admin who generated
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  student          Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  section          Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  term             Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
-  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  exam             Exam?        @relation(fields: [examId], references: [id], onDelete: SetNull)
-  generator        User         @relation("ReportGenerator", fields: [generatedBy], references: [id])
-  submitter        User?        @relation("ReportSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
-  approver         User?        @relation("ReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
-  
-  comments         ReportComment[]
-  
+  generatedAt DateTime @default(now())
+  generatedBy String // Teacher/Admin who generated
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section      Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  exam         Exam?        @relation(fields: [examId], references: [id], onDelete: SetNull)
+  generator    User         @relation("ReportGenerator", fields: [generatedBy], references: [id])
+  submitter    User?        @relation("ReportSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
+  approver     User?        @relation("ReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  comments ReportComment[]
+
   @@unique([studentId, termId, examId])
   @@index([sectionId])
   @@index([termId])
@@ -883,99 +907,99 @@ model StudentReport {
 
 // Teacher Comments on Student Reports
 model ReportComment {
-  id               String    @id @default(cuid())
-  reportId         String
-  teacherId        String
-  
+  id        String @id @default(cuid())
+  reportId  String
+  teacherId String
+
   // Comment configuration based on marks
-  marksLowerBound  Float?    // Marks range this comment applies to (e.g., 0-40)
-  marksUpperBound  Float?    // Upper bound of marks range
-  
-  commentText      String    // The comment to display
-  performanceArea  String?   // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
-  
+  marksLowerBound Float? // Marks range this comment applies to (e.g., 0-40)
+  marksUpperBound Float? // Upper bound of marks range
+
+  commentText     String // The comment to display
+  performanceArea String? // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
+
   // Signature details
-  teacherSignature String?   // Base64 encoded signature image
+  teacherSignature String? // Base64 encoded signature image
   signedAt         DateTime?
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  report           StudentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  teacher          Staff         @relation(fields: [teacherId], references: [id])
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  report  StudentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  teacher Staff         @relation(fields: [teacherId], references: [id])
+
   @@index([reportId])
   @@index([teacherId])
 }
 
 // Teacher Comment Configuration - Templates for comments based on performance
 model ReportCommentConfig {
-  id               String    @id @default(cuid())
-  teacherId        String
-  sectionId        String
-  
+  id        String @id @default(cuid())
+  teacherId String
+  sectionId String
+
   // Comment template configuration
-  marksLowerBound  Float     // e.g., 0
-  marksUpperBound  Float     // e.g., 40
-  commentTemplate  String    // Template text (can include {studentName}, {marks}, {average})
-  
-  performanceArea  String    // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
-  isActive         Boolean   @default(true)
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  teacher          Staff     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  section          Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  
+  marksLowerBound Float // e.g., 0
+  marksUpperBound Float // e.g., 40
+  commentTemplate String // Template text (can include {studentName}, {marks}, {average})
+
+  performanceArea String // OVERALL, CONDUCT, PARTICIPATION, EFFORT, ATTENDANCE
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher Staff   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
   @@unique([teacherId, sectionId, marksLowerBound, marksUpperBound, performanceArea])
   @@index([sectionId])
 }
 
 // Exam Result Submission Tracking - Tracks the submission status of results per exam/section
 model ExamResultSubmission {
-  id               String    @id @default(cuid())
-  examId           String
-  sectionId        String
-  academicYearId   String
-  termId           String
-  
+  id             String @id @default(cuid())
+  examId         String
+  sectionId      String
+  academicYearId String
+  termId         String
+
   // Subject-level tracking
-  totalSubjects    Int       // Total core subjects for this section
-  submittedSubjects Int      @default(0) // Number of subjects with all results entered
-  
+  totalSubjects     Int // Total core subjects for this section
+  submittedSubjects Int @default(0) // Number of subjects with all results entered
+
   // Workflow status
-  status           String    @default("PENDING_SUBJECTS") // PENDING_SUBJECTS, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, PUBLISHED
-  
+  status String @default("PENDING_SUBJECTS") // PENDING_SUBJECTS, PENDING_CLASS_TEACHER, PENDING_PRINCIPAL, APPROVED, PUBLISHED
+
   // Class teacher review
-  classTeacherReviewedBy   String?
-  classTeacherReviewedAt   DateTime?
-  classTeacherComments     String?
-  
+  classTeacherReviewedBy String?
+  classTeacherReviewedAt DateTime?
+  classTeacherComments   String?
+
   // Principal approval
-  principalApprovedBy      String?
-  principalApprovedAt      DateTime?
-  principalComments        String?
-  
+  principalApprovedBy String?
+  principalApprovedAt DateTime?
+  principalComments   String?
+
   // Aggregate stats
-  totalStudents    Int?
-  averageMarks     Float?
-  highestMarks     Float?
-  lowestMarks      Float?
-  passRate         Float?    // Percentage of students who passed
-  
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  
-  exam             Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
-  section          Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  term             Term      @relation(fields: [termId], references: [id], onDelete: Cascade)
-  classTeacherReviewer User? @relation("ExamSubmissionReviewer", fields: [classTeacherReviewedBy], references: [id], onDelete: SetNull)
-  principalApprover User?    @relation("ExamSubmissionApprover", fields: [principalApprovedBy], references: [id], onDelete: SetNull)
-  
+  totalStudents Int?
+  averageMarks  Float?
+  highestMarks  Float?
+  lowestMarks   Float?
+  passRate      Float? // Percentage of students who passed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exam                 Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  section              Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  academicYear         AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term                 Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  classTeacherReviewer User?        @relation("ExamSubmissionReviewer", fields: [classTeacherReviewedBy], references: [id], onDelete: SetNull)
+  principalApprover    User?        @relation("ExamSubmissionApprover", fields: [principalApprovedBy], references: [id], onDelete: SetNull)
+
   subjectSubmissions ExamSubjectSubmission[]
-  
+
   @@unique([examId, sectionId])
   @@index([examId])
   @@index([sectionId])
@@ -984,59 +1008,123 @@ model ExamResultSubmission {
 
 // Tracks individual subject submission status within an exam/section
 model ExamSubjectSubmission {
-  id                     String    @id @default(cuid())
+  id                     String @id @default(cuid())
   examResultSubmissionId String
   classSubjectId         String
-  
+
   // Submission status
-  totalStudents          Int       // Expected number of students
-  resultsEntered         Int       @default(0) // Actual results entered
-  isComplete             Boolean   @default(false) // All students have results
-  
+  totalStudents  Int // Expected number of students
+  resultsEntered Int     @default(0) // Actual results entered
+  isComplete     Boolean @default(false) // All students have results
+
   // Teacher tracking
-  submittedBy            String?   // Subject teacher who submitted
-  submittedAt            DateTime?
-  
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  
-  examResultSubmission   ExamResultSubmission @relation(fields: [examResultSubmissionId], references: [id], onDelete: Cascade)
-  classSubject           ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
-  submitter              User?      @relation("SubjectSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
-  
+  submittedBy String? // Subject teacher who submitted
+  submittedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  examResultSubmission ExamResultSubmission @relation(fields: [examResultSubmissionId], references: [id], onDelete: Cascade)
+  classSubject         ClassSubject         @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  submitter            User?                @relation("SubjectSubmitter", fields: [submittedBy], references: [id], onDelete: SetNull)
+
   @@unique([examResultSubmissionId, classSubjectId])
   @@index([classSubjectId])
 }
 
 // School Configuration (Singleton - stores school-wide settings)
 model SchoolConfig {
-  id                    String   @id @default(cuid())
-  schoolName            String   @default("School Name")
-  schoolMotto           String?
-  schoolAddress         String?
-  schoolPhone           String?
-  schoolEmail           String?
-  schoolLogo            String?  // Base64 encoded image or file path
-  ministryHeader        String?  @default("MINISTRY OF EDUCATION")
-  
+  id             String  @id @default(cuid())
+  schoolName     String  @default("School Name")
+  schoolMotto    String?
+  schoolAddress  String?
+  schoolPhone    String?
+  schoolEmail    String?
+  schoolLogo     String? // Base64 encoded image or file path
+  ministryHeader String? @default("MINISTRY OF EDUCATION")
+
   // Principal Info
-  principalName         String?
-  principalSignature    String?  // Base64 encoded signature image
-  
+  principalName      String?
+  principalSignature String? // Base64 encoded signature image
+
   // Default report settings
-  reportFooterText      String?
-  nextTermDate          DateTime?
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  reportFooterText String?
+  nextTermDate     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Installed subscription license for this school instance.
+model SchoolLicense {
+  id             String    @id @default(cuid())
+  licenseId      String    @unique
+  customerId     String
+  customerName   String
+  schoolName     String
+  planName       String
+  keyHash        String    @unique
+  status         String    @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  startsAt       DateTime
+  expiresAt      DateTime
+  installedAt    DateTime  @default(now())
+  lastVerifiedAt DateTime?
+  revokedAt      DateTime?
+
+  maxStudents    Int
+  billingModel   String    @default("PER_STUDENT") // PER_STUDENT, FLAT, HYBRID
+  perStudentRate Float     @default(0)
+  flatRate       Float?
+  currency       String    @default("USD")
+  graceDays      Int       @default(0)
+  features       Json?
+  rawPayload     Json
+
+  events           LicenseEvent[]
+  billingSnapshots LicenseBillingSnapshot[]
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model LicenseEvent {
+  id        String   @id @default(cuid())
+  licenseId String
+  type      String // INSTALLED, VERIFIED, EXPIRED, RENEWAL_REQUIRED, REVOKED
+  message   String?
+  createdAt DateTime @default(now())
+
+  license SchoolLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model LicenseBillingSnapshot {
+  id                 String   @id @default(cuid())
+  licenseId          String
+  activeStudentCount Int
+  maxStudents        Int
+  billingModel       String
+  perStudentRate     Float
+  flatRate           Float?
+  currency           String
+  estimatedAmount    Float
+  capturedAt         DateTime @default(now())
+
+  license SchoolLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId])
+  @@index([capturedAt])
 }
 
 // Remark Templates - Auto-generate remarks based on score ranges
 model RemarkTemplate {
   id            String   @id @default(cuid())
-  minPercentage Float    // Minimum percentage (inclusive)
-  maxPercentage Float    // Maximum percentage (inclusive)
-  remark        String   // e.g., "Excellent", "Very Good", "Good", "Fair", "Poor"
+  minPercentage Float // Minimum percentage (inclusive)
+  maxPercentage Float // Maximum percentage (inclusive)
+  remark        String // e.g., "Excellent", "Very Good", "Good", "Fair", "Poor"
   category      String   @default("SUBJECT") // SUBJECT, OVERALL - for subject-level or overall remarks
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
@@ -1048,10 +1136,10 @@ model RemarkTemplate {
 // Comment Templates - Pre-defined comments for teachers/principals
 model CommentTemplate {
   id            String   @id @default(cuid())
-  minPercentage Float    // Minimum percentage (inclusive)
-  maxPercentage Float    // Maximum percentage (inclusive)
-  comment       String   // e.g., "Excellent work. Keep it up!"
-  commentType   String   // CLASS_TEACHER, PRINCIPAL
+  minPercentage Float // Minimum percentage (inclusive)
+  maxPercentage Float // Maximum percentage (inclusive)
+  comment       String // e.g., "Excellent work. Keep it up!"
+  commentType   String // CLASS_TEACHER, PRINCIPAL
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -1062,13 +1150,29 @@ model CommentTemplate {
 // Points Configuration - Maps percentage ranges to points (for final exams)
 model PointsConfig {
   id            String   @id @default(cuid())
-  minPercentage Float    // Minimum percentage (inclusive)
-  maxPercentage Float    // Maximum percentage (inclusive)
-  points        Int      // Points awarded for this range (e.g., 1, 2, 3...)
-  description   String?  // Optional description (e.g., "Distinction", "Merit")
+  minPercentage Float // Minimum percentage (inclusive)
+  maxPercentage Float // Maximum percentage (inclusive)
+  points        Int // Points awarded for this range (e.g., 1, 2, 3...)
+  description   String? // Optional description (e.g., "Distinction", "Merit")
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@unique([minPercentage, maxPercentage])
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  description String?
+  headName    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  staff    Staff[]
+  subjects Subject[]
+
+  @@index([isActive])
 }

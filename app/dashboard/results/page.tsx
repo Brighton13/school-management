@@ -15,6 +15,7 @@ import { useSession } from "next-auth/react"
 import { BulkResultsUpload } from "@/components/bulk-results-upload"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StudentResultsView } from "@/components/analytics/student-results-view"
+import { Pagination, PaginationInfo, usePagination, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Result {
   id: string
@@ -87,7 +88,6 @@ interface Exam {
 export default function ResultsPage() {
   const { data: session, status } = useSession()
   const [results, setResults] = useState<Result[]>([])
-  const [students, setStudents] = useState<Student[]>([])
   const [terms, setTerms] = useState<Term[]>([])
   const [classSubjects, setClassSubjects] = useState<ClassSubject[]>([])
   const [exams, setExams] = useState<Exam[]>([])
@@ -102,6 +102,14 @@ export default function ResultsPage() {
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const { page, limit, setPage, setLimit } = usePagination(50)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
   
   // Edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -166,6 +174,8 @@ export default function ResultsPage() {
           classId: selectedCS.classId,
           currentAcademicYear: "true",
           noPagination: "true",
+          compact: "true",
+          limit: "1000",
         })
         if (selectedCS.sectionId) {
           params.append("sectionId", selectedCS.sectionId)
@@ -198,9 +208,9 @@ export default function ResultsPage() {
 
   const fetchData = async () => {
     try {
-      const [resultsRes, studentsRes, termsRes, classSubjectsRes, examsRes] = await Promise.all([
-        fetch("/api/results?noPagination=true"),
-        fetch("/api/students?noPagination=true"),
+      const resultsQuery = buildPaginatedQuery({}, { page, limit })
+      const [resultsRes, termsRes, classSubjectsRes, examsRes] = await Promise.all([
+        fetch(`/api/results?${resultsQuery}`),
         fetch("/api/terms?noPagination=true"),
         fetch("/api/class-subjects?noPagination=true"),
         fetch("/api/exams?status=ACTIVE&noPagination=true"),
@@ -208,10 +218,9 @@ export default function ResultsPage() {
       if (resultsRes.ok) {
         const resultsData = await resultsRes.json()
         setResults(Array.isArray(resultsData) ? resultsData : (resultsData.data || []))
-      }
-      if (studentsRes.ok) {
-        const studentsData = await studentsRes.json()
-        setStudents(Array.isArray(studentsData) ? studentsData : (studentsData.data || []))
+        if (!Array.isArray(resultsData) && resultsData.pagination) {
+          setPaginationInfo(resultsData.pagination)
+        }
       }
       if (termsRes.ok) {
         const termsData = await termsRes.json()
@@ -231,7 +240,6 @@ export default function ResultsPage() {
     } catch (error) {
       console.error("Failed to fetch data:", error)
       setResults([])
-      setStudents([])
       setTerms([])
       setClassSubjects([])
       setExams([])
@@ -245,7 +253,7 @@ export default function ResultsPage() {
     if (status === "authenticated" && session?.user.role !== "STUDENT") {
       fetchData()
     }
-  }, [session, status])
+  }, [session, status, page, limit])
   
   // Show loading while session is being fetched
   if (status === "loading") {
@@ -298,6 +306,7 @@ export default function ResultsPage() {
         setMarksObtained("")
         setMaxMarks("")
         setCalculatedGrade("")
+        setPage(1)
         fetchData()
         e.currentTarget.reset()
       } else {
@@ -344,6 +353,7 @@ export default function ResultsPage() {
         setEditMaxMarks("")
         setEditGrade("")
         setEditRemarks("")
+        setPage(1)
         fetchData()
         alert("Result updated successfully")
       } else {
@@ -709,7 +719,7 @@ export default function ResultsPage() {
           <CardDescription>
             {session?.user.role === "TEACHER" 
               ? "Results you can view and edit (until principal approves). Once approved, results cannot be modified."
-              : `${results.length} result(s) found`}
+              : `${paginationInfo.total} result(s) found`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -785,6 +795,13 @@ export default function ResultsPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && paginationInfo.total > 0 && (
+            <Pagination
+              pagination={paginationInfo}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+            />
           )}
         </CardContent>
       </Card>

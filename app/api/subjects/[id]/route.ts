@@ -12,6 +12,10 @@ export async function GET(
   try {
     const subject = await prisma.subject.findUnique({
       where: { id: params.id },
+      include: {
+        department: true,
+        staffSubjects: { include: { staff: { include: { user: true } } } },
+      },
     })
 
     if (!subject) {
@@ -38,16 +42,18 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { name, code, description, type } = body
+    const { name, code, description, type, departmentId } = body
 
     const updatedSubject = await prisma.subject.update({
       where: { id: params.id },
       data: {
         name,
         code,
+        departmentId: departmentId || null,
         description: description !== undefined ? description : null,
         type,
       },
+      include: { department: true },
     })
 
     // Log audit trail

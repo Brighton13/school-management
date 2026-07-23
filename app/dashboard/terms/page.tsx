@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Search } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface AcademicYear {
   id: string
@@ -54,15 +55,62 @@ export default function TermsPage() {
   const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>("")
   const { toast } = useToast()
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterAcademicYearId, setFilterAcademicYearId] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    fetchTerms()
+  }, [page, limit, filterAcademicYearId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchTerms()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const fetchTerms = async () => {
+    try {
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          academicYearId: filterAcademicYearId === "all" ? undefined : filterAcademicYearId,
+        },
+        { page, limit }
+      )
+      const termsRes = await fetch(`/api/terms?${queryString}`)
+      if (termsRes.status === 401 || termsRes.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
+      const termsData = await termsRes.json()
+      setTerms(termsData.data || [])
+      if (termsData.pagination) setPaginationInfo(termsData.pagination)
+    } catch (error) {
+      console.error("Failed to fetch terms:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     try {
       const [termsRes, yearsRes] = await Promise.all([
-        fetch("/api/terms?noPagination=true"),
+        fetch(`/api/terms?${buildPaginatedQuery({}, { page, limit })}`),
         fetch("/api/academic-years?noPagination=true")
       ])
       
@@ -75,10 +123,11 @@ export default function TermsPage() {
       const termsData = await termsRes.json()
       const yearsData = await yearsRes.json()
       
-      const termsArr = Array.isArray(termsData) ? termsData : (termsData.data || [])
+      const termsArr = termsData.data || []
       const yearsArr = Array.isArray(yearsData) ? yearsData : (yearsData.data || [])
       
       setTerms(termsArr)
+      if (termsData.pagination) setPaginationInfo(termsData.pagination)
       setAcademicYears(yearsArr)
       
       // Set default academic year to current one
@@ -348,10 +397,40 @@ export default function TermsPage() {
         <CardHeader>
           <CardTitle>All Terms</CardTitle>
           <CardDescription>
-            {terms.length} term(s) found
+            Search and filter terms without loading the full term list.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_260px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search terms..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={filterAcademicYearId}
+              onValueChange={(value) => {
+                setFilterAcademicYearId(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Academic year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All academic years</SelectItem>
+                {academicYears.map((year) => (
+                  <SelectItem key={year.id} value={year.id}>
+                    {year.year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : terms.length === 0 ? (
@@ -406,6 +485,9 @@ export default function TermsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

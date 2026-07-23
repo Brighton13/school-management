@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -8,6 +8,10 @@ export function useSecureLogout() {
   const router = useRouter()
 
   const performSecureLogout = async (reason?: string) => {
+    const callbackUrl = reason === 'idle_timeout' 
+      ? '/login?reason=idle_timeout' 
+      : '/login?reason=manual_logout'
+
     try {
       // Call session invalidation API
       try {
@@ -30,41 +34,30 @@ export function useSecureLogout() {
         
         // Add a logout flag to prevent back navigation
         sessionStorage.setItem('logged-out', 'true')
-        
-        // Prevent back navigation by replacing current history entry
-        window.history.replaceState(null, '', '/login')
-        
-        // Push multiple entries to make it harder to go back
-        window.history.pushState(null, '', '/login')
-        
-        // Listen for back button and redirect to login
-        const handlePopState = () => {
-          window.history.pushState(null, '', '/login')
-          router.replace('/login')
-        }
-        
-        window.addEventListener('popstate', handlePopState)
-        
-        // Clear the event listener after a delay
-        setTimeout(() => {
-          window.removeEventListener('popstate', handlePopState)
-        }, 1000)
       }
 
-      // Perform NextAuth signOut
-      const callbackUrl = reason === 'idle_timeout' 
-        ? '/login?reason=idle_timeout' 
-        : '/login?reason=manual_logout'
-        
+      // Perform NextAuth signOut without letting the app continue rendering a
+      // protected route during the transition. A hard replace guarantees all
+      // client state, RSC caches, and in-flight dashboard requests are dropped.
       await signOut({ 
+        redirect: false,
         callbackUrl,
-        redirect: true 
       })
+
+      if (typeof window !== 'undefined') {
+        window.location.replace(callbackUrl)
+      } else {
+        router.replace(callbackUrl)
+      }
 
     } catch (error) {
       console.error('Error during logout:', error)
       // Force redirect even if signOut fails
-      router.replace('/login')
+      if (typeof window !== 'undefined') {
+        window.location.replace(callbackUrl)
+      } else {
+        router.replace(callbackUrl)
+      }
     }
   }
 
@@ -100,11 +93,11 @@ export function usePreventBackAfterLogout() {
 
 // Hook to clear logout flag on successful login
 export function useClearLogoutFlag() {
-  const clearLogoutFlag = () => {
+  const clearLogoutFlag = useCallback(() => {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('logged-out')
     }
-  }
+  }, [])
 
   return { clearLogoutFlag }
 }

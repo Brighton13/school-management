@@ -11,8 +11,25 @@ export async function middleware(request: NextRequest) {
   const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
-  // If user is not logged in and trying to access protected routes
-  if (!token && (isDashboardPage || (isApiRoute && !request.nextUrl.pathname.startsWith('/api/auth')))) {
+  // If user is not logged in and calls protected APIs, return JSON instead of
+  // redirecting to /login. Client components expect JSON from API routes; an
+  // HTML login redirect can break pages during/after logout.
+  if (!token && isApiRoute && !request.nextUrl.pathname.startsWith('/api/auth')) {
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      {
+        status: 401,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate, private',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    )
+  }
+
+  // If user is not logged in and trying to access protected pages
+  if (!token && isDashboardPage) {
     const loginUrl = new URL('/login', request.url)
     const response = NextResponse.redirect(loginUrl)
     
@@ -30,7 +47,13 @@ export async function middleware(request: NextRequest) {
   }
 
   // Add security headers to all responses
-  const response = NextResponse.next()
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', request.nextUrl.pathname)
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
   
   // Prevent caching of protected pages
   if (isDashboardPage || (token && !isAuthPage)) {

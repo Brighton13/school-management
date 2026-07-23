@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { createPaginatedResponse, parseBoundedListLimit, parsePaginationParams } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +15,9 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get("studentId")
     const academicYear = searchParams.get("academicYear")
     const term = searchParams.get("term")
+    const search = searchParams.get("search")
+    const noPagination = searchParams.get("noPagination") === "true"
+    const { page, limit, offset } = parsePaginationParams(searchParams)
 
     // For teachers, only show their assigned class-subjects
     let teacherId: string | undefined
@@ -28,12 +32,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let classSubjects = await prisma.classSubject.findMany({
-      where: {
-        ...(classId ? { classId } : {}),
-        ...(sectionId ? { sectionId } : {}),
-        ...(teacherId ? { teacherId } : {}),
-      },
+    const whereClause: any = {
+      ...(classId ? { classId } : {}),
+      ...(sectionId ? { sectionId } : {}),
+      ...(teacherId ? { teacherId } : {}),
+    }
+
+    if (search) {
+      whereClause.OR = [
+        { class: { name: { contains: search, mode: "insensitive" } } },
+        { section: { name: { contains: search, mode: "insensitive" } } },
+        { subject: { name: { contains: search, mode: "insensitive" } } },
+        { subject: { code: { contains: search, mode: "insensitive" } } },
+        { teacher: { user: { name: { contains: search, mode: "insensitive" } } } },
+      ]
+    }
+
+    const [total, fetchedClassSubjects] = await Promise.all([
+      prisma.classSubject.count({ where: whereClause }),
+      prisma.classSubject.findMany({
+        where: whereClause,
       include: {
         class: true,
         section: true,
@@ -43,7 +61,11 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: [{ class: { name: "asc" } }, { section: { name: "asc" } }, { createdAt: "desc" }],
-    })
+        ...(noPagination || studentId ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
+      }),
+    ])
+
+    let classSubjects = fetchedClassSubjects
 
     // If studentId is provided, filter by student subject selections
     // Show: Core subjects (always) + Elective/Optional subjects that student has selected
@@ -78,7 +100,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(classSubjects)
+    if (noPagination || studentId) {
+      return NextResponse.json(classSubjects)
+    }
+
+    return NextResponse.json(createPaginatedResponse(classSubjects, total, page, limit))
   } catch (error) {
     console.error("Error fetching class subjects:", error)
     return NextResponse.json(

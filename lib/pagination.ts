@@ -20,6 +20,8 @@ export interface PaginatedResponse<T> {
 
 export const DEFAULT_PAGE_SIZE = 25
 export const MAX_PAGE_SIZE = 100
+export const DEFAULT_DROPDOWN_SIZE = 100
+export const MAX_UNPAGINATED_SIZE = 1000
 
 /**
  * Parse pagination parameters from URL search params
@@ -42,6 +44,20 @@ export function parsePaginationParams(searchParams: URLSearchParams): {
     : (page - 1) * limit
 
   return { page, limit, offset }
+}
+
+/**
+ * Parse a bounded limit for list-style endpoints that return arrays for
+ * dropdowns or lightweight selectors. This keeps legacy array responses while
+ * preventing accidental full-table reads on large installations.
+ */
+export function parseBoundedListLimit(
+  searchParams: URLSearchParams,
+  defaultLimit = DEFAULT_DROPDOWN_SIZE
+): number {
+  const requestedLimit = parseInt(searchParams.get("limit") || String(defaultLimit), 10)
+  if (Number.isNaN(requestedLimit)) return defaultLimit
+  return Math.min(Math.max(1, requestedLimit), MAX_UNPAGINATED_SIZE)
 }
 
 /**

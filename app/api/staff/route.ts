@@ -8,7 +8,7 @@ import { sendStaffVerificationEmail, loadEmailConfigFromDB } from "@/lib/email"
 import { generateEmployeeId } from "@/lib/admission_number_gen"
 import crypto from "crypto"
 import { requirePermission, Permissions } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")
     const designation = searchParams.get("designation")
     const department = searchParams.get("department")
+    const departmentId = searchParams.get("departmentId")
     const noPagination = searchParams.get("noPagination") === "true"
     
     // Parse pagination params
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
         { employeeId: { contains: search, mode: "insensitive" } },
         { user: { name: { contains: search, mode: "insensitive" } } },
         { user: { email: { contains: search, mode: "insensitive" } } },
+        { departmentRef: { name: { contains: search, mode: "insensitive" } } },
+        { staffSubjects: { some: { subject: { name: { contains: search, mode: "insensitive" } } } } },
       ]
     }
     
@@ -37,7 +40,16 @@ export async function GET(request: NextRequest) {
     }
     
     if (department) {
-      whereClause.department = department
+      whereClause.OR = [
+        ...(whereClause.OR || []),
+        { department: { contains: department, mode: "insensitive" } },
+        { departmentRef: { name: { contains: department, mode: "insensitive" } } },
+        { departmentRef: { code: { contains: department, mode: "insensitive" } } },
+      ]
+    }
+
+    if (departmentId) {
+      whereClause.departmentId = departmentId
     }
 
     // Get total count
@@ -47,9 +59,11 @@ export async function GET(request: NextRequest) {
       where: whereClause,
       include: {
         user: true,
+        departmentRef: true,
+        staffSubjects: { include: { subject: true }, orderBy: { subject: { name: "asc" } } },
       },
       orderBy: { createdAt: "desc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     if (noPagination) {
@@ -80,6 +94,8 @@ export async function POST(request: NextRequest) {
       role: roleName,
       designation,
       department,
+      departmentId,
+      subjectIds,
       qualification,
       experience,
       salary,
@@ -131,6 +147,7 @@ export async function POST(request: NextRequest) {
               employeeId,
               designation,
               department,
+              departmentId: departmentId || null,
               qualification,
               experience: experience ? parseInt(experience) : null,
               salary: salary ? parseFloat(salary) : null,
@@ -138,11 +155,18 @@ export async function POST(request: NextRequest) {
               gender: gender || null,
               dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
               address: address || null,
+              staffSubjects: Array.isArray(subjectIds) && subjectIds.length > 0
+                ? {
+                    create: subjectIds.map((subjectId: string) => ({
+                      subject: { connect: { id: subjectId } },
+                    })),
+                  }
+                : undefined,
             },
           },
         },
         include: {
-          staff: true,
+          staff: { include: { departmentRef: true, staffSubjects: { include: { subject: true } } } },
         },
       })
 

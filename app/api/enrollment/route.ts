@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { getCurrentAcademicYear } from "@/lib/academic-year"
 import { requirePermission, Permissions } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
         academicYear: true,
       },
       orderBy: { enrolledAt: "desc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     if (noPagination) {

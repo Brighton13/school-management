@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         }),
       },
       orderBy: { name: "asc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     if (noPagination) {

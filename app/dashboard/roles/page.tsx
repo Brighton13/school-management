@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Edit, Trash2, Shield, Users } from "lucide-react"
+import { Plus, Edit, Trash2, Shield, Users, Search } from "lucide-react"
 import { PermissionDenied } from "@/components/ui/permission-denied"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Role {
   id: string
@@ -40,6 +41,15 @@ export default function RolesPage() {
   const [isPermissionDialogOpen, setIsPermissionDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -50,9 +60,23 @@ export default function RolesPage() {
     fetchPermissions()
   }, [])
 
+  useEffect(() => {
+    fetchRoles()
+  }, [page, limit])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchRoles()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
   const fetchRoles = async () => {
     try {
-      const response = await fetch("/api/roles?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery({ search: searchTerm || undefined }, { page, limit })
+      const response = await fetch(`/api/roles?${queryString}`)
       if (response.status === 401 || response.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
@@ -60,8 +84,9 @@ export default function RolesPage() {
       }
       if (response.ok) {
         const data = await response.json()
-        const rolesArr = Array.isArray(data) ? data : (data.data || [])
+        const rolesArr = data.data || []
         setRoles(rolesArr)
+        if (data.pagination) setPaginationInfo(data.pagination)
         setError(null)
       } else {
         const errorData = await response.json()
@@ -370,6 +395,17 @@ export default function RolesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 max-w-sm">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search roles..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -433,6 +469,9 @@ export default function RolesPage() {
               ))}
             </TableBody>
           </Table>
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
+          )}
         </CardContent>
       </Card>
 

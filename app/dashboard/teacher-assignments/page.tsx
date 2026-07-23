@@ -8,7 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Plus, UserCheck, X } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Plus, UserCheck, X, Search } from "lucide-react"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface TeacherAssignment {
   id: string
@@ -58,15 +60,64 @@ export default function TeacherAssignmentsPage() {
   const [selectedClassSubjectId, setSelectedClassSubjectId] = useState<string>("")
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterClassId, setFilterClassId] = useState("all")
+  const [filterSectionId, setFilterSectionId] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    fetchAssignments()
+  }, [page, limit, filterClassId, filterSectionId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchAssignments()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          classId: filterClassId === "all" ? undefined : filterClassId,
+          sectionId: filterSectionId === "all" ? undefined : filterSectionId,
+        },
+        { page, limit }
+      )
+      const assignmentsRes = await fetch(`/api/teacher-assignments?${queryString}`)
+      if (assignmentsRes.status === 401 || assignmentsRes.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
+      const assignmentsData = await assignmentsRes.json()
+      setAssignments(assignmentsData.data || [])
+      if (assignmentsData.pagination) setPaginationInfo(assignmentsData.pagination)
+    } catch (error) {
+      console.error("Failed to fetch teacher assignments:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     try {
       const [assignmentsRes, classesRes, sectionsRes, subjectsRes, staffRes, classSubjectsRes] = await Promise.all([
-        fetch("/api/teacher-assignments?noPagination=true"),
+        fetch(`/api/teacher-assignments?${buildPaginatedQuery({}, { page, limit })}`),
         fetch("/api/classes?noPagination=true"),
         fetch("/api/sections?noPagination=true"),
         fetch("/api/subjects?noPagination=true"),
@@ -85,7 +136,8 @@ export default function TeacherAssignmentsPage() {
       const staffData = await staffRes.json()
       const classSubjectsData = await classSubjectsRes.json()
       
-      setAssignments(Array.isArray(assignmentsData) ? assignmentsData : (assignmentsData.data || []))
+      setAssignments(assignmentsData.data || [])
+      if (assignmentsData.pagination) setPaginationInfo(assignmentsData.pagination)
       setClasses(Array.isArray(classesData) ? classesData : (classesData.data || []))
       setSections(Array.isArray(sectionsData) ? sectionsData : (sectionsData.data || []))
       setSubjects(Array.isArray(subjectsData) ? subjectsData : (subjectsData.data || []))
@@ -326,10 +378,62 @@ export default function TeacherAssignmentsPage() {
         <CardHeader>
           <CardTitle>All Assignments</CardTitle>
           <CardDescription>
-            {assignments.length} assignment(s) found
+            Search and filter assignments without loading every class-subject row.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px_220px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search assignments..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={filterClassId}
+              onValueChange={(value) => {
+                setFilterClassId(value)
+                setFilterSectionId("all")
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All classes</SelectItem>
+                {classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterSectionId}
+              onValueChange={(value) => {
+                setFilterSectionId(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Section" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sections</SelectItem>
+                {sections
+                  .filter((section) => filterClassId === "all" || section.classId === filterClassId)
+                  .map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : (
@@ -380,6 +484,9 @@ export default function TeacherAssignmentsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

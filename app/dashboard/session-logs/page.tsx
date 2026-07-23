@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Monitor, Smartphone, Tablet, CheckCircle2, XCircle, Clock } from "lucide-react"
+import { Download, Monitor, Smartphone, Tablet, CheckCircle2, XCircle, Clock, Search } from "lucide-react"
 
 interface SessionLog {
   id: string
@@ -62,6 +62,7 @@ export default function SessionLogsPage() {
   // Filters
   const [userId, setUserId] = useState<string>("all")
   const [isActive, setIsActive] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [permissionDenied, setPermissionDenied] = useState(false)
@@ -72,7 +73,7 @@ export default function SessionLogsPage() {
 
   useEffect(() => {
     fetchSessionLogs()
-  }, [userId, isActive, startDate, endDate, offset])
+  }, [userId, isActive, searchTerm, startDate, endDate, offset])
 
   const fetchUsers = async () => {
     try {
@@ -93,6 +94,7 @@ export default function SessionLogsPage() {
       })
       if (userId !== "all") params.append("userId", userId)
       if (isActive !== "all") params.append("isActive", isActive)
+      if (searchTerm) params.append("search", searchTerm)
       if (startDate) params.append("startDate", startDate)
       if (endDate) params.append("endDate", endDate)
 
@@ -103,8 +105,8 @@ export default function SessionLogsPage() {
         return
       }
       const data = await res.json()
-      setSessionLogs(data.data)
-      setTotal(data.total)
+      setSessionLogs(data.data || [])
+      setTotal(data.pagination?.total || data.total || 0)
     } catch (error) {
       console.error("Failed to fetch session logs:", error)
     } finally {
@@ -188,10 +190,25 @@ export default function SessionLogsPage() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid gap-4 md:grid-cols-5">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="User, IP, browser, device..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setOffset(0)
+                  }}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>User</Label>
-              <Select value={userId} onValueChange={setUserId}>
+              <Select value={userId} onValueChange={(value) => { setUserId(value); setOffset(0) }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -207,7 +224,7 @@ export default function SessionLogsPage() {
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={isActive} onValueChange={setIsActive}>
+              <Select value={isActive} onValueChange={(value) => { setIsActive(value); setOffset(0) }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

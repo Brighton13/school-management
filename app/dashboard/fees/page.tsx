@@ -186,7 +186,7 @@ export default function FeesPage() {
       
       const [feesRes, studentsRes, termsRes, classesRes] = await Promise.all([
         fetch(`/api/fees?${queryString}`),
-        fetch("/api/students?noPagination=true"),
+        fetch("/api/students?noPagination=true&compact=true&limit=1000"),
         fetch("/api/terms?noPagination=true"),
         fetch("/api/classes?noPagination=true"),
       ])

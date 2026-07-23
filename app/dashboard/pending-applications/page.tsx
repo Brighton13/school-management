@@ -17,10 +17,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, AlertCircle, Eye, Pencil, Users } from "lucide-react"
+import { CheckCircle, XCircle, Clock, AlertCircle, Eye, Pencil, Users, Search } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { Textarea } from "@/components/ui/textarea"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Application {
   id: string
@@ -96,11 +97,33 @@ export default function PendingApplicationsPage() {
   const [isEditing, setIsEditing] = useState(false)
   const { toast } = useToast()
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterClassId, setFilterClassId] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchPendingApplications()
     fetchClasses()
   }, [])
+
+  useEffect(() => {
+    fetchPendingApplications()
+  }, [page, limit, filterClassId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchPendingApplications()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   useEffect(() => {
     if (selectedApplication && (actionType === "approve" || actionType === "review")) {
@@ -131,14 +154,23 @@ export default function PendingApplicationsPage() {
 
   const fetchPendingApplications = async () => {
     try {
-      const res = await fetch("/api/applications/pending?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          classId: filterClassId === "all" ? undefined : filterClassId,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/applications/pending?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setApplications(Array.isArray(data) ? data : (data.data || []))
+      setApplications(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
     } catch (error) {
       console.error("Failed to fetch pending applications:", error)
       toast({
@@ -530,10 +562,40 @@ export default function PendingApplicationsPage() {
         <CardHeader>
           <CardTitle>Application Queue</CardTitle>
           <CardDescription>
-            Students waiting for enrollment approval
+            Search and filter pending applications without loading the full queue.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_240px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search applications..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={filterClassId}
+              onValueChange={(value) => {
+                setFilterClassId(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Applied class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All classes</SelectItem>
+                {classes.map((cls) => (
+                  <SelectItem key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : applications.length === 0 ? (
@@ -633,6 +695,9 @@ export default function PendingApplicationsPage() {
                 })}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

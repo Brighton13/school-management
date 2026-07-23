@@ -32,11 +32,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let targetStudents = []
+    const term = await prisma.term.findUnique({
+      where: { id: termId },
+      select: { academicYearId: true },
+    })
+
+    if (!term) {
+      return NextResponse.json({ error: "Invalid termId" }, { status: 400 })
+    }
+
+    let targetStudents: Array<{
+      id: string
+      admissionNumber: string
+      user: { name: string }
+    }> = []
 
     if (target === "ALL_STUDENTS") {
       const students = await prisma.student.findMany({
-        include: { user: true },
+        select: {
+          id: true,
+          admissionNumber: true,
+          user: {
+            select: { name: true },
+          },
+        },
       })
       targetStudents = students
     } else if (target === "CLASS" && classId) {
@@ -48,7 +67,13 @@ export async function POST(request: NextRequest) {
         },
         include: {
           student: {
-            include: { user: true },
+            select: {
+              id: true,
+              admissionNumber: true,
+              user: {
+                select: { name: true },
+              },
+            },
           },
         },
       })
@@ -58,7 +83,13 @@ export async function POST(request: NextRequest) {
         where: {
           id: { in: studentIds },
         },
-        include: { user: true },
+        select: {
+          id: true,
+          admissionNumber: true,
+          user: {
+            select: { name: true },
+          },
+        },
       })
       targetStudents = students
     } else {
@@ -74,51 +105,43 @@ export async function POST(request: NextRequest) {
       errors: [] as string[],
     }
 
-    for (const student of targetStudents) {
-      try {
-        // Check if fee already exists for this student, term, and fee type
-        const existingFee = await prisma.fee.findFirst({
-          where: {
-            studentId: student.id,
-            termId: termId,
-            feeType,
-          },
-        })
+    const targetStudentIds = targetStudents.map((student) => student.id)
+    const existingFees = await prisma.fee.findMany({
+      where: {
+        studentId: { in: targetStudentIds },
+        termId,
+        feeType,
+      },
+      select: { studentId: true },
+    })
+    const existingStudentIds = new Set(existingFees.map((fee) => fee.studentId))
+    const studentsToCreate = targetStudents.filter((student) => !existingStudentIds.has(student.id))
+    const duplicateStudents = targetStudents.filter((student) => existingStudentIds.has(student.id))
 
-        if (existingFee) {
-          results.failed++
-          results.errors.push(`Fee already exists for ${student.user.name} (${student.admissionNumber})`)
-          continue
-        }
+    results.failed = duplicateStudents.length
+    results.errors = duplicateStudents
+      .slice(0, 100)
+      .map((student) => `Fee already exists for ${student.user.name} (${student.admissionNumber})`)
 
-        // Fetch the term to get its academicYearId
-        const term = await prisma.term.findUnique({
-          where: { id: termId },
-          select: { academicYearId: true },
-        })
+    if (duplicateStudents.length > 100) {
+      results.errors.push(`${duplicateStudents.length - 100} additional duplicate fee(s) omitted from this response`)
+    }
 
-        if (!term) {
-          return NextResponse.json({ error: "Invalid termId" }, { status: 400 })
-        }
+    if (studentsToCreate.length > 0) {
+      const created = await prisma.fee.createMany({
+        data: studentsToCreate.map((student) => ({
+          studentId: student.id,
+          termId,
+          feeType,
+          amount: parseFloat(amount),
+          dueDate: new Date(dueDate),
+          remarks,
+          createdBy: session.user.id,
+          academicYearId: term.academicYearId,
+        })),
+      })
 
-        await prisma.fee.create({
-          data: {
-            studentId: student.id,
-            termId: termId,
-            feeType,
-            amount: parseFloat(amount),
-            dueDate: new Date(dueDate),
-            remarks,
-            createdBy: session.user.id,
-            academicYearId: term.academicYearId,
-          },
-        })
-
-        results.success++
-      } catch (error: any) {
-        results.failed++
-        results.errors.push(`Failed to create fee for ${student.user.name}: ${error.message}`)
-      }
+      results.success = created.count
     }
 
     // Log audit trail

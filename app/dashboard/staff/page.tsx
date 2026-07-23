@@ -9,21 +9,47 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Upload, Edit, Trash2, Mail, CheckCircle } from "lucide-react"
+import { Plus, Upload, Edit, Trash2, Mail, CheckCircle, Search } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Staff {
   id: string
   employeeId: string
   designation: string
   department: string | null
+  departmentId?: string | null
+  departmentRef?: {
+    id: string
+    name: string
+    code: string
+  } | null
+  staffSubjects?: Array<{
+    subject: {
+      id: string
+      name: string
+      code: string
+    }
+  }>
   status: string
   user: {
     name: string
     email: string
     phone: string | null
   }
+}
+
+interface Department {
+  id: string
+  name: string
+  code: string
+}
+
+interface Subject {
+  id: string
+  name: string
+  code: string
 }
 
 export default function StaffPage() {
@@ -34,25 +60,82 @@ export default function StaffPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const { toast } = useToast()
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [subjects, setSubjects] = useState<Subject[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [designationFilter, setDesignationFilter] = useState("all")
+  const [departmentFilter, setDepartmentFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchStaff()
+    fetchDepartments()
+    fetchSubjects()
   }, [])
+
+  useEffect(() => {
+    fetchStaff()
+  }, [page, limit, designationFilter, departmentFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchStaff()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const fetchStaff = async () => {
     try {
-      const res = await fetch("/api/staff?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          designation: designationFilter === "all" ? undefined : designationFilter,
+          departmentId: departmentFilter === "all" ? undefined : departmentFilter,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/staff?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setStaff(Array.isArray(data) ? data : (data.data || []))
+      setStaff(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
     } catch (error) {
       console.error("Failed to fetch staff:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch("/api/departments?noPagination=true")
+      const data = await res.json()
+      setDepartments(Array.isArray(data) ? data : (data.data || []))
+    } catch (error) {
+      console.error("Failed to fetch departments:", error)
+    }
+  }
+
+  const fetchSubjects = async () => {
+    try {
+      const res = await fetch("/api/subjects?noPagination=true")
+      const data = await res.json()
+      setSubjects(Array.isArray(data) ? data : (data.data || []))
+    } catch (error) {
+      console.error("Failed to fetch subjects:", error)
     }
   }
 
@@ -74,7 +157,9 @@ export default function StaffPage() {
         phone: formData.get("phone"),
         role: formData.get("role"),
         designation: formData.get("designation"),
+        departmentId: formData.get("departmentId") === "none" ? null : formData.get("departmentId"),
         department: formData.get("department"),
+        subjectIds: formData.getAll("subjectIds"),
         qualification: formData.get("qualification"),
         experience: formData.get("experience"),
         salary: formData.get("salary"),
@@ -308,8 +393,20 @@ export default function StaffPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Input id="department" name="department" />
+                    <Label htmlFor="departmentId">Department</Label>
+                    <Select name="departmentId" defaultValue="none">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No department</SelectItem>
+                        {departments.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.code} - {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="qualification">Qualification</Label>
@@ -347,6 +444,21 @@ export default function StaffPage() {
                   <div className="space-y-2">
                     <Label htmlFor="salary">Salary</Label>
                     <Input id="salary" name="salary" type="number" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Subjects</Label>
+                  <div className="grid max-h-36 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                    {subjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No subjects available.</p>
+                    ) : (
+                      subjects.map((subject) => (
+                        <label key={subject.id} className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" name="subjectIds" value={subject.id} />
+                          <span>{subject.code} - {subject.name}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -427,8 +539,20 @@ export default function StaffPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-department">Department</Label>
-                    <Input id="edit-department" name="department" defaultValue={editingStaff.department || ""} />
+                    <Label htmlFor="edit-departmentId">Department</Label>
+                    <Select name="departmentId" defaultValue={editingStaff.departmentId || "none"}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No department</SelectItem>
+                        {departments.map((department) => (
+                          <SelectItem key={department.id} value={department.id}>
+                            {department.code} - {department.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-qualification">Qualification</Label>
@@ -474,6 +598,24 @@ export default function StaffPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Subjects</Label>
+                  <div className="grid max-h-36 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                    {subjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No subjects available.</p>
+                    ) : (
+                      subjects.map((subject) => {
+                        const assigned = editingStaff.staffSubjects?.some((item) => item.subject.id === subject.id)
+                        return (
+                          <label key={subject.id} className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="subjectIds" value={subject.id} defaultChecked={assigned} />
+                            <span>{subject.code} - {subject.name}</span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="edit-joiningDate">Joining Date</Label>
                   <Input id="edit-joiningDate" name="joiningDate" type="date" />
                 </div>
@@ -490,10 +632,59 @@ export default function StaffPage() {
         <CardHeader>
           <CardTitle>All Staff</CardTitle>
           <CardDescription>
-            {staff.length} staff member(s) found
+            Search and filter staff records at the database layer.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px_260px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search staff..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={designationFilter}
+              onValueChange={(value) => {
+                setDesignationFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Designation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All designations</SelectItem>
+                <SelectItem value="TEACHER">Teacher</SelectItem>
+                <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={departmentFilter}
+              onValueChange={(value) => {
+                setDepartmentFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                {departments.map((department) => (
+                  <SelectItem key={department.id} value={department.id}>
+                    {department.code} - {department.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : (
@@ -505,6 +696,7 @@ export default function StaffPage() {
                   <TableHead>Email</TableHead>
                   <TableHead>Designation</TableHead>
                   <TableHead>Department</TableHead>
+                  <TableHead>Subjects</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -516,7 +708,12 @@ export default function StaffPage() {
                     <TableCell>{member.user.name}</TableCell>
                     <TableCell>{member.user.email}</TableCell>
                     <TableCell>{member.designation}</TableCell>
-                    <TableCell>{member.department || "-"}</TableCell>
+                    <TableCell>{member.departmentRef ? `${member.departmentRef.code} - ${member.departmentRef.name}` : member.department || "-"}</TableCell>
+                    <TableCell>
+                      {member.staffSubjects && member.staffSubjects.length > 0
+                        ? member.staffSubjects.map((item) => item.subject.code).join(", ")
+                        : "-"}
+                    </TableCell>
                     <TableCell>
                       <span
                         className={`px-2 py-1 rounded-full text-xs ${
@@ -560,6 +757,9 @@ export default function StaffPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

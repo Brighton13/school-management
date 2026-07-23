@@ -75,6 +75,7 @@ export default function AuditTrailsPage() {
   const [userId, setUserId] = useState<string>("all")
   const [action, setAction] = useState<string>("all")
   const [entityType, setEntityType] = useState<string>("all")
+  const [searchTerm, setSearchTerm] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
 
@@ -84,7 +85,7 @@ export default function AuditTrailsPage() {
 
   useEffect(() => {
     fetchAuditTrails()
-  }, [userId, action, entityType, startDate, endDate, offset])
+  }, [userId, action, entityType, searchTerm, startDate, endDate, offset])
 
   const fetchUsers = async () => {
     try {
@@ -110,6 +111,7 @@ export default function AuditTrailsPage() {
       if (userId !== "all") params.append("userId", userId)
       if (action !== "all") params.append("action", action)
       if (entityType !== "all") params.append("entityType", entityType)
+      if (searchTerm) params.append("search", searchTerm)
       if (startDate) params.append("startDate", startDate)
       if (endDate) params.append("endDate", endDate)
 
@@ -122,8 +124,8 @@ export default function AuditTrailsPage() {
         throw new Error(`Failed to fetch audit trails: ${res.statusText}`)
       }
       const data = await res.json()
-      setAuditTrails(data.data)
-      setTotal(data.total)
+      setAuditTrails(data.data || [])
+      setTotal(data.pagination?.total || data.total || 0)
     } catch (error) {
       console.error("Failed to fetch audit trails:", error)
     } finally {
@@ -198,10 +200,25 @@ export default function AuditTrailsPage() {
           <CardTitle>Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid gap-4 md:grid-cols-6">
+            <div className="space-y-2 md:col-span-2">
+              <Label>Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="User, action, entity..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setOffset(0)
+                  }}
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>User</Label>
-              <Select value={userId} onValueChange={setUserId}>
+              <Select value={userId} onValueChange={(value) => { setUserId(value); setOffset(0) }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -217,7 +234,7 @@ export default function AuditTrailsPage() {
             </div>
             <div className="space-y-2">
               <Label>Action</Label>
-              <Select value={action} onValueChange={setAction}>
+              <Select value={action} onValueChange={(value) => { setAction(value); setOffset(0) }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -233,7 +250,7 @@ export default function AuditTrailsPage() {
             </div>
             <div className="space-y-2">
               <Label>Entity Type</Label>
-              <Select value={entityType} onValueChange={setEntityType}>
+              <Select value={entityType} onValueChange={(value) => { setEntityType(value); setOffset(0) }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Edit, Trash2, CheckCircle, XCircle, Search } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Exam {
   id: string
@@ -69,6 +70,16 @@ export default function ExamsPage() {
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("all")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterClassId, setFilterClassId] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
   
   // Form state for Select components
   const [formExamType, setFormExamType] = useState("")
@@ -87,10 +98,55 @@ export default function ExamsPage() {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    fetchExams()
+  }, [page, limit, activeTab, filterClassId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchExams()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const getStatusFilter = () => {
+    if (activeTab === "active") return "ACTIVE"
+    if (activeTab === "completed") return "COMPLETED"
+    if (activeTab === "pending") return "DRAFT"
+    return undefined
+  }
+
+  const fetchExams = async () => {
+    try {
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          status: getStatusFilter(),
+          classId: filterClassId === "all" ? undefined : filterClassId,
+        },
+        { page, limit }
+      )
+      const examsRes = await fetch(`/api/exams?${queryString}`)
+      if (examsRes.status === 401 || examsRes.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
+      const examsData = await examsRes.json()
+      setExams(examsData.data || [])
+      if (examsData.pagination) setPaginationInfo(examsData.pagination)
+    } catch (error) {
+      console.error("Failed to fetch exams:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     try {
       const [examsRes, termsRes, classesRes] = await Promise.all([
-        fetch("/api/exams?noPagination=true"),
+        fetch(`/api/exams?${buildPaginatedQuery({}, { page, limit })}`),
         fetch("/api/terms?noPagination=true"),
         fetch("/api/classes?noPagination=true"),
       ])
@@ -102,7 +158,8 @@ export default function ExamsPage() {
       const examsData = await examsRes.json()
       const termsData = await termsRes.json()
       
-      setExams(Array.isArray(examsData) ? examsData : (examsData.data || []))
+      setExams(examsData.data || [])
+      if (examsData.pagination) setPaginationInfo(examsData.pagination)
       setTerms(Array.isArray(termsData) ? termsData : (termsData.data || []))
       if (classesRes.ok) {
         const classesData = await classesRes.json()
@@ -238,20 +295,6 @@ export default function ExamsPage() {
       alert(`Failed to ${action} exam. Please try again.`)
     }
   }
-
-  // Filter exams based on active tab
-  const filteredExams = exams.filter((exam) => {
-    if (activeTab === "pending") {
-      return exam.status === "DRAFT" && exam.requiresApproval
-    }
-    if (activeTab === "active") {
-      return exam.status === "ACTIVE"
-    }
-    if (activeTab === "completed") {
-      return exam.status === "COMPLETED"
-    }
-    return true // "all" tab
-  })
 
   if (permissionDenied) {
     return (
@@ -409,7 +452,7 @@ export default function ExamsPage() {
         <CardHeader>
           <CardTitle>Exams</CardTitle>
           <CardDescription>
-            {filteredExams.length} exam(s) found
+            Search and filter exams without loading the full exam history.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -418,17 +461,45 @@ export default function ExamsPage() {
           ) : (
             <>
               {canApprove && (
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
+                <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); resetPagination() }} className="mb-4">
                   <TabsList>
                     <TabsTrigger value="all">All Exams</TabsTrigger>
-                    <TabsTrigger value="pending">
-                      Pending Approval ({exams.filter(e => e.status === "DRAFT" && e.requiresApproval).length})
-                    </TabsTrigger>
+                    <TabsTrigger value="pending">Pending Approval</TabsTrigger>
                     <TabsTrigger value="active">Active</TabsTrigger>
                     <TabsTrigger value="completed">Completed</TabsTrigger>
                   </TabsList>
                 </Tabs>
               )}
+              <div className="mb-4 grid gap-3 md:grid-cols-[1fr_220px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Search exams..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                  />
+                </div>
+                <Select
+                  value={filterClassId}
+                  onValueChange={(value) => {
+                    setFilterClassId(value)
+                    resetPagination()
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All classes</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.id} value={cls.id}>
+                        {cls.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -443,14 +514,14 @@ export default function ExamsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredExams.length === 0 ? (
+                  {exams.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No exams found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredExams.map((exam) => (
+                    exams.map((exam) => (
                       <TableRow key={exam.id}>
                         <TableCell className="font-medium">{exam.name}</TableCell>
                         <TableCell>{exam.examType}</TableCell>
@@ -540,6 +611,9 @@ export default function ExamsPage() {
                   )}
                 </TableBody>
               </Table>
+              {paginationInfo.total > 0 && (
+                <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
+              )}
             </>
           )}
         </CardContent>

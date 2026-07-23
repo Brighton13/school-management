@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { createBulkNotifications } from "@/lib/notifications"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 // Helper function to get MIME type from filename
 function getMimeType(filename: string): string {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         attachments: true,
       },
       orderBy: { createdAt: "desc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     if (noPagination) {

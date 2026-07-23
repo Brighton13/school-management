@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Trash2, Calendar, CheckCircle, Clock, Archive, ChevronDown, ChevronRight } from "lucide-react"
+import { Plus, Pencil, Trash2, Calendar, CheckCircle, Clock, Archive, ChevronDown, ChevronRight, Search } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import {
   AlertDialog,
@@ -28,6 +28,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { useToast } from "@/hooks/use-toast"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Term {
   id: string
@@ -68,23 +69,50 @@ export default function AcademicYearsPage() {
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
   const [settingCurrent, setSettingCurrent] = useState<string | null>(null)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
   const { toast } = useToast()
 
   useEffect(() => {
     fetchAcademicYears()
-  }, [])
+  }, [page, limit, statusFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchAcademicYears()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const fetchAcademicYears = async () => {
     try {
-      const res = await fetch("/api/academic-years?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          status: statusFilter === "all" ? undefined : statusFilter,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/academic-years?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const responseData = await res.json()
-      const data = Array.isArray(responseData) ? responseData : (responseData.data || [])
+      const data = responseData.data || []
       setAcademicYears(data)
+      if (responseData.pagination) setPaginationInfo(responseData.pagination)
       // Auto-expand current year
       const currentYear = data.find((y: AcademicYear) => y.isCurrent)
       if (currentYear) {
@@ -505,10 +533,38 @@ export default function AcademicYearsPage() {
         <CardHeader>
           <CardTitle>All Academic Years</CardTitle>
           <CardDescription>
-            Click on a year to view and manage its terms
+            Search and filter academic years without loading the full history.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_200px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search academic years..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : academicYears.length === 0 ? (
@@ -677,6 +733,9 @@ export default function AcademicYearsPage() {
                 </Collapsible>
               ))}
             </div>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

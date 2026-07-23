@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File
     const classId = formData.get("classId") as string
     const sectionId = formData.get("sectionId") as string
-    const academicYear = formData.get("academicYear") as string
+    const academicYearId = (formData.get("academicYearId") || formData.get("academicYear")) as string
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    if (!classId || !sectionId || !academicYear) {
+    if (!classId || !sectionId || !academicYearId) {
       return NextResponse.json(
         { error: "Class, Section, and Academic Year are required" },
         { status: 400 }
@@ -50,6 +50,14 @@ export async function POST(request: NextRequest) {
         { error: "Section not found or does not belong to the selected class" },
         { status: 400 }
       )
+    }
+
+    const academicYear = await prisma.academicYear.findUnique({
+      where: { id: academicYearId.trim() },
+    })
+
+    if (!academicYear) {
+      return NextResponse.json({ error: "Academic year not found" }, { status: 400 })
     }
 
     const text = await file.text()
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
             studentId: student.id,
             classId: classId,
             sectionId: sectionId,
-            academicYearId: academicYear.trim(),
+            academicYearId: academicYear.id,
           },
         })
 
@@ -134,7 +142,7 @@ export async function POST(request: NextRequest) {
       request,
       {
         description: `Bulk enrolled ${results.success} students (${results.failed} failed)`,
-        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classId, sectionId, academicYear },
+        metadata: { success: results.success, failed: results.failed, total: results.success + results.failed, classId, sectionId, academicYearId: academicYear.id },
       }
     )
 

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Upload, Download, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 
@@ -20,6 +19,13 @@ interface Section {
   classId: string
 }
 
+interface AcademicYear {
+  id: string
+  year: string
+  isCurrent?: boolean
+  isUpcoming?: boolean
+}
+
 export function BulkUploadClassSection() {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -27,7 +33,8 @@ export function BulkUploadClassSection() {
   const [sections, setSections] = useState<Section[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
-  const [academicYear, setAcademicYear] = useState<string>("")
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
+  const [academicYearId, setAcademicYearId] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [results, setResults] = useState<{
     success: number
@@ -37,6 +44,7 @@ export function BulkUploadClassSection() {
 
   useEffect(() => {
     fetchClasses()
+    fetchAcademicYears()
   }, [])
 
   useEffect(() => {
@@ -50,11 +58,12 @@ export function BulkUploadClassSection() {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch("/api/classes")
+      const response = await fetch("/api/classes?noPagination=true")
       const data = await response.json()
-      setClasses(data)
+      setClasses(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch classes:", error)
+      setClasses([])
     } finally {
       setLoading(false)
     }
@@ -62,12 +71,28 @@ export function BulkUploadClassSection() {
 
   const fetchSections = async (classId: string) => {
     try {
-      const response = await fetch(`/api/sections?classId=${classId}`)
+      const response = await fetch(`/api/sections?classId=${classId}&noPagination=true`)
       const data = await response.json()
-      setSections(data)
+      setSections(Array.isArray(data) ? data : (data.data || []))
     } catch (error) {
       console.error("Failed to fetch sections:", error)
       setSections([])
+    }
+  }
+
+  const fetchAcademicYears = async () => {
+    try {
+      const response = await fetch("/api/academic-years?noPagination=true")
+      const data = await response.json()
+      const years = Array.isArray(data) ? data : (data.data || [])
+      setAcademicYears(years)
+      const currentYear = years.find((year: AcademicYear) => year.isCurrent)
+      if (currentYear) {
+        setAcademicYearId(currentYear.id)
+      }
+    } catch (error) {
+      console.error("Failed to fetch academic years:", error)
+      setAcademicYears([])
     }
   }
 
@@ -107,8 +132,8 @@ export function BulkUploadClassSection() {
       return
     }
 
-    if (!academicYear) {
-      alert("Please enter academic year")
+    if (!academicYearId) {
+      alert("Please select academic year")
       return
     }
 
@@ -120,7 +145,7 @@ export function BulkUploadClassSection() {
       formData.append("file", file)
       formData.append("classId", selectedClassId)
       formData.append("sectionId", selectedSectionId)
-      formData.append("academicYear", academicYear)
+      formData.append("academicYearId", academicYearId)
 
       const response = await fetch("/api/bulk/enrollment-class-section", {
         method: "POST",
@@ -215,14 +240,19 @@ export function BulkUploadClassSection() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="academicYear">Academic Year *</Label>
-            <Input
-              id="academicYear"
-              value={academicYear}
-              onChange={(e) => setAcademicYear(e.target.value)}
-              placeholder="e.g., 2024-2025"
-              required
-            />
+            <Label htmlFor="academicYearId">Academic Year *</Label>
+            <Select value={academicYearId} onValueChange={setAcademicYearId} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select academic year" />
+              </SelectTrigger>
+              <SelectContent>
+                {academicYears.map((year) => (
+                  <SelectItem key={year.id} value={year.id}>
+                    {year.year}{year.isCurrent ? " (Current)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
               Students will be enrolled for the entire academic year
             </p>
@@ -248,7 +278,7 @@ export function BulkUploadClassSection() {
 
         <Button
           onClick={handleUpload}
-          disabled={!file || !selectedClassId || !selectedSectionId || !academicYear  || uploading}
+          disabled={!file || !selectedClassId || !selectedSectionId || !academicYearId || uploading}
           className="w-full"
         >
           {uploading ? "Uploading..." : "Upload & Enroll Students"}

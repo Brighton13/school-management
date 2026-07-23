@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
-import { parsePaginationParams, createPaginatedResponse } from "@/lib/pagination"
+import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search")
     const status = searchParams.get("status")
     const noPagination = searchParams.get("noPagination") === "true"
+    const compact = searchParams.get("compact") === "true"
     
     // Parse pagination params
     const { page, limit, offset } = parsePaginationParams(searchParams)
@@ -49,12 +50,19 @@ export async function GET(request: NextRequest) {
       }
 
       // Get students enrolled in this class/section
+      const listLimit = parseBoundedListLimit(searchParams, 250)
       const enrollments = await prisma.classEnrollment.findMany({
         where: enrollmentWhere,
         include: {
           student: {
-            include: {
-              user: true,
+            select: {
+              id: true,
+              admissionNumber: true,
+              user: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -63,6 +71,7 @@ export async function GET(request: NextRequest) {
             admissionNumber: "asc",
           },
         },
+        take: listLimit,
       })
 
       // Map to student format expected by frontend
@@ -195,6 +204,31 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const total = await prisma.student.count({ where: whereClause })
 
+    if (compact) {
+      const listLimit = noPagination ? parseBoundedListLimit(searchParams) : limit
+      const students = await prisma.student.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          admissionNumber: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { admissionNumber: "asc" },
+        ...(noPagination ? { take: listLimit } : { skip: offset, take: limit }),
+      })
+
+      if (noPagination) {
+        return NextResponse.json(students)
+      }
+
+      return NextResponse.json(createPaginatedResponse(students, total, page, limit))
+    }
+
     const students = await prisma.student.findMany({
       where: whereClause,
       include: {
@@ -218,7 +252,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
-      ...(noPagination ? {} : { skip: offset, take: limit }),
+      ...(noPagination ? { take: parseBoundedListLimit(searchParams) } : { skip: offset, take: limit }),
     })
 
     // Return without pagination wrapper if noPagination is true (for dropdowns, etc.)

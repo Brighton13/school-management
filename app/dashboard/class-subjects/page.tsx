@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Edit, Trash2, Users, BookOpen, GraduationCap, Layers } from "lucide-react"
+import { Plus, Edit, Trash2, Users, BookOpen, GraduationCap, Layers, Search } from "lucide-react"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface ClassSubject {
   id: string
@@ -71,15 +72,62 @@ export default function ClassSubjectsPage() {
   const [filterClass, setFilterClass] = useState<string>("all")
   const [filterSection, setFilterSection] = useState<string>("all")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchData()
   }, [])
 
+  useEffect(() => {
+    fetchClassSubjects()
+  }, [page, limit, filterClass, filterSection])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchClassSubjects()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const fetchClassSubjects = async () => {
+    try {
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          classId: filterClass === "all" ? undefined : filterClass,
+          sectionId: filterSection === "all" ? undefined : filterSection,
+        },
+        { page, limit }
+      )
+      const classSubjectsRes = await fetch(`/api/class-subjects?${queryString}`)
+      if (classSubjectsRes.status === 401 || classSubjectsRes.status === 403) {
+        setPermissionDenied(true)
+        return
+      }
+      const data = await classSubjectsRes.json()
+      setClassSubjects(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
+    } catch (error) {
+      console.error("Failed to fetch class subjects:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     try {
       const [classSubjectsRes, classesRes, sectionsRes, subjectsRes, staffRes] = await Promise.all([
-        fetch("/api/class-subjects?noPagination=true"),
+        fetch(`/api/class-subjects?${buildPaginatedQuery({}, { page, limit })}`),
         fetch("/api/classes?noPagination=true"),
         fetch("/api/sections?noPagination=true"),
         fetch("/api/subjects?noPagination=true"),
@@ -92,7 +140,8 @@ export default function ClassSubjectsPage() {
       }
       if (classSubjectsRes.ok) {
         const data = await classSubjectsRes.json()
-        setClassSubjects(Array.isArray(data) ? data : (data.data || []))
+        setClassSubjects(data.data || [])
+        if (data.pagination) setPaginationInfo(data.pagination)
       }
       if (classesRes.ok) {
         const data = await classesRes.json()
@@ -133,13 +182,6 @@ export default function ClassSubjectsPage() {
       .map(cs => cs.subject.id)
     return subjects.filter(s => !assignedSubjectIds.includes(s.id))
   }
-
-  // Filter class subjects based on selected class and section
-  const filteredClassSubjects = classSubjects.filter(cs => {
-    if (filterClass !== "all" && cs.class.id !== filterClass) return false
-    if (filterSection !== "all" && cs.section?.id !== filterSection) return false
-    return true
-  })
 
   // Group class subjects by class/section for overview
   const classSubjectsBySection = sections.map(section => {
@@ -580,13 +622,23 @@ export default function ClassSubjectsPage() {
                 <div>
                   <CardTitle>All Class Subjects</CardTitle>
                   <CardDescription>
-                    {filteredClassSubjects.length} assignment(s) found
+                    Search and filter class-subject records at the database layer.
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      className="w-64 pl-9"
+                      placeholder="Search class subjects..."
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                    />
+                  </div>
                   <Select value={filterClass} onValueChange={(value) => {
                     setFilterClass(value)
                     setFilterSection("all")
+                    resetPagination()
                   }}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Filter by class" />
@@ -602,7 +654,10 @@ export default function ClassSubjectsPage() {
                   </Select>
                   <Select 
                     value={filterSection} 
-                    onValueChange={setFilterSection}
+                    onValueChange={(value) => {
+                      setFilterSection(value)
+                      resetPagination()
+                    }}
                     disabled={filterClass === "all"}
                   >
                     <SelectTrigger className="w-40">
@@ -639,7 +694,7 @@ export default function ClassSubjectsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredClassSubjects.map((cs) => (
+                      {classSubjects.map((cs) => (
                         <TableRow key={cs.id}>
                           <TableCell className="font-medium">{cs.class.name}</TableCell>
                           <TableCell>{cs.section?.name || "-"}</TableCell>
@@ -682,6 +737,9 @@ export default function ClassSubjectsPage() {
                       ))}
                     </TableBody>
                   </Table>
+                  {paginationInfo.total > 0 && (
+                    <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
+                  )}
                 </div>
               )}
             </CardContent>

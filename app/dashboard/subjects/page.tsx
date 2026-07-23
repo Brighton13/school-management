@@ -9,14 +9,27 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2 } from "lucide-react"
+import { Plus, Edit, Trash2, Search } from "lucide-react"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Subject {
   id: string
   name: string
   code: string
+  departmentId?: string | null
+  department?: {
+    id: string
+    name: string
+    code: string
+  } | null
   description: string | null
   type: string
+}
+
+interface Department {
+  id: string
+  name: string
+  code: string
 }
 
 export default function SubjectsPage() {
@@ -26,25 +39,70 @@ export default function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [departmentFilter, setDepartmentFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchSubjects()
+    fetchDepartments()
   }, [])
+
+  useEffect(() => {
+    fetchSubjects()
+  }, [page, limit, typeFilter, departmentFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchSubjects()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const fetchSubjects = async () => {
     try {
-      const res = await fetch("/api/subjects?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          type: typeFilter === "all" ? undefined : typeFilter,
+          departmentId: departmentFilter === "all" ? undefined : departmentFilter,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/subjects?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      setSubjects(Array.isArray(data) ? data : (data.data || []))
+      setSubjects(data.data || [])
+      if (data.pagination) setPaginationInfo(data.pagination)
     } catch (error) {
       console.error("Failed to fetch subjects:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch("/api/departments?noPagination=true")
+      const data = await res.json()
+      setDepartments(Array.isArray(data) ? data : (data.data || []))
+    } catch (error) {
+      console.error("Failed to fetch departments:", error)
     }
   }
 
@@ -62,6 +120,7 @@ export default function SubjectsPage() {
         body: JSON.stringify({
           name: formData.get("name"),
           code: formData.get("code"),
+          departmentId: formData.get("departmentId") === "none" ? null : formData.get("departmentId"),
           description: formData.get("description"),
           type: formData.get("type"),
         }),
@@ -151,6 +210,22 @@ export default function SubjectsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="departmentId">Department</Label>
+                  <Select name="departmentId" defaultValue="none">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No department</SelectItem>
+                      {departments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.code} - {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Input id="description" name="description" />
                 </div>
@@ -199,6 +274,22 @@ export default function SubjectsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="edit-departmentId">Department</Label>
+                  <Select name="departmentId" defaultValue={editingSubject.departmentId || "none"}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No department</SelectItem>
+                      {departments.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>
+                          {department.code} - {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="edit-description">Description</Label>
                   <Input id="edit-description" name="description" defaultValue={editingSubject.description || ""} />
                 </div>
@@ -228,10 +319,57 @@ export default function SubjectsPage() {
         <CardHeader>
           <CardTitle>All Subjects</CardTitle>
           <CardDescription>
-            {subjects.length} subject(s) found
+            Search and filter subjects without loading the full subject list.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-[1fr_180px_260px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search subjects..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={typeFilter}
+              onValueChange={(value) => {
+                setTypeFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="CORE">Core</SelectItem>
+                <SelectItem value="ELECTIVE">Elective</SelectItem>
+                <SelectItem value="OPTIONAL">Optional</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={departmentFilter}
+              onValueChange={(value) => {
+                setDepartmentFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All departments</SelectItem>
+                {departments.map((department) => (
+                  <SelectItem key={department.id} value={department.id}>
+                    {department.code} - {department.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {loading ? (
             <div className="text-center py-8">Loading...</div>
           ) : (
@@ -240,6 +378,7 @@ export default function SubjectsPage() {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Department</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
@@ -250,6 +389,7 @@ export default function SubjectsPage() {
                   <TableRow key={subject.id}>
                     <TableCell className="font-medium">{subject.code}</TableCell>
                     <TableCell>{subject.name}</TableCell>
+                    <TableCell>{subject.department ? `${subject.department.code} - ${subject.department.name}` : "-"}</TableCell>
                     <TableCell>{subject.description || "-"}</TableCell>
                     <TableCell>
                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
@@ -278,6 +418,9 @@ export default function SubjectsPage() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {paginationInfo.total > 0 && (
+            <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
           )}
         </CardContent>
       </Card>

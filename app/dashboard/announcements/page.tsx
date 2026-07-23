@@ -9,11 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Bell, Eye, EyeOff, Trash2, ExternalLink, Paperclip } from "lucide-react"
+import { Plus, Bell, Eye, EyeOff, Trash2, ExternalLink, Paperclip, Search } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import FileUpload from "@/components/ui/file-upload"
 import { FileTypes } from "@/lib/fileserver"
+import { Pagination, usePagination, PaginationInfo, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Announcement {
   id: string
@@ -47,21 +48,50 @@ export default function AnnouncementsPage() {
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ filename: string; url: string }>>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [audienceFilter, setAudienceFilter] = useState("all")
+  const { page, limit, setPage, setLimit, reset: resetPagination } = usePagination(25)
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  })
 
   useEffect(() => {
     fetchAnnouncements()
-  }, [])
+  }, [page, limit, typeFilter, audienceFilter])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      resetPagination()
+      fetchAnnouncements()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch("/api/announcements?noPagination=true")
+      setLoading(true)
+      const queryString = buildPaginatedQuery(
+        {
+          search: searchTerm || undefined,
+          type: typeFilter === "all" ? undefined : typeFilter,
+          targetAudience: audienceFilter === "all" ? undefined : audienceFilter,
+        },
+        { page, limit }
+      )
+      const res = await fetch(`/api/announcements?${queryString}`)
       if (res.status === 401 || res.status === 403) {
         setPermissionDenied(true)
         setLoading(false)
         return
       }
       const data = await res.json()
-      const announcementsArr = Array.isArray(data) ? data : (data.data || [])
+      const announcementsArr = data.data || []
+      if (data.pagination) setPaginationInfo(data.pagination)
       
       // Ensure data is an array
       if (Array.isArray(announcementsArr)) {
@@ -304,6 +334,58 @@ export default function AnnouncementsPage() {
         )}
       </div>
 
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid gap-3 md:grid-cols-[1fr_180px_180px]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Search announcements..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <Select
+              value={typeFilter}
+              onValueChange={(value) => {
+                setTypeFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="GENERAL">General</SelectItem>
+                <SelectItem value="ACADEMIC">Academic</SelectItem>
+                <SelectItem value="EVENT">Event</SelectItem>
+                <SelectItem value="URGENT">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={audienceFilter}
+              onValueChange={(value) => {
+                setAudienceFilter(value)
+                resetPagination()
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Audience" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All audiences</SelectItem>
+                <SelectItem value="ALL">All</SelectItem>
+                <SelectItem value="STUDENTS">Students</SelectItem>
+                <SelectItem value="PARENTS">Parents</SelectItem>
+                <SelectItem value="STAFF">Staff</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <div className="col-span-full text-center py-8">Loading...</div>
@@ -401,6 +483,9 @@ export default function AnnouncementsPage() {
           ))
         )}
       </div>
+      {paginationInfo.total > 0 && (
+        <Pagination pagination={paginationInfo} onPageChange={setPage} onLimitChange={setLimit} />
+      )}
     </div>
   )
 }

@@ -25,6 +25,7 @@ import {
   Activity,
   Mail,
   Shield,
+  KeyRound,
 } from "lucide-react"
 import { useSecureLogout } from "@/hooks/use-secure-logout"
 import { Button } from "@/components/ui/button"
@@ -64,6 +65,7 @@ const menuItems = [
   { name: "Report Config", href: "/dashboard/settings/report-config", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
   { name: "Audit Trails", href: "/dashboard/audit-trails", icon: History, roles: ["ADMIN", "PRINCIPAL"] },
   { name: "Session Logs", href: "/dashboard/session-logs", icon: Activity, roles: ["ADMIN", "PRINCIPAL"] },
+  { name: "Subscription License", href: "/dashboard/license", icon: KeyRound, roles: ["ADMIN", "PRINCIPAL"] },
   { name: "Email Config", href: "/dashboard/email-config", icon: Mail, roles: ["ADMIN", "PRINCIPAL"] },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN", "PRINCIPAL"] },
 ]
