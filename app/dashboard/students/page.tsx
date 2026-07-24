@@ -58,6 +58,14 @@ interface TeacherClass {
   sections: TeacherClassSection[]
 }
 
+interface AcademicYear {
+  id: string
+  year: string
+  isCurrent: boolean
+  isUpcoming: boolean
+  status: string
+}
+
 export default function StudentsPage() {
   const { data: session } = useSession()
   const [students, setStudents] = useState<Student[]>([])
@@ -68,8 +76,10 @@ export default function StudentsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([])
   const [sections, setSections] = useState<Array<{ id: string; name: string; classId: string }>>([])
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([])
   const [selectedClassId, setSelectedClassId] = useState<string>("")
   const [selectedSectionId, setSelectedSectionId] = useState<string>("")
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [teacherSections, setTeacherSections] = useState<Array<{ id: string; name: string; class: { name: string } }>>([])
@@ -100,6 +110,7 @@ export default function StudentsPage() {
       fetchStudents()
     }
     fetchClasses()
+    fetchAcademicYears()
   }, [session])
 
   // Fetch students when teacher filter changes or pagination changes
@@ -202,6 +213,22 @@ export default function StudentsPage() {
     }
   }
 
+  const fetchAcademicYears = async () => {
+    try {
+      const res = await fetch("/api/academic-years?status=ACTIVE&noPagination=true")
+      const data = await res.json()
+      const years = Array.isArray(data) ? data : (data.data || [])
+      setAcademicYears(years)
+      const defaultYear = years.find((year: AcademicYear) => year.isCurrent) || years.find((year: AcademicYear) => year.isUpcoming) || years[0]
+      if (defaultYear) {
+        setSelectedAcademicYearId(defaultYear.id)
+      }
+    } catch (error) {
+      console.error("Failed to fetch academic years:", error)
+      setAcademicYears([])
+    }
+  }
+
   const fetchTeacherSections = async () => {
     try {
       const res = await fetch("/api/teacher-sections")
@@ -246,7 +273,6 @@ export default function StudentsPage() {
         email: formData.get("email"),
         name: formData.get("name"),
         phone: formData.get("phone"),
-        admissionNumber: formData.get("admissionNumber"),
         dateOfBirth: formData.get("dateOfBirth"),
         gender: formData.get("gender"),
         address: formData.get("address"),
@@ -254,8 +280,6 @@ export default function StudentsPage() {
       }
 
       if (!editingStudent) {
-        body.password = formData.get("password")
-        
         // Add application fields if class is selected
         if (selectedClassId) {
           body.appliedClassId = selectedClassId
@@ -263,6 +287,8 @@ export default function StudentsPage() {
           body.academicYear = formData.get("academicYear")
           body.applicationNotes = formData.get("applicationNotes")
         }
+      } else {
+        body.admissionNumber = formData.get("admissionNumber")
       }
       
       const res = await fetch(url, {
@@ -277,6 +303,8 @@ export default function StudentsPage() {
         setEditingStudent(null)
         setSelectedClassId("")
         setSelectedSectionId("")
+        const defaultYear = academicYears.find((year) => year.isCurrent) || academicYears.find((year) => year.isUpcoming) || academicYears[0]
+        setSelectedAcademicYearId(defaultYear?.id || "")
         fetchStudents()
         e.currentTarget.reset()
       }
@@ -484,19 +512,18 @@ export default function StudentsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="phone">Phone</Label>
                     <Input id="phone" name="phone" />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Default Password</Label>
+                    <div className="rounded-md border bg-muted px-3 py-2 text-sm">
+                      Test1234
+                    </div>
+                    <p className="text-xs text-muted-foreground">The student will be asked to change it on first login.</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admissionNumber">Admission Number</Label>
-                    <Input id="admissionNumber" name="admissionNumber" required />
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="dateOfBirth">Date of Birth</Label>
                     <Input id="dateOfBirth" name="dateOfBirth" type="date" required />
@@ -524,6 +551,9 @@ export default function StudentsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <Input id="address" name="address" />
+                </div>
+                <div className="rounded-md border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  Admission number will be generated automatically when the student is saved.
                 </div>
 
                 {/* Application Intent Section */}
@@ -571,15 +601,26 @@ export default function StudentsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="academicYear">Academic Year</Label>
-                      <Input 
-                        id="academicYear" 
-                        name="academicYear" 
-                        placeholder="e.g., 2024-2025" 
+                      <Select
+                        name="academicYear"
+                        value={selectedAcademicYearId}
+                        onValueChange={setSelectedAcademicYearId}
                         disabled={!selectedClassId}
-                      />
+                      >
+                        <SelectTrigger id="academicYear">
+                          <SelectValue placeholder="Select academic year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {academicYears.map((year) => (
+                            <SelectItem key={year.id} value={year.id}>
+                              {year.year}{year.isCurrent ? " - Current" : year.isUpcoming ? " - Upcoming" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="applicationNotes">Teacher Remarks</Label>
+                      <Label htmlFor="applicationNotes">Notes</Label>
                       <Textarea 
                         id="applicationNotes" 
                         name="applicationNotes" 

@@ -23,6 +23,7 @@ model User {
   image     String?
   role      String   @default("STUDENT") // Legacy field - kept for backward compatibility
   isActive  Boolean  @default(true)
+  mustChangePassword Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

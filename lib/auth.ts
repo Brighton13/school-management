@@ -88,6 +88,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          mustChangePassword: user.mustChangePassword,
           permissions: Array.from(permissionSet)
         }
       }
@@ -99,6 +100,7 @@ export const authOptions: NextAuthOptions = {
         token.sub = user.id  // Ensure sub is set
         token.role = user.role
         token.permissions = user.permissions
+        token.mustChangePassword = user.mustChangePassword
         token.userId = user.id
       }
       
@@ -145,6 +147,7 @@ export const authOptions: NextAuthOptions = {
           }
           
           token.permissions = Array.from(permissionSet)
+          token.mustChangePassword = user.mustChangePassword
         }
       }
       
@@ -155,6 +158,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = (token.userId || token.sub) as string
         session.user.role = token.role as string
         session.user.permissions = token.permissions as string[]
+        session.user.mustChangePassword = Boolean(token.mustChangePassword)
       }
       return session
     }

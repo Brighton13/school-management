@@ -8,6 +8,7 @@ declare module "next-auth" {
       name: string
       role: string
       permissions: string[]
+      mustChangePassword: boolean
     }
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     name: string
     role: string
     permissions: string[]
+    mustChangePassword: boolean
   }
 }
 
@@ -24,6 +26,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     role: string
     permissions: string[]
+    mustChangePassword?: boolean
     userId?: string
   }
 }

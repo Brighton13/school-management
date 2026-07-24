@@ -8,6 +8,7 @@ import { Header } from "./header"
 import { IdleTimeoutProvider } from "@/components/idle-timeout/idle-timeout-provider"
 import { SessionValidator } from "@/components/session-validator"
 import { getLicenseStatus, isLicenseBlocking } from "@/lib/license"
+import { ForcePasswordChange } from "@/components/force-password-change"
 
 export default async function DashboardLayout({
   children,
@@ -45,6 +46,10 @@ export default async function DashboardLayout({
 
   if (!licenseBlocked && isMaintenancePage) {
     redirect("/dashboard")
+  }
+
+  if (session.user.mustChangePassword) {
+    return <ForcePasswordChange />
   }
 
   return (

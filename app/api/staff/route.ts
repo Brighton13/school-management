@@ -9,6 +9,7 @@ import { generateEmployeeId } from "@/lib/admission_number_gen"
 import crypto from "crypto"
 import { requirePermission, Permissions } from "@/lib/permissions"
 import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
+import { buildRequestUrl } from "@/lib/request-origin"
 
 export async function GET(request: NextRequest) {
   try {
@@ -208,9 +209,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Generate verification link
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`
+    // Generate verification link using the domain that made this request.
+    const verificationLink = buildRequestUrl(request, "/verify-email", { token: verificationToken })
 
     // Send verification email
     let emailSent = false

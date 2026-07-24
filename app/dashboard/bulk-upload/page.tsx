@@ -3,6 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BulkUpload } from "@/components/bulk-upload"
 import { BulkUploadClassSection } from "@/components/bulk-upload-class-section"
+import { BulkResultsUpload } from "@/components/bulk-results-upload"
 
 export default function BulkUploadPage() {
   return (
@@ -22,6 +23,7 @@ export default function BulkUploadPage() {
           <TabsTrigger value="enrollment">Enrollment</TabsTrigger>
           <TabsTrigger value="class-section-enrollment">Class & Section Enrollment</TabsTrigger>
           <TabsTrigger value="teacher-assignments">Teacher Assignments</TabsTrigger>
+          <TabsTrigger value="results">Results</TabsTrigger>
         </TabsList>
 
         <TabsContent value="students">
@@ -76,6 +78,10 @@ export default function BulkUploadPage() {
             templateEndpoint="/api/bulk/teacher-assignments"
             templateFileName="teacher_assignments_template.csv"
           />
+        </TabsContent>
+
+        <TabsContent value="results">
+          <BulkResultsUpload />
         </TabsContent>
       </Tabs>
     </div>

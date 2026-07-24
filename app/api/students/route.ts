@@ -6,6 +6,9 @@ import bcrypt from "bcryptjs"
 import { logAuditTrail } from "@/lib/audit"
 import { requirePermission, Permissions, hasPermission } from "@/lib/permissions"
 import { parsePaginationParams, createPaginatedResponse, parseBoundedListLimit } from "@/lib/pagination"
+import { generateAdmissionNumber } from "@/lib/admission_number_gen"
+
+const DEFAULT_STUDENT_PASSWORD = "Test1234"
 
 export async function GET(request: NextRequest) {
   try {
@@ -279,10 +282,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       email,
-      password,
       name,
       phone,
-      admissionNumber,
       dateOfBirth,
       gender,
       address,
@@ -293,7 +294,15 @@ export async function POST(request: NextRequest) {
       applicationNotes,
     } = body
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    if (!email || !name || !dateOfBirth || !gender) {
+      return NextResponse.json(
+        { error: "Name, email, date of birth, and gender are required" },
+        { status: 400 }
+      )
+    }
+
+    const admissionNumber = await generateAdmissionNumber()
+    const hashedPassword = await bcrypt.hash(DEFAULT_STUDENT_PASSWORD, 10)
 
     // Transaction: Create user, student, and application
     const result = await prisma.$transaction(async (tx) => {
@@ -304,6 +313,7 @@ export async function POST(request: NextRequest) {
           name,
           phone,
           role: "STUDENT",
+          mustChangePassword: true,
           student: {
             create: {
               admissionNumber,

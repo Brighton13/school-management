@@ -29,6 +29,14 @@ interface Exam {
   isFinal: boolean
 }
 
+function asList<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value
+  if (value && typeof value === "object" && Array.isArray((value as { data?: unknown }).data)) {
+    return (value as { data: T[] }).data
+  }
+  return []
+}
+
 export function BulkResultsUpload() {
   const { data: session } = useSession()
   const [file, setFile] = useState<File | null>(null)
@@ -63,21 +71,23 @@ export function BulkResultsUpload() {
   const fetchData = async () => {
     try {
       const [classSubjectsRes, termsRes] = await Promise.all([
-        fetch("/api/class-subjects"),
+        fetch("/api/class-subjects?noPagination=true"),
         fetch("/api/terms?noPagination=true"),
       ])
       
       if (classSubjectsRes.ok) {
         const data = await classSubjectsRes.json()
-        setClassSubjects(data)
+        setClassSubjects(asList<ClassSubject>(data))
       }
       
       if (termsRes.ok) {
         const data = await termsRes.json()
-        setTerms(data)
+        setTerms(asList<Term>(data))
       }
     } catch (error) {
       console.error("Failed to fetch data:", error)
+      setClassSubjects([])
+      setTerms([])
     } finally {
       setLoading(false)
     }
@@ -88,7 +98,9 @@ export function BulkResultsUpload() {
       const response = await fetch(`/api/exams?termId=${termId}&status=ACTIVE&noPagination=true`)
       if (response.ok) {
         const data = await response.json()
-        setExams(data)
+        setExams(asList<Exam>(data))
+      } else {
+        setExams([])
       }
     } catch (error) {
       console.error("Failed to fetch exams:", error)
@@ -265,7 +277,7 @@ export function BulkResultsUpload() {
               <SelectContent>
                 {classSubjects.map((cs) => (
                   <SelectItem key={cs.id} value={cs.id}>
-                    {cs.class.name}{cs.section ? ` - ${cs.section.name}` : ""} - {cs.subject.name} ({cs.subject.code})
+                    {cs.class?.name || "Unknown class"}{cs.section ? ` - ${cs.section.name}` : ""} - {cs.subject?.name || "Unknown subject"} ({cs.subject?.code || "N/A"})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -290,7 +302,7 @@ export function BulkResultsUpload() {
                 <SelectContent>
                   {terms.map((term) => (
                     <SelectItem key={term.id} value={term.id}>
-                      {term.name} - {term.academicYear.year}
+                      {term.name} - {term.academicYear?.year || "Unknown year"}
                     </SelectItem>
                   ))}
                 </SelectContent>

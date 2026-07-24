@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendPasswordResetEmail, loadEmailConfigFromDB } from "@/lib/email"
+import { buildRequestUrl } from "@/lib/request-origin"
 import crypto from "crypto"
 
 export async function POST(request: NextRequest) {
@@ -49,9 +50,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Generate reset link
-    const baseUrl = process.env.NEXTAUTH_URL 
-    const resetLink = `${baseUrl}/reset-password?token=${token}`
+    // Generate reset link using the domain that made this request.
+    const resetLink = buildRequestUrl(request, "/reset-password", { token })
 
     // Ensure email config is loaded
     await loadEmailConfigFromDB()

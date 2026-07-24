@@ -4,6 +4,7 @@ import { sendStaffVerificationEmail, loadEmailConfigFromDB } from "@/lib/email"
 import crypto from "crypto"
 import { requirePermission, Permissions } from "@/lib/permissions"
 import { logAuditTrail } from "@/lib/audit"
+import { buildRequestUrl } from "@/lib/request-origin"
 
 export async function POST(
   request: NextRequest,
@@ -56,9 +57,8 @@ export async function POST(
       },
     })
 
-    // Generate verification link
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
-    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`
+    // Generate verification link using the domain that made this request.
+    const verificationLink = buildRequestUrl(request, "/verify-email", { token: verificationToken })
 
     // Send verification email
     try {

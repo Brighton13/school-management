@@ -146,6 +146,7 @@ export async function PUT(request: NextRequest) {
       }
 
       userUpdateData.password = await bcrypt.hash(newPassword, 10)
+      userUpdateData.mustChangePassword = false
     }
 
     // Use transaction to update all related data
