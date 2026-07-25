@@ -108,6 +108,7 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
       { name: "Enter Results", href: "/dashboard/results", icon: BarChart3, roles: ["TEACHER"] },
       { name: "Class Results", href: "/dashboard/class-results", icon: BarChart3, roles: ["TEACHER"] },
       { name: "Approvals", href: "/dashboard/approvals", icon: CheckCircle, roles: ["PRINCIPAL", "ADMIN"] },
+      { name: "Owner Academic Report", href: "/dashboard/owner-reports/academic-performance", icon: BarChart3, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "View Results", href: "/dashboard/results", icon: BarChart3, roles: ["STUDENT", "PARENT", "PRINCIPAL", "ADMIN"] },
     ],
   },
@@ -134,6 +135,19 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
     items: [
       { name: "Bulk Upload", href: "/dashboard/bulk-upload", icon: Upload, roles: ["ADMIN", "PRINCIPAL"] },
       { name: "Report Config", href: "/dashboard/settings/report-config", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },
+    ],
+  },
+  {
+    title: "Owner Reports",
+    roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"],
+    items: [
+      { name: "Master Dashboard", href: "/dashboard/reports/school-master-dashboard", icon: LayoutDashboard, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { name: "Academic Performance", href: "/dashboard/owner-reports/academic-performance", icon: GraduationCap, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Financial Reports", href: "/dashboard/reports/financial-owner", icon: BarChart3, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { name: "Fee Collection & Arrears", href: "/dashboard/reports/fee-collection-arrears", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
+      { name: "Staff & Payroll", href: "/dashboard/reports/staff-performance-payroll", icon: Users, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Enrollment & Retention", href: "/dashboard/reports/enrollment-retention", icon: GraduationCap, roles: ["ADMIN", "PRINCIPAL"] },
+      { name: "Attendance Summary", href: "/dashboard/reports/attendance-summary", icon: ClipboardList, roles: ["ADMIN", "PRINCIPAL"] },
     ],
   },
   {

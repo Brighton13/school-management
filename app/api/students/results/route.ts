@@ -110,28 +110,10 @@ export async function GET(request: NextRequest) {
       ? `${currentEnrollment.class.name} - ${currentEnrollment.section.name}`
       : "Not Enrolled"
 
-    // If student has pending fees for current term, block access to current term results
-    if (hasPendingFees) {
-      return NextResponse.json({
-        student: {
-          name: student.user.name,
-          admissionNumber: student.admissionNumber,
-          className,
-        },
-        blocked: true,
-        reason: "PENDING_FEES",
-        message: "You have pending fees that must be paid before accessing current term results.",
-        pendingFees: pendingFeesDetails,
-        totalPendingAmount: pendingFeesDetails.reduce((sum, fee) => sum + fee.remainingAmount, 0),
-        overallAverage: 0,
-        totalResults: 0,
-        academicYears: [], // Return empty results
-        summary: {
-          examTypeCounts: {},
-          yearsWithResults: 0,
-        },
-      })
-    }
+    const visibleResults =
+      hasPendingFees && currentTerm
+        ? student.results.filter((result) => result.termId !== currentTerm.id)
+        : student.results
 
     // Group results by academic year and term
     const resultsByYear = new Map<string, Map<string, {
@@ -157,7 +139,7 @@ export async function GET(request: NextRequest) {
       termGrade: string | null
     }>>()
 
-    student.results.forEach((result) => {
+    visibleResults.forEach((result) => {
       const year = result.academicYear.year
       const termName = result.term.name
       const percentage = (result.marksObtained / result.maxMarks) * 100
@@ -270,14 +252,14 @@ export async function GET(request: NextRequest) {
     })).sort((a, b) => b.academicYear.localeCompare(a.academicYear))
 
     // Calculate overall statistics
-    const allResults = student.results.map(r => (r.marksObtained / r.maxMarks) * 100)
+    const allResults = visibleResults.map(r => (r.marksObtained / r.maxMarks) * 100)
     const overallAverage = allResults.length > 0
       ? allResults.reduce((sum, percentage) => sum + percentage, 0) / allResults.length
       : 0
 
     // Count results by exam type for summary
     const examTypeCounts: Record<string, number> = {}
-    student.results.forEach(r => {
+    visibleResults.forEach(r => {
       const examType = r.exam?.examType || "OTHER"
       examTypeCounts[examType] = (examTypeCounts[examType] || 0) + 1
     })
@@ -288,8 +270,15 @@ export async function GET(request: NextRequest) {
         admissionNumber: student.admissionNumber,
         className,
       },
+      blocked: hasPendingFees,
+      reason: hasPendingFees ? "PENDING_FEES" : null,
+      message: hasPendingFees
+        ? "You have pending fees that must be paid before accessing current term results. Historical results remain available."
+        : null,
+      pendingFees: pendingFeesDetails,
+      totalPendingAmount: pendingFeesDetails.reduce((sum, fee) => sum + fee.remainingAmount, 0),
       overallAverage,
-      totalResults: student.results.length,
+      totalResults: visibleResults.length,
       academicYears: resultsData,
       summary: {
         examTypeCounts,
