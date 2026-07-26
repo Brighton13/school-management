@@ -101,7 +101,11 @@ const defaultPointsConfig = [
   { minPercentage: 0, maxPercentage: 0.99, points: 7 },
 ]
 
-export function StudentResultsView() {
+interface StudentResultsViewProps {
+  studentId?: string
+}
+
+export function StudentResultsView({ studentId }: StudentResultsViewProps) {
   const [data, setData] = useState<StudentResultsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -117,8 +121,10 @@ export function StudentResultsView() {
   useEffect(() => {
     async function fetchData() {
       try {
+        setLoading(true)
+        setError(null)
         const [resultsRes, pointsRes] = await Promise.all([
-          fetch("/api/students/results"),
+          fetch(`/api/students/results${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ""}`),
           fetch("/api/settings/points-config")
         ])
         
@@ -149,7 +155,7 @@ export function StudentResultsView() {
     }
 
     fetchData()
-  }, [])
+  }, [studentId])
 
   // Get points for a result - use stored points if available, otherwise calculate
   const getPoints = (percentage: number, storedPoints?: number | null): number => {
@@ -255,7 +261,7 @@ export function StudentResultsView() {
               
               <div className="flex gap-3">
                 <a
-                  href="/dashboard/fees"
+                  href="/dashboard/financials"
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg text-center transition-colors"
                 >
                   View Fee Details

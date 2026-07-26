@@ -10,13 +10,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (session.user.role !== "STUDENT") {
+    if (!["STUDENT", "PARENT"].includes(session.user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    const { searchParams } = new URL(request.url)
+    let requestedStudentId = searchParams.get("studentId")
+
     // Get student record
+    let studentWhere: { userId: string } | { id: string }
+    if (session.user.role === "STUDENT") {
+      studentWhere = { userId: session.user.id }
+    } else {
+      const parent = await prisma.parent.findUnique({
+        where: { userId: session.user.id },
+        include: {
+          students: {
+            select: { studentId: true },
+          },
+        },
+      })
+      const childIds = parent?.students.map((student) => student.studentId) || []
+      if (childIds.length === 0) {
+        return NextResponse.json({ error: "No linked students found" }, { status: 404 })
+      }
+      if (requestedStudentId && !childIds.includes(requestedStudentId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+      requestedStudentId = requestedStudentId || childIds[0]
+      studentWhere = { id: requestedStudentId }
+    }
+
     const student = await prisma.student.findUnique({
-      where: { userId: session.user.id },
+      where: studentWhere,
       include: {
         user: true,
         classEnrollment: {

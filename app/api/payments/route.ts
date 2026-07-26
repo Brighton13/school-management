@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
       if (parentStudentIds.length === 0) {
         return NextResponse.json(noPagination ? { payments: [], summary: { totalPayments: 0, paymentCount: 0 } } : { ...createPaginatedResponse([], 0, page, limit), summary: { totalPayments: 0, paymentCount: 0 } })
       }
+      if (studentId && !parentStudentIds.includes(studentId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     const whereClause: any = {

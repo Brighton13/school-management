@@ -19,9 +19,10 @@ export function AcademicYearReportSelector() {
 
   useEffect(() => {
     async function fetchAcademicYears() {
-      const response = await fetch("/api/academic-years")
+      const response = await fetch("/api/academic-years?noPagination=true")
       if (response.ok) {
-        setAcademicYears(await response.json())
+        const data = await response.json()
+        setAcademicYears(Array.isArray(data) ? data : data?.data || [])
       }
     }
 

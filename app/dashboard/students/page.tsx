@@ -123,8 +123,8 @@ export default function StudentsPage() {
   // Fetch when search changes (with debounce reset to page 1)
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (session?.user?.role !== "TEACHER") {
-        resetPagination()
+      resetPagination()
+      if (page === 1) {
         fetchStudents()
       }
     }, 300)
@@ -181,7 +181,15 @@ export default function StudentsPage() {
         setPaginationInfo(data.pagination)
       } else {
         // Fallback for non-paginated response
-        setStudents(Array.isArray(data) ? data : [])
+        const fallbackStudents = Array.isArray(data) ? data : []
+        setStudents(fallbackStudents)
+        setPaginationInfo({
+          page: 1,
+          limit,
+          total: fallbackStudents.length,
+          totalPages: fallbackStudents.length > 0 ? 1 : 0,
+          hasMore: false,
+        })
       }
     } catch (error) {
       console.error("Failed to fetch students:", error)
@@ -402,13 +410,6 @@ export default function StudentsPage() {
       alert("You are not assigned as a class teacher to any section")
     }
   }
-
-  const filteredStudents = students.filter(
-    (student) =>
-      student.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.admissionNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
 
   const getEnrollmentStatus = (student: Student) => {
     const hasEnrollment = student.classEnrollment && student.classEnrollment.length > 0
@@ -787,7 +788,7 @@ export default function StudentsPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{students.length}</div>
+            <div className="text-2xl font-bold">{paginationInfo.total || students.length}</div>
             <p className="text-xs text-muted-foreground">
               {session?.user?.role === "TEACHER" ? "Students in your classes" : "All registered students"}
             </p>
@@ -854,7 +855,7 @@ export default function StudentsPage() {
                   : "All Students"}
               </CardTitle>
               <CardDescription>
-                {filteredStudents.length} student(s) found
+                {paginationInfo.total || students.length} student(s) found
                 {session?.user?.role === "TEACHER" && !filterClassId && " across all your assigned classes"}
               </CardDescription>
             </div>
@@ -888,7 +889,7 @@ export default function StudentsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStudents.map((student) => {
+                {students.map((student) => {
                   const enrollmentStatus = getEnrollmentStatus(student)
                   const StatusIcon = enrollmentStatus.icon
                   
@@ -950,6 +951,13 @@ export default function StudentsPage() {
                 })}
               </TableBody>
             </Table>
+          )}
+          {!loading && (
+            <Pagination
+              pagination={paginationInfo}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+            />
           )}
         </CardContent>
       </Card>

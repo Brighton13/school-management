@@ -15,11 +15,17 @@ export async function GET(request: NextRequest) {
       where: { isCurrent: true },
     })
 
-    // Student Status Distribution
-    const studentStatus = await prisma.student.groupBy({
-      by: ["status"],
-      _count: { status: true },
-    })
+    // Student Status Distribution - current academic year enrollment status
+    const studentStatus = currentAcademicYear
+      ? await prisma.classEnrollment.groupBy({
+          by: ["status"],
+          where: { academicYearId: currentAcademicYear.id },
+          _count: { status: true },
+        })
+      : await prisma.student.groupBy({
+          by: ["status"],
+          _count: { status: true },
+        })
 
     // Student Gender Distribution - current academic year enrollments
     const studentGender = currentAcademicYear

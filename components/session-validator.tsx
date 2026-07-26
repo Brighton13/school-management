@@ -145,9 +145,11 @@ export function SessionValidator({ children }: SessionValidatorProps) {
       document.head.appendChild(metaExpires)
 
       return () => {
-        document.head.removeChild(metaCache)
-        document.head.removeChild(metaPragma) 
-        document.head.removeChild(metaExpires)
+        ;[metaCache, metaPragma, metaExpires].forEach((meta) => {
+          if (meta.parentNode) {
+            meta.parentNode.removeChild(meta)
+          }
+        })
       }
     }
   }, [pathname])

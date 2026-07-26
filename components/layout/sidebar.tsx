@@ -59,7 +59,7 @@ const menuItems = [
   { name: "Results", href: "/dashboard/results", icon: BarChart3, roles: ["STUDENT", "PARENT", "PRINCIPAL", "ADMIN"] },
   { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardList, roles: ["ADMIN", "PRINCIPAL", "TEACHER", "STUDENT", "PARENT"] },
   { name: "Fees Management", href: "/dashboard/fees", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
-  { name: "My Fees", href: "/dashboard/fees", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
+  { name: "Financials", href: "/dashboard/financials", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
   { name: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "PRINCIPAL", "LIBRARIAN"] },
   { name: "Announcements", href: "/dashboard/announcements", icon: Bell, roles: ["ALL"] },
   { name: "Report Config", href: "/dashboard/settings/report-config", icon: Settings, roles: ["ADMIN", "PRINCIPAL", "TEACHER"] },

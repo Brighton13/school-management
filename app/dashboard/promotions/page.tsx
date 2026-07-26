@@ -23,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   ArrowRight,
   Users,
@@ -67,6 +68,8 @@ interface ClassWithDetails {
     name: string
     level: number
   } | null
+  promotionStream?: string
+  isGraduationPoint?: boolean
 }
 
 interface Enrollment {
@@ -99,6 +102,30 @@ interface PromotionResult {
   errors: string[]
 }
 
+interface PromotionStream {
+  id: string
+  name: string
+  levels: Array<{
+    id: string
+    sequence: number
+    isGraduationPoint: boolean
+    class: {
+      id: string
+      name: string
+      level: number
+    }
+  }>
+}
+
+interface StreamConfigRow {
+  classId: string
+  className: string
+  level: number
+  streamName: string
+  sequence: number
+  isGraduationPoint: boolean
+}
+
 export default function PromotionsPage() {
   const { toast } = useToast()
   const [classes, setClasses] = useState<ClassWithDetails[]>([])
@@ -125,6 +152,9 @@ export default function PromotionsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string>("")
   const [permissionDenied, setPermissionDenied] = useState(false)
+  const [promotionStreams, setPromotionStreams] = useState<PromotionStream[]>([])
+  const [isStreamDialogOpen, setIsStreamDialogOpen] = useState(false)
+  const [streamRows, setStreamRows] = useState<StreamConfigRow[]>([])
 
   useEffect(() => {
     fetchClasses()
@@ -155,6 +185,7 @@ export default function PromotionsPage() {
 
       if (res.ok) {
         setClasses(data.classes || [])
+        setPromotionStreams(data.promotionStreams || [])
         setCurrentAcademicYear(data.currentAcademicYear)
         setUpcomingAcademicYear(data.upcomingAcademicYear)
       } else {
@@ -378,6 +409,70 @@ export default function PromotionsPage() {
     }
   }
 
+  const openStreamDialog = () => {
+    const rows = classes
+      .map((cls) => {
+        const stream = promotionStreams.find((item) => item.levels.some((level) => level.class.id === cls.id))
+        const level = stream?.levels.find((item) => item.class.id === cls.id)
+        return {
+          classId: cls.id,
+          className: cls.name,
+          level: cls.level,
+          streamName: stream?.name || cls.promotionStream || "Primary Stream",
+          sequence: level?.sequence || cls.level,
+          isGraduationPoint: level?.isGraduationPoint || Boolean(cls.isGraduationPoint),
+        }
+      })
+      .sort((a, b) => a.level - b.level)
+
+    setStreamRows(rows)
+    setIsStreamDialogOpen(true)
+  }
+
+  const updateStreamRow = (classId: string, updates: Partial<StreamConfigRow>) => {
+    setStreamRows((rows) => rows.map((row) => row.classId === classId ? { ...row, ...updates } : row))
+  }
+
+  const saveStreamRules = async () => {
+    setProcessing(true)
+    try {
+      const res = await fetch("/api/promotion-streams", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rows: streamRows.map((row) => ({
+            classId: row.classId,
+            streamName: row.streamName,
+            sequence: Number(row.sequence),
+            isGraduationPoint: row.isGraduationPoint,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast({
+          title: "Could not save streams",
+          description: data.error || "Failed to save promotion streams",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({ title: "Promotion Streams Saved", description: "Promotion and graduation rules were updated." })
+      setIsStreamDialogOpen(false)
+      fetchClasses()
+      if (selectedClassId) fetchEnrollments()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save promotion streams",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find(s => s.value === status)
     return statusOption ? statusOption.color : "bg-gray-100 text-gray-800"
@@ -413,6 +508,9 @@ export default function PromotionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={openStreamDialog}>
+            Configure Streams
+          </Button>
           {currentAcademicYear && (
             <Badge variant="outline" className="text-sm py-1 px-3">
               Current: {currentAcademicYear.year}
@@ -458,6 +556,11 @@ export default function PromotionsPage() {
               <CardDescription>
                 {cls.sections.length} section(s) • {cls.enrollmentCount} student(s)
               </CardDescription>
+              {cls.promotionStream && (
+                <CardDescription>
+                  {cls.promotionStream}{cls.isGraduationPoint ? " - Graduation point" : ""}
+                </CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
@@ -792,6 +895,71 @@ export default function PromotionsPage() {
                   Confirm Promotion
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isStreamDialogOpen} onOpenChange={setIsStreamDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configure Promotion Streams</DialogTitle>
+            <DialogDescription>
+              Assign each class to a stream, set its order in that stream, and mark stream-ending graduation points.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Example: put Grade 1 to Grade 7 in Primary Stream and mark Grade 7 as a graduation point. Put Grade 8 to Grade 9 in Junior Secondary Stream and mark Grade 9 as a graduation point.
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Level</TableHead>
+                  <TableHead>Stream Name</TableHead>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Graduates Here</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {streamRows.map((row) => (
+                  <TableRow key={row.classId}>
+                    <TableCell className="font-medium">{row.className}</TableCell>
+                    <TableCell>{row.level}</TableCell>
+                    <TableCell>
+                      <Input
+                        value={row.streamName}
+                        onChange={(event) => updateStreamRow(row.classId, { streamName: event.target.value })}
+                        placeholder="Primary Stream"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={row.sequence}
+                        onChange={(event) => updateStreamRow(row.classId, { sequence: Number(event.target.value) })}
+                        className="w-24"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={row.isGraduationPoint}
+                        onCheckedChange={(checked) => updateStreamRow(row.classId, { isGraduationPoint: Boolean(checked) })}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsStreamDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveStreamRules} disabled={processing}>
+              {processing ? "Saving..." : "Save Streams"}
             </Button>
           </DialogFooter>
         </DialogContent>

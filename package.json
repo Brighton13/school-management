@@ -19,6 +19,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "db:seed:demo-full": "ts-node --project tsconfig.seed.json prisma/seed-demo-full.ts",
     "db:reset": "prisma migrate reset --force",
     "db:seed:rbac": "ts-node --project tsconfig.seed.json prisma/seed-roles-permissions.ts",
     "db:assign-roles": "ts-node --project tsconfig.seed.json prisma/assign-roles-to-users.ts",

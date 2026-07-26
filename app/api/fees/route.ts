@@ -52,6 +52,9 @@ export async function GET(request: NextRequest) {
       if (parentStudentIds.length === 0) {
         return NextResponse.json(noPagination ? [] : createPaginatedResponse([], 0, page, limit))
       }
+      if (studentId && !parentStudentIds.includes(studentId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
     }
 
     // Build where clause

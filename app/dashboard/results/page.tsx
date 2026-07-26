@@ -15,6 +15,7 @@ import { useSession } from "next-auth/react"
 import { BulkResultsUpload } from "@/components/bulk-results-upload"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { StudentResultsView } from "@/components/analytics/student-results-view"
+import { ParentResultsView } from "@/components/analytics/parent-results-view"
 import { Pagination, PaginationInfo, usePagination, buildPaginatedQuery } from "@/components/ui/pagination"
 
 interface Result {
@@ -250,7 +251,7 @@ export default function ResultsPage() {
 
   useEffect(() => {
     // Only fetch data if not a student and session is loaded
-    if (status === "authenticated" && session?.user.role !== "STUDENT") {
+    if (status === "authenticated" && !["STUDENT", "PARENT"].includes(session?.user.role || "")) {
       fetchData()
     }
   }, [session, status, page, limit])
@@ -270,6 +271,10 @@ export default function ResultsPage() {
   // If user is a student, show the student-specific results view
   if (session?.user.role === "STUDENT") {
     return <StudentResultsView />
+  }
+
+  if (session?.user.role === "PARENT") {
+    return <ParentResultsView />
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { logAuditTrail } from "@/lib/audit"
 import { getCurrentAcademicYear, getUpcomingAcademicYear } from "@/lib/academic-year"
 import { requirePermission, Permissions } from "@/lib/permissions"
+import { getPromotionRuleForClass, getPromotionStreams } from "@/lib/promotion-streams"
 
 // GET: Fetch classes with enrolled students for promotion preview
 export async function GET(request: NextRequest) {
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
         },
       },
     })
+    const promotionStreams = await getPromotionStreams()
 
     // If specific class/section requested, return enrolled students
     if (classId) {
@@ -61,17 +63,23 @@ export async function GET(request: NextRequest) {
         ],
       })
 
-      // Find the next level class
       const currentClass = classes.find(c => c.id === classId)
-      const nextClass = currentClass
-        ? classes.find(c => c.level === currentClass.level + 1)
-        : null
+      const rule = currentClass ? await getPromotionRuleForClass(classId) : null
+      const nextClass = rule?.nextClass || null
 
       return NextResponse.json({
         enrollments,
         currentClass,
         nextClass,
+        promotionRule: rule?.currentLevel
+          ? {
+              streamName: rule.currentLevel.stream.name,
+              sequence: rule.currentLevel.sequence,
+              isGraduationPoint: rule.isGraduationPoint,
+            }
+          : null,
         classes,
+        promotionStreams,
         currentAcademicYear,
         upcomingAcademicYear,
       })
@@ -88,18 +96,22 @@ export async function GET(request: NextRequest) {
           },
         })
 
-        const nextClass = classes.find(c => c.level === cls.level + 1)
+        const rule = await getPromotionRuleForClass(cls.id)
+        const nextClass = rule.nextClass
 
         return {
           ...cls,
           enrollmentCount,
           nextClass: nextClass ? { id: nextClass.id, name: nextClass.name, level: nextClass.level } : null,
+          promotionStream: rule.currentLevel?.stream.name || "Unconfigured",
+          isGraduationPoint: rule.isGraduationPoint,
         }
       })
     )
 
     return NextResponse.json({
       classes: classesWithCounts,
+      promotionStreams,
       currentAcademicYear,
       upcomingAcademicYear,
     })
@@ -151,14 +163,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find the next level class
-    const nextClass = await prisma.class.findFirst({
-      where: { level: currentClass.level + 1 },
-      include: { sections: true },
-    })
+    const promotionRule = await getPromotionRuleForClass(currentClass.id)
+    const nextClass = promotionRule.nextClass
 
-    // If action is "graduate" or no next class exists, graduate the students
-    const isGraduation = action === "graduate" || !nextClass
+    // If action is "graduate" or the configured stream says this class graduates, graduate the students
+    const isGraduation = action === "graduate" || promotionRule.isGraduationPoint || !nextClass
 
     // For promotion (not graduation), we need target year and next class
     let targetYear = null

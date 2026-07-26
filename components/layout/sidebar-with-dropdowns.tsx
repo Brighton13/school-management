@@ -114,11 +114,11 @@ const menuGroups: { title: string; items: MenuItem[]; roles: string[] }[] = [
   },
   {
     title: "Operations",
-    roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "LIBRARIAN", "TEACHER"],
+    roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT", "LIBRARIAN", "TEACHER", "STUDENT", "PARENT"],
     items: [
       { name: "Attendance", href: "/dashboard/attendance", icon: ClipboardList, roles: ["ADMIN", "PRINCIPAL", "TEACHER", "STUDENT", "PARENT"] },
       { name: "Fees Management", href: "/dashboard/fees", icon: DollarSign, roles: ["ADMIN", "PRINCIPAL", "ACCOUNTANT"] },
-      { name: "My Fees", href: "/dashboard/fees", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
+      { name: "Financials", href: "/dashboard/financials", icon: DollarSign, roles: ["STUDENT", "PARENT"] },
       { name: "Inventory", href: "/dashboard/inventory", icon: Package, roles: ["ADMIN", "PRINCIPAL", "LIBRARIAN"] },
     ],
   },

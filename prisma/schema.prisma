@@ -222,6 +222,39 @@ model Class {
   timetable    Timetable[]
   applications Application[]
   exams        Exam[]
+  promotionLevels PromotionStreamLevel[]
+}
+
+model PromotionStream {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  levels PromotionStreamLevel[]
+
+  @@index([isActive])
+  @@index([displayOrder])
+}
+
+model PromotionStreamLevel {
+  id                String   @id @default(cuid())
+  streamId          String
+  classId           String
+  sequence          Int
+  isGraduationPoint Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  stream PromotionStream @relation(fields: [streamId], references: [id], onDelete: Cascade)
+  class  Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([streamId, classId])
+  @@unique([streamId, sequence])
+  @@index([classId])
 }
 
 model Section {

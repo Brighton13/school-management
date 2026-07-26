@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
       })
 
       // Group by class
-      const classMap = new Map<string, { total: number; sum: number; count: number }>()
+      const classMap = new Map<string, { total: number; sum: number; count: number; studentIds: Set<string> }>()
       
       results.forEach((result) => {
         const enrollment = result.student.classEnrollment[0]
@@ -178,19 +178,20 @@ export async function GET(request: NextRequest) {
           const percentage = (result.marksObtained / result.maxMarks) * 100
           
           if (!classMap.has(className)) {
-            classMap.set(className, { total: 0, sum: 0, count: 0 })
+            classMap.set(className, { total: 0, sum: 0, count: 0, studentIds: new Set() })
           }
           
           const stats = classMap.get(className)!
           stats.sum += percentage
           stats.count += 1
+          stats.studentIds.add(result.studentId)
         }
       })
 
       classPerformance = Array.from(classMap.entries()).map(([className, stats]) => ({
         className,
         averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
-        studentCount: stats.count,
+        studentCount: stats.studentIds.size,
       }))
     }
 
@@ -387,26 +388,27 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      const subjectMap = new Map<string, { sum: number; count: number; name: string }>()
+      const subjectMap = new Map<string, { sum: number; count: number; name: string; studentIds: Set<string> }>()
 
       subjectResults.forEach((result) => {
         const subjectName = result.classSubject.subject.name
         const percentage = (result.marksObtained / result.maxMarks) * 100
 
         if (!subjectMap.has(subjectName)) {
-          subjectMap.set(subjectName, { sum: 0, count: 0, name: subjectName })
+          subjectMap.set(subjectName, { sum: 0, count: 0, name: subjectName, studentIds: new Set() })
         }
 
         const stats = subjectMap.get(subjectName)!
         stats.sum += percentage
         stats.count += 1
+        stats.studentIds.add(result.studentId)
       })
 
       subjectPerformance = Array.from(subjectMap.values())
         .map((stats) => ({
           subjectName: stats.name,
           averageScore: stats.count > 0 ? (stats.sum / stats.count).toFixed(1) : "0",
-          studentCount: stats.count,
+          studentCount: stats.studentIds.size,
         }))
         .sort((a, b) => parseFloat(b.averageScore) - parseFloat(a.averageScore))
         .slice(0, 10) // Top 10
